@@ -449,6 +449,8 @@ Ví dụ:
 
 ## Social Platforms
 
+> Đây là các nền tảng bên ngoài được kết nối qua Integration Layer / Connector Gateway, khác với mạng xã hội nội bộ (native) mô tả tại `docs/social_network/` (hạng mục tầm nhìn dài hạn, chưa thuộc roadmap hiện tại).
+
 - Facebook
 - Messenger
 - Instagram

@@ -26,21 +26,22 @@ Các tài liệu được tổ chức từ kiến trúc cốt lõi đến hạ t
 mindmap
   root((Runtime))
     Foundation
-    Runtime Overview
-    Execution Model
     Runtime Engine
     Execution
-    Execution Graph
-    Task Model
-    Scheduler
-    Dispatcher
+    Worker Dispatcher
     Worker Pool
+    Task Executor
+    Gateways
+    Provider Gateway
+    Connector Gateway
+    Plugin Runtime
+    MCP Runtime
     Infrastructure
-    Runtime State
-    Event Bus
+    Runtime Queue
     Result Aggregator
     Progress Tracker
-    Runtime Cache
+    Runtime State
+    Event Bus
     Runtime Storage
     Operations
     Observability
@@ -63,9 +64,7 @@ mindmap
 
 | File | Description |
 |------|-------------|
-| 01_RUNTIME_OVERVIEW.md | Tổng quan Runtime |
-| 02_EXECUTION_MODEL.md | Mô hình Execution |
-| 03_RUNTIME_ENGINE.md | Runtime Engine |
+| 01_RUNTIME_ENGINE.md | Runtime Engine |
 
 ---
 
@@ -73,11 +72,20 @@ mindmap
 
 | File | Description |
 |------|-------------|
-| 04_EXECUTION_GRAPH.md | Execution Graph |
-| 05_TASK_MODEL.md | Task Model |
-| 06_SCHEDULER.md | Scheduler |
-| 07_DISPATCHER.md | Dispatcher |
-| 08_WORKER_POOL.md | Worker Pool |
+| 02_WORKER_DISPATCHER.md | Worker Dispatcher |
+| 03_WORKER_POOL.md | Worker Pool |
+| 04_TASK_EXECUTOR.md | Task Executor |
+
+---
+
+# Gateways & Extensibility
+
+| File | Description |
+|------|-------------|
+| 05_PROVIDER_GATEWAY.md | Provider Gateway |
+| 06_CONNECTOR_GATEWAY.md | Connector Gateway |
+| 07_PLUGIN_RUNTIME.md | Plugin Runtime |
+| 08_MCP_RUNTIME.md | MCP Runtime |
 
 ---
 
@@ -85,11 +93,11 @@ mindmap
 
 | File | Description |
 |------|-------------|
-| 09_RUNTIME_STATE.md | Runtime State |
-| 10_EVENT_BUS.md | Event Bus |
-| 11_RESULT_AGGREGATOR.md | Result Aggregator |
-| 12_PROGRESS_TRACKER.md | Progress Tracker |
-| 13_RUNTIME_CACHE.md | Runtime Cache |
+| 09_RUNTIME_QUEUE.md | Runtime Queue |
+| 10_RESULT_AGGREGATOR.md | Result Aggregator |
+| 11_PROGRESS_TRACKER.md | Progress Tracker |
+| 12_RUNTIME_STATE.md | Runtime State |
+| 13_EVENT_BUS.md | Event Bus |
 | 14_RUNTIME_STORAGE.md | Runtime Storage |
 
 ---
@@ -129,8 +137,9 @@ mindmap
 
 ```mermaid
 flowchart LR
-    C[03 Runtime Engine] --> D[Execution Layer]
-    D --> E[Infrastructure]
+    C[01 Runtime Engine] --> D[Execution Layer]
+    D --> D2[Gateways & Extensibility]
+    D2 --> E[Infrastructure]
     E --> F[Operations]
     F --> G[Integration]
     G --> H[Best Practices]
@@ -142,17 +151,19 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Runtime_Engine --> Scheduler
-    Runtime_Engine --> Dispatcher
+    Runtime_Engine --> Worker_Dispatcher
     Runtime_Engine --> Worker_Pool
-    Scheduler --> Execution_Graph
-    Dispatcher --> Task_Model
-    Worker_Pool --> Runtime_State
-    Runtime_State --> Runtime_Storage
-    Runtime_State --> Runtime_Cache
-    Runtime_Engine --> Event_Bus
-    Event_Bus --> Result_Aggregator
+    Worker_Dispatcher --> Task_Executor
+    Worker_Pool --> Provider_Gateway
+    Worker_Pool --> Connector_Gateway
+    Worker_Pool --> Plugin_Runtime
+    Worker_Pool --> MCP_Runtime
+    Runtime_Engine --> Runtime_Queue
+    Runtime_Queue --> Result_Aggregator
     Result_Aggregator --> Progress_Tracker
+    Runtime_Engine --> Runtime_State
+    Runtime_State --> Runtime_Storage
+    Runtime_Engine --> Event_Bus
     Runtime_Engine --> Observability
     Runtime_Engine --> Security
     Runtime_Engine --> Recovery

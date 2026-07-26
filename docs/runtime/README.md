@@ -60,20 +60,21 @@ flowchart LR
 runtime/
 
 ├── README.md
+├── INDEX.md
 │
-├── 01_RUNTIME_OVERVIEW.md
-├── 02_EXECUTION_MODEL.md
-├── 03_RUNTIME_ENGINE.md
-├── 04_EXECUTION_GRAPH.md
-├── 05_TASK_MODEL.md
-├── 06_SCHEDULER.md
-├── 07_DISPATCHER.md
-├── 08_WORKER_POOL.md
-├── 09_RUNTIME_STATE.md
-├── 10_EVENT_BUS.md
-├── 11_RESULT_AGGREGATOR.md
-├── 12_PROGRESS_TRACKER.md
-├── 13_RUNTIME_CACHE.md
+├── 01_RUNTIME_ENGINE.md
+├── 02_WORKER_DISPATCHER.md
+├── 03_WORKER_POOL.md
+├── 04_TASK_EXECUTOR.md
+├── 05_PROVIDER_GATEWAY.md
+├── 06_CONNECTOR_GATEWAY.md
+├── 07_PLUGIN_RUNTIME.md
+├── 08_MCP_RUNTIME.md
+├── 09_RUNTIME_QUEUE.md
+├── 10_RESULT_AGGREGATOR.md
+├── 11_PROGRESS_TRACKER.md
+├── 12_RUNTIME_STATE.md
+├── 13_EVENT_BUS.md
 ├── 14_RUNTIME_STORAGE.md
 ├── 15_OBSERVABILITY.md
 ├── 16_RUNTIME_SECURITY.md
@@ -95,34 +96,39 @@ runtime/
 
 ## Phase 1 — Foundation
 
-1. Runtime Overview
-2. Execution Model
-3. Runtime Engine
+1. Runtime Engine
 
 ---
 
 ## Phase 2 — Execution
 
-4. Execution Graph
-5. Task Model
-6. Scheduler
-7. Dispatcher
-8. Worker Pool
+2. Worker Dispatcher
+3. Worker Pool
+4. Task Executor
 
 ---
 
-## Phase 3 — Runtime Infrastructure
+## Phase 3 — Gateways & Extensibility
 
-9. Runtime State
-10. Event Bus
-11. Result Aggregator
-12. Progress Tracker
-13. Runtime Cache
+5. Provider Gateway
+6. Connector Gateway
+7. Plugin Runtime
+8. MCP Runtime
+
+---
+
+## Phase 4 — Runtime Infrastructure
+
+9. Runtime Queue
+10. Result Aggregator
+11. Progress Tracker
+12. Runtime State
+13. Event Bus
 14. Runtime Storage
 
 ---
 
-## Phase 4 — Operations
+## Phase 5 — Operations
 
 15. Observability
 16. Runtime Security
@@ -132,7 +138,7 @@ runtime/
 
 ---
 
-## Phase 5 — Integration
+## Phase 6 — Integration
 
 20. Runtime API
 21. Runtime Deployment
@@ -141,7 +147,7 @@ runtime/
 
 ---
 
-## Phase 6 — Engineering
+## Phase 7 — Engineering
 
 24. Runtime Best Practices
 
@@ -176,15 +182,18 @@ Runtime chịu trách nhiệm.
 mindmap
   root((Runtime))
     Runtime Engine
-    Scheduler
-    Dispatcher
+    Worker Dispatcher
     Worker Pool
-    Queue
-    Runtime State
-    Event Bus
+    Task Executor
+    Provider Gateway
+    Connector Gateway
+    Plugin Runtime
+    MCP Runtime
+    Runtime Queue
     Result Aggregator
     Progress Tracker
-    Runtime Cache
+    Runtime State
+    Event Bus
     Runtime Storage
     Security
     Recovery

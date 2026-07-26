@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** Giai đoạn sau — cân nhắc khi có nhu cầu scale thực tế, dự kiến Phase 3+/Enterprise. Lý do: Explainable AI và Multi-hop Reasoning trên đồ thị tri thức (Neo4j) chỉ thực sự cần khi khối lượng Concept/Entity/Relationship đủ lớn; ở MVP, quan hệ dữ liệu đơn giản có thể mô hình hóa bằng bảng quan hệ trong PostgreSQL.
+
+---
+
 # Table of Contents
 
 - Overview

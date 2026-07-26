@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** Giai đoạn sau — cân nhắc khi có nhu cầu scale thực tế, dự kiến Phase 3+/Enterprise. Lý do: PostgreSQL Full-text Search (tsvector + GIN index) đáp ứng đủ nhu cầu tìm kiếm Post/Comment/User/Community ở MVP; OpenSearch/Elasticsearch là nâng cấp khi cần Hybrid Search, Faceted Search và Near Real-time Index ở quy mô lớn.
+
+---
+
 # Table of Contents
 
 - Overview

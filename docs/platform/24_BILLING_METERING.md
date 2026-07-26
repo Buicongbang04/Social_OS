@@ -267,6 +267,10 @@ AI Tokens
 
 20,000,000 / Month
 
+AI Budget (USD)
+
+Theo cấu hình Workspace
+
 Storage
 
 100 GB
@@ -284,7 +288,7 @@ Executions
 Unlimited
 ```
 
-Quota Engine kiểm tra trước khi Runtime thực hiện.
+Quota Engine kiểm tra trước khi Runtime thực hiện, có thể cảnh báo (Warn) hoặc chặn (Block) khi Workspace vượt giới hạn AI Budget đã cấu hình.
 
 ---
 
@@ -322,9 +326,11 @@ Total Cost
 
 Cost Calculation có thể thay đổi theo Provider.
 
+Kết quả tính toán (Provider Cost thực tế) được dùng để hiển thị Cost Visibility cho Workspace và làm đầu vào cho Quota/Budget Enforcement, không dùng để cộng thêm Margin/Markup rồi bán lại token AI.
+
 ---
 
-# AI Cost Tracking
+# AI Usage Metering & Cost Visibility
 
 Ví dụ.
 
@@ -340,12 +346,13 @@ Azure OpenAI
 Local Models
 ```
 
-Billing Engine lưu riêng.
+Billing Engine lưu riêng theo từng Provider.
 
-- Provider Cost
-- Customer Cost
-- Margin
+- Usage (Input/Output Tokens, Requests)
+- Provider Cost (chi phí thực tế phát sinh với Provider)
 - Currency
+
+> **Lưu ý:** AI Social OS không thu phí chênh lệch (markup) trên chi phí AI Provider. Doanh thu nền tảng đến từ phí subscription/nền tảng, không phải từ việc bán lại token AI có lời. Việc theo dõi Provider Cost chỉ nhằm mục đích minh bạch chi phí (Cost Visibility) cho Workspace — đặc biệt phù hợp với mô hình Workspace tự kết nối API Key của Provider (FR-031), nơi Workspace là bên trực tiếp trả phí cho Provider và Platform chỉ cần hiển thị/minh bạch mức tiêu thụ theo Provider/Model/Campaign gần thời gian thực.
 
 ---
 
@@ -403,6 +410,7 @@ Ví dụ.
 
 - UsageRecorded
 - QuotaExceeded
+- BudgetWarningIssued
 - InvoiceGenerated
 - InvoicePaid
 - SubscriptionChanged

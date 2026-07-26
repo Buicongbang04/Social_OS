@@ -680,3 +680,31 @@ flowchart LR
 AI Social OS sẽ phát triển theo hướng **Runtime-centric**, trong đó mọi tính năng đều được xây dựng trên cùng một Execution Runtime.
 
 Khi Runtime đủ mạnh, hệ thống có thể mở rộng sang nhiều lĩnh vực khác ngoài Social Media như Customer Support, Sales Automation, Internal Knowledge, Business Operations và AI Workforce mà không cần thay đổi kiến trúc cốt lõi.
+
+---
+
+# Phase 7 — Native Social Network (Future Vision, Not Committed)
+
+## Objective
+
+Khám phá xây dựng một mạng xã hội nội bộ (native) — sở hữu Social Graph, Feed Engine, Recommendation Engine và Community System riêng — tương tự Facebook hoặc TikTok, độc lập với Integration Layer hiện tại.
+
+---
+
+## Scope
+
+- Social Graph
+- Feed Engine
+- Recommendation Engine
+- Community System
+- Creator Economy
+
+Chi tiết tại `docs/social_network/`.
+
+---
+
+## Status
+
+Đây là tầm nhìn dài hạn, được cân nhắc sau Phase 6 — Enterprise.
+
+**Không thuộc 6 Phase đã cam kết ở trên, không thuộc MVP, và chưa được lên lịch triển khai.**

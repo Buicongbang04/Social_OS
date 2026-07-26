@@ -19,7 +19,7 @@ Last Updated: 2026-07-25
 - Core Components
 - Execution Flow
 - AI Layer
-- Social Layer
+- Integration Layer
 - Plugin Layer
 - MCP Layer
 - Data Layer
@@ -405,7 +405,9 @@ Provider Gateway chuẩn hóa API của tất cả AI Provider.
 
 ---
 
-# Social Layer
+# Integration Layer
+
+> Integration Layer là tầng kết nối / đăng bài ra nền tảng bên ngoài (Facebook, Instagram, TikTok, v.v.) thông qua Connector Gateway và Connector Worker. Khác với mạng xã hội nội bộ (native) mô tả tại `docs/social_network/` — hạng mục tầm nhìn dài hạn, không thuộc kiến trúc hiện tại.
 
 ```mermaid
 flowchart LR

@@ -14,6 +14,7 @@ Last Updated: 2026-07-25
 
 - Overview
 - Objectives
+- Why API Gateway
 - Responsibilities
 - Architecture
 - Request Lifecycle
@@ -23,6 +24,8 @@ Last Updated: 2026-07-25
 - Rate Limiting
 - API Versioning
 - Request Validation
+- Request Transformation
+- Response Transformation
 - Load Balancing
 - Service Discovery
 - Caching
@@ -30,6 +33,8 @@ Last Updated: 2026-07-25
 - Error Handling
 - Security
 - Gateway APIs
+- Gateway Relationships
+- Performance Optimizations
 - Design Principles
 - Design Decisions
 - Summary
@@ -70,6 +75,28 @@ API Gateway hướng tới.
 - API Versioning
 - Observability
 - High Availability
+
+---
+
+# Why API Gateway
+
+Nếu Client gọi trực tiếp từng Service.
+
+```mermaid
+flowchart LR
+```
+
+Client phải biết địa chỉ của mọi Service.
+
+Điều này gây.
+
+- Tight Coupling
+- Khó bảo mật
+- Khó Versioning
+- Khó Scale
+- Khó Monitoring
+
+API Gateway cung cấp một điểm truy cập thống nhất, loại bỏ nhu cầu Client phải biết chi tiết hạ tầng phía sau.
 
 ---
 
@@ -247,6 +274,30 @@ Request không hợp lệ sẽ bị từ chối trước khi tới Service.
 
 ---
 
+# Request Transformation
+
+Gateway có thể.
+
+- Thêm Header
+- Chuẩn hóa Header
+- Sinh Correlation ID
+- Chuẩn hóa Request Format
+- Inject Workspace Context
+
+---
+
+# Response Transformation
+
+Gateway có thể.
+
+- Chuẩn hóa Error Format
+- Thêm Metadata
+- Nén Response
+- Thêm Pagination Metadata
+- Thêm Rate Limit Header
+
+---
+
 # Load Balancing
 
 Gateway phân phối Request.
@@ -374,6 +425,34 @@ GET    /billing
 ```
 
 Toàn bộ Endpoint đều đi qua API Gateway.
+
+---
+
+# Gateway Relationships
+
+```mermaid
+erDiagram
+    CLIENT ||--|| API_GATEWAY : sends_requests
+    API_GATEWAY ||--o{ SERVICE : routes_to
+    API_GATEWAY ||--|| AUTH_SERVICE : authenticates
+    API_GATEWAY ||--|| AUTHZ_SERVICE : authorizes
+    API_GATEWAY ||--o{ METRIC : produces
+    API_GATEWAY ||--o{ LOG : generates
+```
+
+---
+
+# Performance Optimizations
+
+Các kỹ thuật tối ưu.
+
+- Connection Pooling
+- HTTP Keep-Alive
+- Response Compression
+- Request Batching
+- Edge Cache
+- Circuit Breaker
+- Adaptive Load Balancing
 
 ---
 

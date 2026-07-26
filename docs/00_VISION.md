@@ -358,6 +358,8 @@ Mọi dữ liệu đều:
 
 ## Social Platform
 
+> Đây là phạm vi kết nối / đăng bài ra nền tảng bên ngoài (Integration Layer), khác với mạng xã hội nội bộ (native) mô tả tại `docs/social_network/` — hạng mục tầm nhìn dài hạn, chưa nằm trong roadmap hiện tại.
+
 - Facebook
 - Messenger
 - Instagram

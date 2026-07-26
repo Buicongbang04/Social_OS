@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** Giai đoạn sau — cân nhắc khi có nhu cầu scale thực tế, dự kiến Phase 3+/Enterprise. Lý do: ở MVP chưa có đủ khối lượng dữ liệu lịch sử để cần tách Bronze/Silver/Gold; Dashboard/BI có thể truy vấn trực tiếp PostgreSQL, Lakehouse (Iceberg/Delta Lake + Spark/Trino) chỉ cần khi có nhu cầu AI Training và Analytics ở quy mô lớn.
+
+---
+
 # Table of Contents
 
 - Overview

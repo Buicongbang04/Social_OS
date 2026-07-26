@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** MVP — dùng ngay từ Phase 0-2. Lý do: Redis nằm trong Deliverables của Phase 0 (docs/ROADMAP.md) và cần thiết ngay để giảm tải PostgreSQL cho Session Cache, Feed Cache, Rate Limit và AI Cache từ những phase đầu tiên.
+
+---
+
 # Table of Contents
 
 - Overview

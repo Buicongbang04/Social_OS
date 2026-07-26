@@ -70,7 +70,7 @@ mindmap
 ```mermaid
 flowchart LR
     Workspace --> AI
-    Workspace["Workspace"] --> Social
+    Workspace["Workspace"] --> Integration
     Workspace["Workspace"] --> Marketing
     Workspace["Workspace"] --> Knowledge
     Workspace["Workspace"] --> Memory
@@ -277,9 +277,11 @@ Media
 
 ---
 
-## Social Domain
+## Integration Domain
 
 Quản lý kết nối Social.
+
+> Domain này thuộc Integration Layer — kết nối và đăng bài ra nền tảng bên ngoài (Facebook, Instagram, TikTok, v.v.). Khác với mạng xã hội nội bộ (native) mô tả tại `docs/social_network/`, hiện là hạng mục tầm nhìn dài hạn, không thuộc MVP hay roadmap hiện tại.
 
 ### Responsibilities
 
@@ -555,7 +557,7 @@ flowchart LR
     Runtime["Runtime"] --> AI
     Runtime["Runtime"] --> Memory
     Runtime["Runtime"] --> Knowledge
-    Runtime["Runtime"] --> Social
+    Runtime["Runtime"] --> Integration
     Runtime["Runtime"] --> Analytics
 ```
 
@@ -608,7 +610,7 @@ riêng biệt.
 | Knowledge | AI Team |
 | Memory | Runtime |
 | Marketing | Product |
-| Social | Integration |
+| Integration | Integration |
 | Automation | Runtime |
 | Plugin | Platform |
 | MCP | Platform |
@@ -625,7 +627,7 @@ riêng biệt.
 | Runtime điều phối Domain | Giảm coupling |
 | Event là giao tiếp chính | Dễ mở rộng |
 | Provider không thuộc AI Domain | Có thể thay thế |
-| Social tách khỏi Marketing | Tái sử dụng |
+| Integration tách khỏi Marketing | Tái sử dụng |
 | Memory độc lập | Phục vụ mọi Capability |
 | Plugin là Domain riêng | Marketplace & SDK |
 

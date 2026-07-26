@@ -51,49 +51,55 @@ Bộ tài liệu này mô tả toàn bộ kiến trúc AI của hệ thống, t�
 | 11 | Agent Coordination | Stable |
 | 12 | Multi-Agent System | Stable |
 | 13 | Agent Communication | Stable |
-| 14 | Agent Collaboration | Stable |
-| 15 | Agent Supervisor | Stable |
-| 16 | Agent Router | Stable |
 
 ---
 
-## AI Engines
+## Agent Operations
 
 | No | Document | Status |
 |----|----------|--------|
-| 17 | Model Router | Stable |
-| 18 | Prompt Engine | Stable |
-| 19 | Context Engine | Stable |
-| 20 | Memory Engine | Stable |
-| 21 | Tool Engine | Stable |
-| 22 | Inference Engine | Stable |
-| 23 | Streaming Engine | Stable |
-| 24 | Session Engine | Stable |
-| 25 | Reasoning Engine | Stable |
-| 26 | Planning Engine | Stable |
+| 14 | Agent Capabilities | Stable |
+| 15 | Agent Registry | Stable |
+| 16 | Agent Routing | Stable |
+| 17 | Agent Discovery | Stable |
+| 18 | Agent Health | Stable |
+| 19 | Agent Workflow | Stable |
+| 20 | Agent Governance | Stable |
+| 21 | Agent Evaluation | Stable |
+| 22 | Agent Learning | Stable |
 
 ---
 
-## Platform Integration
+## Summary Document
 
 | No | Document | Status |
 |----|----------|--------|
-| 27 | AI Pipeline | Stable |
-| 28 | AI Events | Stable |
-| 29 | AI Security | Stable |
-| 30 | AI Observability | Stable |
-| 31 | AI Configuration | Stable |
-| 32 | AI APIs | Stable |
-| 33 | AI Deployment | Stable |
+| 23 | AI Layer Summary | Stable |
 
 ---
 
-## Architecture
+# Planned / Not Yet Written
 
-| No | Document | Status |
-|----|----------|--------|
-| 34 | AI Reference Architecture | Stable |
-| 35 | AI Roadmap | Living Document |
+These topics are intentional future work — they show up conceptually in architecture diagrams and component lists elsewhere in this folder, but no dedicated document exists yet. Treat them as roadmap items, not broken links.
+
+| Planned Document | Notes |
+|-------------------|-------|
+| Model Router | Routing requests across AI providers/models |
+| Prompt Engine | Prompt templating and construction |
+| Context Engine | Context assembly for Agent reasoning |
+| Memory Engine | Persistent/semantic memory storage layer |
+| Tool Engine | Tool registration and invocation |
+| Inference Engine | Model inference execution |
+| Streaming Engine | Token/response streaming |
+| Session Engine | Conversation/session state management |
+| AI Pipeline | End-to-end request pipeline |
+| AI Security | AI-specific security controls |
+| AI Observability | AI-specific tracing/metrics |
+| AI Configuration | AI Layer configuration surface |
+| AI APIs | Public AI Layer API surface |
+| AI Deployment | AI Layer deployment topology |
+| AI Reference Architecture | Consolidated AI Layer architecture |
+| AI Roadmap | AI Layer long-term roadmap |
 
 ---
 
@@ -135,16 +141,10 @@ Execution
 Multi-Agent
         │
         ▼
-AI Engines
+Agent Operations
         │
         ▼
-Pipeline
-        │
-        ▼
-Deployment
-        │
-        ▼
-Reference Architecture
+AI Layer Summary
 ```
 
 ---
@@ -200,20 +200,19 @@ flowchart LR
 
 # Architecture Coverage
 
-AI Layer bao phủ.
+Tài liệu hiện có (01-23) bao phủ.
 
-- Agent System
-- Agent Runtime Logic
-- Reasoning
-- Planning
+- Agent System (Architecture, Lifecycle, Types, State)
+- Reasoning & Planning
 - Context Management
 - Memory Management
-- Tool Orchestration
-- Model Routing
-- Multi-Agent Collaboration
-- AI Deployment
-- AI Security
-- AI Observability
+- Agent Execution
+- Multi-Agent Coordination & Communication
+- Agent Capabilities, Registry, Routing, Discovery
+- Agent Health, Workflow, Governance
+- Agent Evaluation & Learning
+
+Xem mục "Planned / Not Yet Written" phía trên cho các chủ đề (Model Routing, Tool Orchestration, AI Deployment, AI Security, AI Observability, ...) chưa có tài liệu riêng.
 
 ---
 
@@ -230,4 +229,4 @@ AI Layer bao phủ.
 
 AI Layer Index cung cấp điểm truy cập trung tâm cho toàn bộ tài liệu AI của AI Social OS.
 
-Các tài liệu được tổ chức theo từng nhóm chức năng, từ nền tảng Agent, các AI Engine đến kiến trúc tổng thể và lộ trình phát triển, giúp người đọc dễ dàng tiếp cận và tra cứu toàn bộ kiến trúc AI của hệ thống.
+Bộ tài liệu hiện có gồm 23 tài liệu đánh số (01-23) cùng `README.md` và `INDEX.md`, được tổ chức theo từng nhóm chức năng từ nền tảng Agent, Intelligence, Multi-Agent đến Agent Operations. Các chủ đề mở rộng (AI Engines, Platform Integration, Reference Architecture, Roadmap) được liệt kê riêng trong mục "Planned / Not Yet Written" vì chưa có tài liệu tương ứng.

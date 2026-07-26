@@ -15,6 +15,7 @@ Last Updated: 2026-07-25
 - Overview
 - Objectives
 - Why Secret Manager
+- Architecture
 - Secret Model
 - Secret Types
 - Secret Scopes
@@ -28,6 +29,7 @@ Last Updated: 2026-07-25
 - Audit Logging
 - Secret Events
 - Secret API
+- Performance Optimizations
 - Design Principles
 - Design Decisions
 - Summary
@@ -94,6 +96,22 @@ Secret Manager giải quyết các vấn đề trên bằng một kho lưu trữ
 
 ---
 
+# Architecture
+
+```mermaid
+flowchart LR
+    Applications --> SecretAPI
+    SecretAPI --> SecretService["Secret Service"]
+    SecretService --> EncryptionEngine["Encryption Engine"]
+    EncryptionEngine --> SecretDatabase["Secret Database"]
+    SecretService --> AuditService["Audit Service"]
+    SecretService --> Cache["Cache"]
+```
+
+Có thể sử dụng KMS hoặc HSM để quản lý Master Key.
+
+---
+
 # Secret Model
 
 ```mermaid
@@ -139,8 +157,18 @@ Private Key
 
 Secret có thể thuộc nhiều phạm vi.
 
-```mermaid
-flowchart LR
+```text
+Platform
+
+Organization
+
+Workspace
+
+Project
+
+Runtime
+
+Connector
 ```
 
 Workspace chỉ có thể truy cập Secret trong phạm vi được cấp quyền.
@@ -363,6 +391,21 @@ POST   /secrets/{id}/versions
 
 GET    /secrets/{id}/versions
 ```
+
+---
+
+# Performance Optimizations
+
+Các kỹ thuật tối ưu.
+
+- In-memory Cache
+- Short-lived Cache
+- Connection Pooling
+- Lazy Resolution
+- Batch Secret Fetch
+- Encryption Hardware Acceleration
+
+Cache phải có TTL ngắn và không được ghi ra đĩa.
 
 ---
 

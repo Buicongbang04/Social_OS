@@ -31,7 +31,7 @@ plan/
 ├── runtime/
 ├── platform/
 ├── ai/
-├── social/
+├── social_network/
 ├── plugin/
 ├── data/
 ├── infrastructure/
@@ -302,26 +302,27 @@ Includes
 
 ---
 
-# Social Layer
+# Integration Layer
+
+External-platform integration (OAuth, Inbox, Comment, Publishing to Facebook, Messenger, Instagram, Threads, TikTok, YouTube, Telegram, WhatsApp, Zalo, Lark) does not live in its own top-level folder. It is documented across:
+
+- `03_DOMAIN_MODEL.md` — Integration Domain (Account, Page, OAuth, Inbox, Comment, Publishing)
+- `04_ARCHITECTURE.md` — Integration Layer (Connector Worker, Connector Gateway)
+- `runtime/06_CONNECTOR_GATEWAY.md` — Connector Gateway implementation detail
+
+---
+
+# Social Network (Future Vision)
 
 ```
-social/
+social_network/
 ```
 
-Defines all social integrations.
+Describes a native, internal social network — own Social Graph, Feed Engine, Recommendation Engine, Community System, Creator Economy — comparable to building a proprietary Facebook/TikTok-style network inside the product.
 
-Supported
+This is a long-term / future-vision concept, explored independently of the Integration Layer above.
 
-- Facebook
-- Messenger
-- Instagram
-- Threads
-- TikTok
-- YouTube
-- Telegram
-- WhatsApp
-- Zalo
-- Lark
+**Not part of the current MVP or the 6-phase roadmap in `ROADMAP.md`.**
 
 ---
 
@@ -486,7 +487,7 @@ flowchart LR
     kernel["kernel"] --> runtime
     runtime["runtime"] --> ai
     runtime["runtime"] --> platform
-    platform["platform"] --> social
+    platform["platform"] --> social_network
     platform["platform"] --> plugin
     platform["platform"] --> api
     api["api"] --> frontend
@@ -552,6 +553,6 @@ Sau đó mới chuyển sang các thư mục:
 - `runtime/`
 - `platform/`
 - `ai/`
-- `social/`
+- `social_network/` (native social network — future vision, not part of the current roadmap)
 - `plugin/`
 - `deployment/`

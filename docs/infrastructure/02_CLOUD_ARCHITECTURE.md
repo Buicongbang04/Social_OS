@@ -8,6 +8,10 @@ Status: Stable
 
 ---
 
+> **Giai đoạn áp dụng:** Giai đoạn sau — cân nhắc khi có nhu cầu scale thực tế, dự kiến Phase 3+/Enterprise. Lý do: nên bắt đầu triển khai trên một Cloud Provider, một Region duy nhất (ví dụ Singapore) để giảm chi phí và độ phức tạp vận hành ở MVP; Multi-region/Multi-cloud như mô tả trong tài liệu này chỉ cần khi mở rộng sang nhiều thị trường hoặc cần Disaster Recovery toàn cầu (Phase 6 — Enterprise theo docs/ROADMAP.md).
+
+---
+
 # Table of Contents
 
 - Overview

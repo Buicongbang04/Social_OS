@@ -14,6 +14,8 @@ Last Updated: 2026-07-25
 
 - Technology Principles
 - Architecture Overview
+- MVP Stack (Phase 0-2)
+- Future / Scale-out Stack (Phase 3+)
 - Backend
 - Frontend
 - Runtime
@@ -67,6 +69,39 @@ flowchart LR
     ExecutionRuntime["ExecutionRuntime"] --> VectorDB
     ExecutionRuntime["ExecutionRuntime"] --> ObjectStorage
 ```
+
+---
+
+# MVP Stack (Phase 0-2)
+
+Đây là tập công nghệ Data/Infrastructure tối thiểu để triển khai Foundation (Phase 0) → AI Runtime (Phase 1) → AI Platform (Phase 2) theo docs/ROADMAP.md. Không cần dựng thêm hạ tầng nào khác ngoài danh sách này để bắt đầu.
+
+| Layer | Technology | Ghi chú |
+|-------|------------|---------|
+| Database (OLTP) | PostgreSQL | Xem mục Database |
+| Cache | Redis | Xem mục Cache |
+| Object Storage | MinIO / S3 | Xem mục Object Storage |
+| Vector Database | Qdrant | Cần sớm cho RAG/Knowledge (Phase 2) — Xem mục Vector Database |
+| Backend Framework | Node.js + NestJS | Giữ nguyên — xem mục Backend |
+| Frontend Framework | Next.js + React | Giữ nguyên — xem mục Frontend |
+
+Chi tiết phasing từng công nghệ Data Layer: docs/data/03_DATABASE_STRATEGY.md, docs/data/07_CACHE_LAYER.md, docs/data/06_OBJECT_STORAGE.md, docs/data/08_VECTOR_DATABASE.md.
+
+---
+
+# Future / Scale-out Stack (Phase 3+)
+
+Các công nghệ dưới đây mô tả kiến trúc mục tiêu dài hạn của AI Social OS. Không triển khai ở MVP — chỉ cân nhắc khi có nhu cầu scale thực tế (từ Phase 3 — Social Platform trở đi, hoặc Phase 6 — Enterprise). Không công nghệ nào bị loại bỏ khỏi tầm nhìn dài hạn, chỉ hoãn triển khai.
+
+| Layer | Technology | Khi nào cần | Chi tiết |
+|-------|------------|-------------|----------|
+| Graph Database (Social Graph + Knowledge Graph) | Neo4j / Memgraph | Khi cần suy luận đa bước, Explainable AI trên quan hệ phức tạp | docs/data/09_KNOWLEDGE_GRAPH.md |
+| Dedicated Event Store | Kafka / EventStoreDB | Khi khối lượng Event và yêu cầu Replay/Streaming vượt quá PostgreSQL Event Table | docs/data/05_EVENT_STORE.md |
+| Data Lakehouse | Apache Iceberg / Delta Lake + Spark / Trino | Khi cần AI Training và Analytics ở quy mô lớn | docs/data/12_DATA_LAKEHOUSE.md |
+| Dedicated Search Engine | OpenSearch / Elasticsearch | Khi cần Hybrid Search, Faceted Search ở quy mô lớn (nâng cấp từ Meilisearch / PostgreSQL Full-text Search) | docs/data/10_SEARCH_ENGINE.md |
+| Service Mesh | Istio / Linkerd | Khi số lượng Microservices và yêu cầu mTLS/Traffic Management tăng cao | docs/infrastructure/06_SERVICE_MESH.md |
+| Multi-cloud / Multi-region | — | Khi mở rộng sang nhiều thị trường hoặc cần Disaster Recovery toàn cầu (Phase 6 — Enterprise) | docs/infrastructure/02_CLOUD_ARCHITECTURE.md |
+| Kubernetes (Production Orchestration) | Kubernetes | Khi cần Auto Scaling / Self Healing ở quy mô nhiều Service (Docker Compose đủ cho Phase 0-1) | docs/infrastructure/05_KUBERNETES_ARCHITECTURE.md |
 
 ---
 
@@ -258,7 +293,7 @@ NATS JetStream
 
 ---
 
-# Database
+# Database (MVP — Phase 0-2)
 
 ## PostgreSQL
 
@@ -284,7 +319,7 @@ Lý do
 
 ---
 
-# Cache
+# Cache (MVP — Phase 0-2)
 
 Redis
 
@@ -297,7 +332,7 @@ Purpose
 
 ---
 
-# Vector Database
+# Vector Database (MVP — Phase 0-2)
 
 Qdrant
 
@@ -310,7 +345,7 @@ Purpose
 
 ---
 
-# Object Storage
+# Object Storage (MVP — Phase 0-2)
 
 MinIO
 
@@ -330,7 +365,7 @@ Có thể thay bằng:
 
 ---
 
-# Search
+# Search (MVP hiện tại: Meilisearch · Future Phase 3+: OpenSearch/Elasticsearch)
 
 Meilisearch
 
@@ -339,6 +374,8 @@ Purpose
 - Full-text Search
 - Content Search
 - Campaign Search
+
+> Meilisearch là lựa chọn nhẹ dùng được ở MVP. Nếu quy mô tăng cao và cần Hybrid Search/Faceted Search nâng cao, nâng cấp sang OpenSearch/Elasticsearch (Future / Scale-out Stack, Phase 3+) — xem docs/data/10_SEARCH_ENGINE.md.
 
 ---
 
@@ -550,6 +587,8 @@ Production:
 
 Kubernetes
 
+> Docker Compose: MVP — dùng cho Phase 0-2 (đúng với Phase 0 Deliverables của docs/ROADMAP.md). Kubernetes (Production): Future / Scale-out Stack — cân nhắc từ Phase 3+ khi cần Auto Scaling/Self Healing ở quy mô lớn — xem docs/infrastructure/05_KUBERNETES_ARCHITECTURE.md.
+
 ---
 
 ## Reverse Proxy
@@ -614,9 +653,13 @@ Production
 
 - Kubernetes
 
+> Kubernetes ở Production thuộc Future / Scale-out Stack (Phase 3+); Phase 0-2 vận hành bằng Docker Compose là đủ.
+
 ---
 
 # Technology Decisions
+
+PostgreSQL, Redis, Qdrant, MinIO thuộc **MVP Stack (Phase 0-2)**; Kubernetes thuộc **Future / Scale-out Stack (Phase 3+)** — xem chi tiết ở hai bảng nhóm đầu tài liệu.
 
 | Component | Technology | Reason |
 |-----------|------------|--------|
@@ -640,6 +683,8 @@ Production
 ---
 
 # Future Technologies
+
+Đây là các công nghệ AI/Execution bổ sung trong tương lai. Với các quyết định Future / Scale-out cho Data Layer & Infrastructure (Graph DB, Event Store, Data Lakehouse, Search Engine, Service Mesh, Multi-cloud/Multi-region, Kubernetes), xem mục "Future / Scale-out Stack (Phase 3+)" ở đầu tài liệu.
 
 Có thể bổ sung trong tương lai:
 

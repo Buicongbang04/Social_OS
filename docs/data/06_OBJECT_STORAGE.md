@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** MVP — dùng ngay từ Phase 0-2. Lý do: MinIO/S3 nằm trong Deliverables của Phase 0 (docs/ROADMAP.md) và là nhu cầu cơ bản để lưu Images, Videos, Documents ngay từ ngày đầu — không thể trì hoãn tới lúc scale.
+
+---
+
 # Table of Contents
 
 - Overview

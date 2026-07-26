@@ -217,7 +217,7 @@ Không chia sẻ:
 mindmap
   root((AI Social OS))
     AI
-    Social
+    Integration
     Marketing
     Knowledge
     Memory
@@ -608,6 +608,8 @@ Recurring Task.
 ---
 
 # Social Platform
+
+> Nhóm yêu cầu này thuộc Integration Layer (kết nối / đăng bài ra nền tảng bên ngoài) — khác với mạng xã hội nội bộ (native) mô tả tại `docs/social_network/`, hiện là hạng mục tầm nhìn dài hạn, chưa thuộc MVP.
 
 ## FR-130
 

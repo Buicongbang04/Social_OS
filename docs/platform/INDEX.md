@@ -48,23 +48,28 @@ mindmap
     Core Services
     API Gateway
     Service Discovery
-    Configuration
-    Secret Management
-    Notification
-    Audit Log
+    Configuration Service
+    Secret Manager
+    Audit Logging
     Activity Feed
-    Search
-    File Service
+    Notification Service
+    Search Service
+    File Storage
     Media Service
-    Business
-    Billing
-    Subscription
-    License
-    Integration
-    Platform API
-    Platform SDK
-    Engineering
-    Best Practices
+    Messaging & Scheduling
+    Event Bus
+    Message Queue
+    Scheduler Service
+    Observability & Business
+    Monitoring & Observability
+    Analytics Service
+    Billing & Metering
+    Infrastructure & Architecture
+    Service Mesh
+    Deployment Architecture
+    Platform Security
+    Reference Architecture
+    Roadmap
 ```
 
 ---
@@ -73,8 +78,8 @@ mindmap
 
 | File | Description |
 |------|-------------|
-| 01_PLATFORM_OVERVIEW.md | Tổng quan Platform |
-| 02_PLATFORM_ARCHITECTURE.md | Kiến trúc Platform |
+| 01_PLATFORM_OVERVIEW.md | Platform Overview |
+| 02_PLATFORM_ARCHITECTURE.md | Platform Architecture |
 
 ---
 
@@ -84,54 +89,61 @@ mindmap
 |------|-------------|
 | 03_WORKSPACE_MANAGEMENT.md | Workspace Management |
 | 04_USER_MANAGEMENT.md | User Management |
-| 05_ORGANIZATION.md | Organization Model |
+| 05_ORGANIZATION.md | Organization |
 | 06_AUTHENTICATION.md | Authentication |
 | 07_AUTHORIZATION.md | Authorization |
 | 08_PERMISSION_MODEL.md | Permission Model |
 
 ---
 
-# Platform Services
+# Core Platform Services
 
 | File | Description |
 |------|-------------|
 | 09_API_GATEWAY.md | API Gateway |
 | 10_SERVICE_DISCOVERY.md | Service Discovery |
 | 11_CONFIGURATION_SERVICE.md | Configuration Service |
-| 12_SECRET_MANAGEMENT.md | Secret Management |
-| 13_NOTIFICATION_SERVICE.md | Notification Service |
-| 14_AUDIT_LOG.md | Audit Log |
-| 15_ACTIVITY_FEED.md | Activity Feed |
+| 12_SECRET_MANAGER.md | Secret Manager |
+| 13_AUDIT_LOGGING.md | Audit Logging |
+| 14_ACTIVITY_FEED.md | Activity Feed |
+| 15_NOTIFICATION_SERVICE.md | Notification Service |
 | 16_SEARCH_SERVICE.md | Search Service |
-| 17_FILE_SERVICE.md | File Service |
+| 17_FILE_STORAGE.md | File Storage Service |
 | 18_MEDIA_SERVICE.md | Media Service |
 
 ---
 
-# Business Services
+# Messaging & Scheduling
 
 | File | Description |
 |------|-------------|
-| 19_BILLING.md | Billing |
-| 20_SUBSCRIPTION.md | Subscription |
-| 21_LICENSE.md | License Management |
+| 19_EVENT_BUS.md | Event Bus |
+| 20_MESSAGE_QUEUE.md | Message Queue |
+| 21_SCHEDULER_SERVICE.md | Scheduler Service |
 
 ---
 
-# Integration
+# Observability & Business
 
 | File | Description |
 |------|-------------|
-| 22_PLATFORM_API.md | Platform API |
-| 23_PLATFORM_SDK.md | Platform SDK |
+| 22_MONITORING_OBSERVABILITY.md | Monitoring & Observability |
+| 23_ANALYTICS_SERVICE.md | Analytics Service |
+| 24_BILLING_METERING.md | Billing & Metering Service |
 
 ---
 
-# Engineering
+# Infrastructure & Architecture
 
 | File | Description |
 |------|-------------|
-| 24_PLATFORM_BEST_PRACTICES.md | Best Practices |
+| 29_SERVICE_MESH.md | Service Mesh |
+| 30_DEPLOYMENT_ARCHITECTURE.md | Deployment Architecture |
+| 31_PLATFORM_SECURITY.md | Platform Security |
+| 32_PLATFORM_REFERENCE_ARCHITECTURE.md | Platform Reference Architecture |
+| 33_PLATFORM_ROADMAP.md | Platform Roadmap |
+
+Note: file numbers 25-28 are retired. They previously held duplicate write-ups of API Gateway, Service Discovery, Configuration Service and Secret Manager that have since been merged into 09, 10, 11 and 12 respectively.
 
 ---
 
@@ -139,11 +151,11 @@ mindmap
 
 ```mermaid
 flowchart LR
-    C[Identity & Access] --> D[Platform Services]
-    D --> E[Business Services]
-    E --> F[Platform API]
-    F --> G[Platform SDK]
-    G --> H[Best Practices]
+    A[Foundation] --> C[Identity & Access]
+    C --> D[Core Platform Services]
+    D --> E[Messaging & Scheduling]
+    E --> F[Observability & Business]
+    F --> G[Infrastructure & Architecture]
 ```
 
 ---
@@ -162,19 +174,24 @@ flowchart LR
     Platform_Architecture --> API_Gateway
     API_Gateway --> Service_Discovery
     API_Gateway --> Configuration_Service
-    Configuration_Service --> Secret_Management
+    Configuration_Service --> Secret_Manager
+    Platform_Architecture --> Audit_Logging
+    Audit_Logging --> Activity_Feed
     Platform_Architecture --> Notification_Service
-    Platform_Architecture --> Audit_Log
-    Audit_Log --> Activity_Feed
     Platform_Architecture --> Search_Service
-    Platform_Architecture --> File_Service
-    File_Service --> Media_Service
-    Platform_Architecture --> Billing
-    Billing --> Subscription
-    Subscription --> License
-    Platform_Architecture --> Platform_API
-    Platform_API --> Platform_SDK
-    Best_Practices --> Platform_API
+    Platform_Architecture --> File_Storage
+    File_Storage --> Media_Service
+    Platform_Architecture --> Event_Bus
+    Event_Bus --> Message_Queue
+    Message_Queue --> Scheduler_Service
+    Platform_Architecture --> Monitoring_Observability
+    Monitoring_Observability --> Analytics_Service
+    Platform_Architecture --> Billing_Metering
+    Platform_Architecture --> Service_Mesh
+    Service_Mesh --> Deployment_Architecture
+    Deployment_Architecture --> Platform_Security
+    Platform_Security --> Platform_Reference_Architecture
+    Platform_Reference_Architecture --> Platform_Roadmap
 ```
 
 ---
@@ -185,19 +202,19 @@ flowchart LR
 Foundation
 ████████████████████
 
-Identity
+Identity & Access
 ████████████████████
 
-Platform Services
+Core Platform Services
 ████████████████████
 
-Business Services
+Messaging & Scheduling
 ████████████████████
 
-Integration
+Observability & Business
 ████████████████████
 
-Engineering
+Infrastructure & Architecture
 ████████████████████
 ```
 
@@ -205,6 +222,6 @@ Engineering
 
 # Summary
 
-Platform Documentation bao gồm 24 tài liệu chuyên sâu cùng với `README.md` và `INDEX.md`, mô tả toàn bộ kiến trúc Platform của AI Social OS.
+Platform Documentation bao gồm 29 tài liệu chuyên sâu (đánh số 01-24 và 29-33) cùng với `README.md` và `INDEX.md`, mô tả toàn bộ kiến trúc Platform của AI Social OS.
 
-Các tài liệu được tổ chức theo từng nhóm chức năng từ Foundation, Identity, Platform Services, Business Services đến Integration và Best Practices, tạo thành tài liệu tham chiếu đầy đủ cho việc thiết kế, phát triển và vận hành Platform Layer.
+Các tài liệu được tổ chức theo từng nhóm chức năng từ Foundation, Identity & Access, Core Platform Services, Messaging & Scheduling, Observability & Business đến Infrastructure & Architecture, tạo thành tài liệu tham chiếu đầy đủ cho việc thiết kế, phát triển và vận hành Platform Layer. Các số thứ tự 25-28 đã được gộp vào 09, 10, 11 và 12 trong đợt hợp nhất tài liệu trùng lặp gần nhất.

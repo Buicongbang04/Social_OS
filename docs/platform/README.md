@@ -73,6 +73,7 @@ flowchart LR
 platform/
 
 ├── README.md
+├── INDEX.md
 │
 ├── 01_PLATFORM_OVERVIEW.md
 ├── 02_PLATFORM_ARCHITECTURE.md
@@ -85,20 +86,27 @@ platform/
 ├── 09_API_GATEWAY.md
 ├── 10_SERVICE_DISCOVERY.md
 ├── 11_CONFIGURATION_SERVICE.md
-├── 12_SECRET_MANAGEMENT.md
-├── 13_NOTIFICATION_SERVICE.md
-├── 14_AUDIT_LOG.md
-├── 15_ACTIVITY_FEED.md
+├── 12_SECRET_MANAGER.md
+├── 13_AUDIT_LOGGING.md
+├── 14_ACTIVITY_FEED.md
+├── 15_NOTIFICATION_SERVICE.md
 ├── 16_SEARCH_SERVICE.md
-├── 17_FILE_SERVICE.md
+├── 17_FILE_STORAGE.md
 ├── 18_MEDIA_SERVICE.md
-├── 19_BILLING.md
-├── 20_SUBSCRIPTION.md
-├── 21_LICENSE.md
-├── 22_PLATFORM_API.md
-├── 23_PLATFORM_SDK.md
-├── 24_PLATFORM_BEST_PRACTICES.md
+├── 19_EVENT_BUS.md
+├── 20_MESSAGE_QUEUE.md
+├── 21_SCHEDULER_SERVICE.md
+├── 22_MONITORING_OBSERVABILITY.md
+├── 23_ANALYTICS_SERVICE.md
+├── 24_BILLING_METERING.md
+├── 29_SERVICE_MESH.md
+├── 30_DEPLOYMENT_ARCHITECTURE.md
+├── 31_PLATFORM_SECURITY.md
+├── 32_PLATFORM_REFERENCE_ARCHITECTURE.md
+├── 33_PLATFORM_ROADMAP.md
 ```
+
+Note: File numbers 25-28 were retired during a documentation consolidation (duplicate API Gateway, Service Discovery, Configuration Service and Secret Manager write-ups were merged into 09, 10, 11 and 12 respectively); the numbering gap is intentional.
 
 ---
 
@@ -122,39 +130,44 @@ platform/
 
 ---
 
-## Phase 3 — Platform Services
+## Phase 3 — Core Platform Services
 
 9. API Gateway
 10. Service Discovery
 11. Configuration Service
-12. Secret Management
-13. Notification Service
-14. Audit Log
-15. Activity Feed
+12. Secret Manager
+13. Audit Logging
+14. Activity Feed
+15. Notification Service
 16. Search Service
-17. File Service
+17. File Storage Service
 18. Media Service
 
 ---
 
-## Phase 4 — Business
+## Phase 4 — Messaging & Scheduling
 
-19. Billing
-20. Subscription
-21. License
-
----
-
-## Phase 5 — Integration
-
-22. Platform API
-23. Platform SDK
+19. Event Bus
+20. Message Queue
+21. Scheduler Service
 
 ---
 
-## Phase 6 — Engineering
+## Phase 5 — Observability & Business
 
-24. Platform Best Practices
+22. Monitoring & Observability
+23. Analytics Service
+24. Billing & Metering Service
+
+---
+
+## Phase 6 — Infrastructure & Architecture
+
+29. Service Mesh
+30. Deployment Architecture
+31. Platform Security
+32. Platform Reference Architecture
+33. Platform Roadmap
 
 ---
 
@@ -173,11 +186,17 @@ mindmap
     Secret Manager
     Notification
     Search
-    File
+    File Storage
     Media
-    Billing
-    Subscription
-    License
+    Event Bus
+    Message Queue
+    Scheduler
+    Monitoring
+    Analytics
+    Billing & Metering
+    Service Mesh
+    Deployment
+    Platform Security
 ```
 
 ---

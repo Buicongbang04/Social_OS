@@ -264,49 +264,50 @@ AI Layer được xây dựng nhằm đạt được.
 
 13_AGENT_COMMUNICATION
 
-14_AGENT_COLLABORATION
+14_AGENT_CAPABILITIES
 
-15_AGENT_SUPERVISOR
+15_AGENT_REGISTRY
 
-16_AGENT_ROUTER
+16_AGENT_ROUTING
 
-17_MODEL_ROUTER
+17_AGENT_DISCOVERY
 
-18_PROMPT_ENGINE
+18_AGENT_HEALTH
 
-19_CONTEXT_ENGINE
+19_AGENT_WORKFLOW
 
-20_MEMORY_ENGINE
+20_AGENT_GOVERNANCE
 
-21_TOOL_ENGINE
+21_AGENT_EVALUATION
 
-22_INFERENCE_ENGINE
+22_AGENT_LEARNING
 
-23_STREAMING_ENGINE
+23_AI_LAYER_SUMMARY
+```
 
-24_SESSION_ENGINE
+---
 
-25_REASONING_ENGINE
+# Planned / Not Yet Written
 
-26_PLANNING_ENGINE
+The following topics are intentional future work. They are referenced elsewhere in this documentation set (architecture diagrams, component lists) as concepts the AI Layer will eventually need, but no dedicated document exists for them yet. They are not linked from the Document Structure above to avoid broken references.
 
-27_AI_PIPELINE
-
-28_AI_EVENTS
-
-29_AI_SECURITY
-
-30_AI_OBSERVABILITY
-
-31_AI_CONFIGURATION
-
-32_AI_APIS
-
-33_AI_DEPLOYMENT
-
-34_AI_REFERENCE_ARCHITECTURE
-
-35_AI_ROADMAP
+```text
+Model Router
+Prompt Engine
+Context Engine
+Memory Engine
+Tool Engine
+Inference Engine
+Streaming Engine
+Session Engine
+AI Pipeline
+AI Security
+AI Observability
+AI Configuration
+AI APIs
+AI Deployment
+AI Reference Architecture
+AI Roadmap
 ```
 
 ---

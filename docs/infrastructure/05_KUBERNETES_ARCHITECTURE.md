@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** Giai đoạn sau — cân nhắc khi có nhu cầu scale thực tế, dự kiến Phase 3+/Enterprise. Lý do: Deliverables Phase 0 của docs/ROADMAP.md chỉ liệt kê Docker (không có Kubernetes) — Docker Compose là đủ cho Phase 0-1; Kubernetes (HPA/VPA/Cluster Autoscaler) là nâng cấp khi cần Auto Scaling và Self Healing ở quy mô nhiều Service, và xuất hiện rõ trong Deliverables Phase 6 — Enterprise.
+
+---
+
 # Table of Contents
 
 - Overview

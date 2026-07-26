@@ -254,5 +254,5 @@ Sau khi hoàn thành toàn bộ thư mục `kernel`, mới chuyển sang:
 - `runtime/`
 - `platform/`
 - `ai/`
-- `social/`
+- `social_network/`
 - `plugin/`

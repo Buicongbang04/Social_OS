@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** Giai đoạn sau — cân nhắc khi có nhu cầu scale thực tế, dự kiến Phase 3+/Enterprise. Lý do: ở MVP số lượng Microservices còn ít, Retry/TLS/Load Balancing có thể xử lý ở tầng API Gateway/Application; Istio/Linkerd (mTLS, Traffic Management, sidecar) chỉ cần khi số lượng Service và yêu cầu Zero Trust tăng cao.
+
+---
+
 # Table of Contents
 
 - Overview

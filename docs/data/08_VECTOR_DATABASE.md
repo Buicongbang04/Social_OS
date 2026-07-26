@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** MVP — dùng ngay từ Phase 0-2. Lý do: Qdrant nằm trong Deliverables Phase 0 và là điều kiện tiên quyết cho RAG, Knowledge (Document Upload/Chunking/Embedding/Search) và Memory ở Phase 2 — AI Platform.
+
+---
+
 # Table of Contents
 
 - Overview

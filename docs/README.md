@@ -225,6 +225,8 @@ flowchart LR
 
 # Supported Social Platforms
 
+> Đây là các nền tảng bên ngoài được kết nối qua Integration Layer / Connector Gateway (xem `03_DOMAIN_MODEL.md`, `04_ARCHITECTURE.md`), khác với mạng xã hội nội bộ (native) mô tả tại `social_network/` — hạng mục tầm nhìn dài hạn, chưa thuộc roadmap hiện tại.
+
 - Facebook
 - Messenger
 - Instagram
@@ -318,7 +320,7 @@ plan/
 ├── runtime/
 ├── platform/
 ├── ai/
-├── social/
+├── social_network/
 ├── plugin/
 ├── data/
 ├── infrastructure/

@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** MVP — dùng ngay từ Phase 0-2 (trọng tâm PostgreSQL làm OLTP chính). Lý do: PostgreSQL + Redis + Object Storage + Qdrant là 4 kho dữ liệu tối thiểu đủ vận hành Foundation → AI Runtime → AI Platform; các mảnh còn lại của Polyglot Persistence mô tả trong tài liệu này (Graph DB, Search Engine, Event Store riêng, Data Lakehouse) thuộc Giai đoạn sau — xem banner phasing riêng trong docs/data/09_KNOWLEDGE_GRAPH.md, docs/data/10_SEARCH_ENGINE.md, docs/data/05_EVENT_STORE.md, docs/data/12_DATA_LAKEHOUSE.md.
+
+---
+
 # Table of Contents
 
 - Overview

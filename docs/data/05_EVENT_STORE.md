@@ -10,6 +10,10 @@ Last Updated: 2026-07-25
 
 ---
 
+> **Giai đoạn áp dụng:** Giai đoạn sau — cân nhắc khi có nhu cầu scale thực tế, dự kiến Phase 3+/Enterprise. Lý do: một Event Log dạng append-only trong PostgreSQL (bảng Event với eventId/aggregateId/payload) đủ phục vụ Audit và CQRS cơ bản ở MVP; một Event Store chuyên dụng (EventStoreDB/Kafka) chỉ là nâng cấp khi khối lượng Event và nhu cầu Replay/Streaming vượt quá khả năng của PostgreSQL.
+
+---
+
 # Table of Contents
 
 - Overview

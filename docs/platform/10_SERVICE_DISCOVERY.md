@@ -21,12 +21,14 @@ Last Updated: 2026-07-25
 - Service Resolution
 - Health Check
 - Heartbeat
+- Service Lifecycle
 - Load Balancing
 - Service Metadata
 - Failure Recovery
 - Runtime Integration
 - Service Events
 - Discovery API
+- Performance Optimizations
 - Design Principles
 - Design Decisions
 - Summary
@@ -260,6 +262,18 @@ Gateway chỉ định tuyến đến các Instance ở trạng thái Healthy.
 
 ---
 
+# Service Lifecycle
+
+```mermaid
+stateDiagram-v2
+    Starting --> Registered
+    Registered --> Healthy
+    Healthy --> Unhealthy
+    Unhealthy --> Removed
+```
+
+---
+
 # Load Balancing
 
 Sau khi nhận danh sách Instance.
@@ -411,6 +425,20 @@ POST   /registry/heartbeat
 
 GET    /registry/health
 ```
+
+---
+
+# Performance Optimizations
+
+Các kỹ thuật tối ưu.
+
+- Registry Replication
+- Local Discovery Cache
+- Incremental Updates
+- Health Check Batching
+- Connection Pooling
+- Watch-based Synchronization
+- Read Replicas
 
 ---
 

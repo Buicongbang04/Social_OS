@@ -15,6 +15,8 @@ Last Updated: 2026-07-25
 - Overview
 - Objectives
 - Why Configuration Service
+- Architecture
+- Configuration Model
 - Configuration Hierarchy
 - Configuration Types
 - Configuration Sources
@@ -27,6 +29,7 @@ Last Updated: 2026-07-25
 - Configuration Cache
 - Configuration Events
 - Configuration API
+- Performance Optimizations
 - Design Principles
 - Design Decisions
 - Summary
@@ -88,6 +91,51 @@ sẽ dẫn đến.
 - Khó quản trị
 
 Configuration Service giải quyết vấn đề bằng một nguồn cấu hình tập trung.
+
+---
+
+# Architecture
+
+```mermaid
+flowchart LR
+    ConfigurationAPI --> ConfigurationService["Configuration Service"]
+    ConfigurationService --> ConfigurationDatabase["Configuration Database"]
+    ConfigurationService --> Cache["Cache"]
+    ConfigurationService --> EventBus["Event Bus"]
+    PlatformServices["Platform Services"] --> ConfigurationCache["Configuration Cache"]
+```
+
+---
+
+# Configuration Model
+
+Một Configuration bao gồm.
+
+```text
+Configuration
+
+├── Configuration ID
+├── Key
+├── Value
+├── Scope
+├── Environment
+├── Version
+├── Status
+├── Metadata
+└── Updated At
+```
+
+Ví dụ.
+
+```text
+Key
+
+runtime.max_concurrency
+
+Value
+
+100
+```
 
 ---
 
@@ -329,6 +377,20 @@ POST   /config/rollback
 
 GET    /feature-flags
 ```
+
+---
+
+# Performance Optimizations
+
+Các kỹ thuật tối ưu.
+
+- Distributed Cache
+- Incremental Synchronization
+- Lazy Loading
+- Local Cache
+- Change Notifications
+- Batch Updates
+- Optimistic Locking
 
 ---
 
