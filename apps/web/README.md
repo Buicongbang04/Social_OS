@@ -45,3 +45,18 @@ Ghim cứng thì không có chuyện đó.
 **Token lưu ở `localStorage`.** Mọi script trên origin đều đọc được. Chấp nhận
 được khi còn một origin và chưa lên production; câu trả lời đúng cho production
 là refresh token trong cookie `httpOnly`.
+
+## Kiểm chứng cả stack
+
+```sh
+pnpm --filter @repo/runtime-service verify:stack
+```
+
+Chạy toàn bộ luồng **chỉ qua API công khai**, đúng như trình duyệt: đăng ký,
+gửi Goal, chờ chạy xong, thử cổng duyệt, thử chặn ngân sách, và chờ một Goal
+theo lịch tự bắn. Không đụng repository, không đụng database.
+
+Đây không phải test thừa. Có một lỗi khiến Goal theo lịch **không bao giờ chạy**
+mà toàn bộ 39 test tích hợp — dù chạy trên Postgres và Redis thật — vẫn xanh,
+vì chúng tự ghi dữ liệu nên vô tình tránh đúng hình dạng gây lỗi. Script này
+bắt được nó ngay lần chạy đầu. Nếu sửa gì mà không chắc, chạy cái này.

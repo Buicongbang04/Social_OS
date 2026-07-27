@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:int": "vitest run --config vitest.int.config.ts",
-    "verify:llm": "tsx src/verify-llm.ts"
+    "verify:llm": "tsx src/verify-llm.ts",
+    "verify:stack": "tsx src/verify-stack.ts"
   },
   "dependencies": {
     "@repo/ai": "workspace:*",
@@ -22,6 +23,7 @@
     "@repo/logger": "workspace:*",
     "@repo/queue": "workspace:*",
     "@repo/runtime": "workspace:*",
+    "@repo/sdk": "workspace:*",
     "ioredis": "^5.4.2"
   },
   "devDependencies": {

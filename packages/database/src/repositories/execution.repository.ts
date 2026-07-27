@@ -27,6 +27,14 @@ function toEntity(row: ExecutionRow): Execution {
     ownerId: row.ownerId as UserId,
     status: row.status,
     priority: row.priority,
+    /**
+     * A cast, not a parse — and the difference matters. The plan is stored as
+     * jsonb, so the Date fields inside its Task snapshots come back as ISO
+     * strings while this type says Date. Nothing reads them today (every
+     * consumer uses the freshly built plan, or the tasks table, which is
+     * properly typed), so this is a hazard rather than a live bug. Anything
+     * that starts reading plan.tasks[].startedAt must parse it first.
+     */
     plan: (row.plan as ExecutionPlan | null) ?? null,
     outputs: (row.outputs as Record<string, unknown> | null) ?? null,
     failureReason: row.failureReason,
