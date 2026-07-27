@@ -1,4 +1,5 @@
 import { newId } from "@repo/core";
+import { formatError } from "../errors/format";
 import type {
   AiUsageId,
   ExecutionId,
@@ -111,8 +112,8 @@ function defaultOnError(error: unknown, record: AiUsageRecord): void {
   // unbilled revenue, and a service that has not wired its own handler should
   // still find out.
   console.error(
-    `[ai-usage] failed to record ${record.operation} on ${record.provider}/${record.model} for workspace ${record.workspaceId}:`,
-    error,
+    `[ai-usage] failed to record ${record.operation} on ${record.provider}/${record.model} ` +
+      `for workspace ${record.workspaceId}: ${formatError(error)}`,
   );
 }
 

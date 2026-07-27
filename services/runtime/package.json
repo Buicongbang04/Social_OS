@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:int": "vitest run --config vitest.int.config.ts"
+    "test:int": "vitest run --config vitest.int.config.ts",
+    "verify:llm": "tsx src/verify-llm.ts"
   },
   "dependencies": {
     "@repo/ai": "workspace:*",

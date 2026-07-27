@@ -119,3 +119,42 @@ và không đổi kết quả giữa các lần chạy. Mock thẳng Gateway th�
 ```sh
 pnpm --filter @repo/ai test
 ```
+
+## Intent và Planning bằng LLM
+
+`LlmIntentAnalyzer` và `LlmPlanner` hiện thực đúng hai port `IntentAnalyzer` /
+`Planner` có sẵn từ Phase 1, nên thay chúng vào không đụng tới scheduling,
+state machine hay retry. Chúng nằm ở đây chứ không ở `@repo/runtime` để giữ
+chiều phụ thuộc một hướng: `ai → runtime`, không bao giờ ngược lại — nhờ vậy
+`@repo/runtime` vẫn không kéo theo AI SDK.
+
+Kết quả từ model luôn được ràng buộc bằng schema **và** kiểm tra lại khi nhận
+về. Riêng planner chặn thêm ba thứ không thể tin model:
+
+- **Capability phải có trong registry.** Một cái bịa ra sẽ thành task không
+  worker nào chạy được, và chỉ lộ ra khi nó timeout.
+- **Phụ thuộc chỉ được trỏ về bước trước.** Chính ràng buộc này làm chu trình
+  trở nên bất khả thi về mặt cấu trúc, chứ không phải phát hiện sau;
+  `validateDag` vẫn chạy phía sau như lớp thứ hai.
+- **Kế hoạch bị từ chối thì raise `PLANNING` và không retry.** Gateway đã retry
+  và đã đi hết chuỗi fallback rồi; lặp lại chỉ tốn thêm tiền cho cùng một lỗi.
+
+## Kiểm chứng bằng vendor thật
+
+Toàn bộ test dùng `StubProviderAdapter`. Điều đó chứng minh code của chúng ta
+đúng, nhưng không nói gì về việc một vendor thật có hiểu prompt và trả đúng
+hình dạng ta yêu cầu hay không. Script này lấp chỗ đó:
+
+```sh
+pnpm --filter @repo/runtime-service verify:llm
+pnpm --filter @repo/runtime-service verify:llm "Mục tiêu của bạn"
+```
+
+Cần `AI_PROVIDER` và key tương ứng trong `.env`. Không cần database, không cần
+Redis. Nếu chưa cấu hình, script dừng và báo rõ thay vì âm thầm rơi về engine
+keyword rồi báo thành công — một kết quả không chứng minh được gì.
+
+Chạy nó là cách phát hiện hai lỗi mà không test nào bắt được: Ollama cần bật
+`supportsStructuredOutputs` (thiếu thì schema bị bỏ qua), và việc in thẳng đối
+tượng lỗi ra `console.error` có thể làm chết tiến trình ngay trong
+`util.inspect` — xem `formatError`.

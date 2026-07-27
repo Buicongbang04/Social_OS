@@ -140,6 +140,11 @@ function buildResolver(
       const provider = createOpenAICompatible({
         name: "ollama",
         baseURL: baseUrl ?? "http://localhost:11434/v1",
+        // Without this the SDK drops the JSON schema and only asks for "some
+        // JSON", so the model is free to answer in a shape we then reject.
+        // Ollama's OpenAI-compatible endpoint does support schema-constrained
+        // output; the flag is what tells the SDK to send it.
+        supportsStructuredOutputs: true,
         ...withKey,
       });
       return (model) => provider(model);

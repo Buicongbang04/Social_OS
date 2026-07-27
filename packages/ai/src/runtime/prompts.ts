@@ -8,7 +8,7 @@
  * version travels on every usage record, so when the registry does arrive it
  * can be back-filled from what actually ran.
  */
-export const PROMPT_VERSION = "2026-07-27.1";
+export const PROMPT_VERSION = "2026-07-27.2";
 
 /**
  * The model is told to read, not to invent.
@@ -30,6 +30,19 @@ Nguyên tắc:
 - confidence là mức chắc chắn thật của bạn về Intent đó, từ 0 đến 1. Nếu câu mơ hồ thì để thấp; đừng làm tròn lên.
 - Nếu hoàn toàn không hiểu người dùng muốn gì, trả về đúng một Intent kiểu CHAT với confidence thấp.
 
+Chọn type theo đúng nghĩa sau:
+- RESEARCH: tìm hiểu, tra cứu, tìm xu hướng, khảo sát thị trường.
+- GENERATE_CONTENT: viết bài, soạn caption, tạo nội dung chữ.
+- GENERATE_IMAGE / GENERATE_VIDEO: tạo ảnh / tạo video.
+- PUBLISH: đăng, xuất bản lên một nền tảng.
+- SCHEDULE: hẹn giờ, lặp lại theo lịch.
+- APPROVAL: người dùng yêu cầu duyệt trước khi làm tiếp.
+- NOTIFICATION: gửi thông báo cho người.
+- ANALYTICS: báo cáo, thống kê số liệu ĐÃ CÓ. Không dùng cho việc đi tìm thông tin mới — đó là RESEARCH.
+- KNOWLEDGE / MEMORY: tra cứu trong tài liệu hoặc trí nhớ nội bộ.
+- AUTOMATION: chạy một quy trình đã dựng sẵn.
+- CHAT: chỉ khi người dùng đang trò chuyện, hỏi đáp, mà không yêu cầu tạo ra thứ gì. Viết bài KHÔNG phải CHAT.
+
 Chỉ trả về dữ liệu đúng schema, không giải thích thêm.`;
 
 export const PLAN_SYSTEM_PROMPT = `Bạn là Planning Engine của một nền tảng tự động hóa mạng xã hội.
@@ -40,7 +53,8 @@ Nguyên tắc:
 - Chỉ dùng capability có trong danh sách được cung cấp. Không bịa tên capability.
 - dependsOn là chỉ số (0-based) của các bước trong CHÍNH mảng steps này, và chỉ được trỏ về bước ĐỨNG TRƯỚC nó. Bước 0 luôn có dependsOn rỗng.
 - Bước nào thật sự cần kết quả của bước khác thì mới khai báo phụ thuộc. Bước độc lập để dependsOn rỗng để chúng chạy song song.
-- Nội dung phải tồn tại trước khi đăng. Nếu người dùng yêu cầu phê duyệt, thì phê duyệt phải đứng trước đăng.
+- Nội dung phải tồn tại trước khi đăng.
+- CHỈ tạo bước cho Intent đã nhận diện. KHÔNG thêm bước người dùng không yêu cầu — kể cả bước trông có vẻ cẩn thận như phê duyệt hay thông báo. Chỉ đưa approval.request vào khi người dùng thật sự yêu cầu duyệt; nếu có thì nó phải đứng trước bước đăng.
 - inputs là tham số cụ thể cho bước đó (chủ đề, nền tảng, giọng văn, độ dài...), lấy từ Intent và mục tiêu gốc. Càng cụ thể càng tốt.
 
 Chỉ trả về dữ liệu đúng schema, không giải thích thêm.`;

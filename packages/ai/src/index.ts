@@ -10,6 +10,7 @@ export * from "./provider/pricing";
 export * from "./provider/structured";
 export * from "./provider/registry";
 export * from "./provider/catalog";
+export * from "./errors/format";
 export * from "./provider/errors";
 export * from "./provider/gateway";
 export * from "./adapters/vercel-adapter";
