@@ -16,6 +16,10 @@ export * from "./errors/taxonomy";
 export * from "./ports";
 export * from "./ports/repositories";
 
+// Engine
+export * from "./engine/capabilities";
+export * from "./engine/execution-engine";
+
 // Phase 1 deterministic implementations
 export * from "./capability/registry";
 export * from "./intent/keyword-analyzer";
