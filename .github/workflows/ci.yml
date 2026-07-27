@@ -1,8 +1,12 @@
 name: CI
 
 on:
+  # Every branch, not just main and develop. Feature work is merged into main
+  # only after CI has passed on the branch, so CI has to actually run there —
+  # with the previous filter a feature push triggered nothing and "wait for
+  # green" had nothing to wait for.
   push:
-    branches: [main, develop]
+    branches: ["**"]
   pull_request:
     branches: [main, develop]
 
