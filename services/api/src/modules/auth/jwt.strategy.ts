@@ -2,10 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { UnauthorizedError } from "@repo/core";
-import type { AppConfig } from "../../config/app.config";
+import { AppConfig } from "../../config/app.config";
 import type { AuthenticatedUser } from "../../common/decorators/public.decorator";
 import { requestContext } from "../../common/context/request-context";
-import type { TokenService } from "./token.service";
+import { TokenService } from "./token.service";
 
 /**
  * Passport strategy for access tokens.

@@ -1,5 +1,5 @@
 import { Global, Module, type OnApplicationShutdown } from "@nestjs/common";
-import type { ModuleRef } from "@nestjs/core";
+import { ModuleRef } from "@nestjs/core";
 import {
   DrizzleOrganizationMembershipRepository,
   DrizzleOrganizationRepository,
@@ -23,8 +23,12 @@ export const DATABASE_CLIENT = Symbol("DATABASE_CLIENT");
 export const USER_REPOSITORY = Symbol("USER_REPOSITORY");
 export const ORGANIZATION_REPOSITORY = Symbol("ORGANIZATION_REPOSITORY");
 export const WORKSPACE_REPOSITORY = Symbol("WORKSPACE_REPOSITORY");
-export const WORKSPACE_MEMBERSHIP_REPOSITORY = Symbol("WORKSPACE_MEMBERSHIP_REPOSITORY");
-export const ORGANIZATION_MEMBERSHIP_REPOSITORY = Symbol("ORGANIZATION_MEMBERSHIP_REPOSITORY");
+export const WORKSPACE_MEMBERSHIP_REPOSITORY = Symbol(
+  "WORKSPACE_MEMBERSHIP_REPOSITORY",
+);
+export const ORGANIZATION_MEMBERSHIP_REPOSITORY = Symbol(
+  "ORGANIZATION_MEMBERSHIP_REPOSITORY",
+);
 export const SESSION_REPOSITORY = Symbol("SESSION_REPOSITORY");
 
 @Global()
@@ -57,12 +61,14 @@ export const SESSION_REPOSITORY = Symbol("SESSION_REPOSITORY");
     {
       provide: WORKSPACE_MEMBERSHIP_REPOSITORY,
       inject: [DATABASE_CLIENT],
-      useFactory: (db: DatabaseClient) => new DrizzleWorkspaceMembershipRepository(db),
+      useFactory: (db: DatabaseClient) =>
+        new DrizzleWorkspaceMembershipRepository(db),
     },
     {
       provide: ORGANIZATION_MEMBERSHIP_REPOSITORY,
       inject: [DATABASE_CLIENT],
-      useFactory: (db: DatabaseClient) => new DrizzleOrganizationMembershipRepository(db),
+      useFactory: (db: DatabaseClient) =>
+        new DrizzleOrganizationMembershipRepository(db),
     },
     {
       provide: SESSION_REPOSITORY,
@@ -85,7 +91,9 @@ export class DatabaseModule implements OnApplicationShutdown {
 
   /** Drain the connection pool so a rolling deploy does not leak connections. */
   async onApplicationShutdown(): Promise<void> {
-    const db = this.moduleRef.get<DatabaseClient>(DATABASE_CLIENT, { strict: false });
+    const db = this.moduleRef.get<DatabaseClient>(DATABASE_CLIENT, {
+      strict: false,
+    });
     if (db) await closeDbClient(db);
   }
 }

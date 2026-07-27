@@ -1,5 +1,5 @@
 import { Controller, Get, Inject } from "@nestjs/common";
-import type Redis from "ioredis";
+import Redis from "ioredis";
 import { pingDatabase, type DatabaseClient } from "@repo/database";
 import { Public } from "../common/decorators/public.decorator";
 import { raw } from "../common/interceptors/response-envelope.interceptor";
@@ -23,7 +23,10 @@ export class HealthController {
   @Public()
   @Get()
   async check() {
-    const [database, cache] = await Promise.all([this.checkDatabase(), this.checkRedis()]);
+    const [database, cache] = await Promise.all([
+      this.checkDatabase(),
+      this.checkRedis(),
+    ]);
     const healthy = database === "up" && cache === "up";
 
     return raw({

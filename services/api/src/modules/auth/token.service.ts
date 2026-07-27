@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { JwtService } from "@nestjs/jwt";
-import type Redis from "ioredis";
+import { JwtService } from "@nestjs/jwt";
+import Redis from "ioredis";
 import type { UserId } from "@repo/core";
 import { UnauthorizedError } from "@repo/core";
-import type { AppConfig } from "../../config/app.config";
+import { AppConfig } from "../../config/app.config";
 import { REDIS_CLIENT } from "../../infra/redis/redis.module";
 
 /**

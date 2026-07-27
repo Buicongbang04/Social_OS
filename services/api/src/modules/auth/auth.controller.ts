@@ -1,4 +1,11 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+} from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import type { SessionId } from "@repo/core";
@@ -17,7 +24,7 @@ import {
   type RefreshInput,
   type RegisterInput,
 } from "./auth.dto";
-import type { AuthService} from "./auth.service";
+import { AuthService } from "./auth.service";
 import { type RequestFingerprint } from "./auth.service";
 
 @Controller("auth")
@@ -27,7 +34,10 @@ export class AuthController {
   @Public()
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body(new ZodValidationPipe(registerSchema)) body: RegisterInput, @Req() req: Request) {
+  async register(
+    @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
+    @Req() req: Request,
+  ) {
     return this.auth.register(body, fingerprint(req));
   }
 
@@ -40,7 +50,10 @@ export class AuthController {
   @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  async login(@Body(new ZodValidationPipe(loginSchema)) body: LoginInput, @Req() req: Request) {
+  async login(
+    @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
+    @Req() req: Request,
+  ) {
     return this.auth.login(body, fingerprint(req));
   }
 
@@ -48,7 +61,9 @@ export class AuthController {
   @Throttle({ auth: { limit: 10, ttl: 60_000 } })
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body(new ZodValidationPipe(refreshSchema)) body: RefreshInput) {
+  async refresh(
+    @Body(new ZodValidationPipe(refreshSchema)) body: RefreshInput,
+  ) {
     return this.auth.refresh(body.refreshToken);
   }
 

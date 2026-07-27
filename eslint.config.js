@@ -22,6 +22,19 @@ export default tseslint.config(
   },
   ...baseConfig,
   {
+    // NestJS services. `consistent-type-imports` MUST stay off here: NestJS
+    // resolves constructor parameter types at runtime from
+    // emitDecoratorMetadata, and an `import type` declaration is erased before
+    // that metadata is written — so autofixing these imports breaks dependency
+    // injection at boot ("Nest can't resolve dependencies of X"). This block
+    // exists because lint-staged runs eslint from the repo root, where the
+    // per-package config in services/*/eslint.config.js does not apply.
+    files: ["services/**/*.ts"],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "off",
+    },
+  },
+  {
     // React surfaces only: frontend apps and the shared UI package.
     files: ["apps/**/*.{ts,tsx}", "packages/ui/**/*.{ts,tsx}"],
     plugins: {

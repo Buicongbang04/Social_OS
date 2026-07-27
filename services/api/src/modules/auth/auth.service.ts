@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { SessionId, UserId } from "@repo/core";
 import { ConflictError, UnauthorizedError } from "@repo/core";
-import type { PasswordService, RefreshTokenService } from "@repo/auth";
+import { PasswordService, RefreshTokenService } from "@repo/auth";
 import type {
   PublicUser,
   SessionRepository,
@@ -9,13 +9,13 @@ import type {
   UserRepository,
 } from "@repo/domain";
 import { isSessionUsable, toPublicUser } from "@repo/domain";
-import type { AppConfig } from "../../config/app.config";
+import { AppConfig } from "../../config/app.config";
 import {
   SESSION_REPOSITORY,
   USER_REPOSITORY,
 } from "../../infra/database/database.module";
 import type { AuthTokens, LoginInput, RegisterInput } from "./auth.dto";
-import type { TokenService } from "./token.service";
+import { TokenService } from "./token.service";
 
 export type RequestFingerprint = {
   ipAddress?: string | null;
