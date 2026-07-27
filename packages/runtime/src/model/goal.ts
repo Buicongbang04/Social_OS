@@ -89,6 +89,9 @@ export type Goal = BaseEntity<GoalId> & {
   inputs: Metadata;
   outputs: readonly ExpectedOutput[];
   schedule: GoalSchedule | null;
+  /** When this Goal next fires. Null for a one-off Goal. */
+  nextRunAt: Date | null;
+  lastRunAt: Date | null;
   status: GoalStatus;
   metadata: Metadata;
 };

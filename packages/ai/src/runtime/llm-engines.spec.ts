@@ -36,6 +36,8 @@ const goal: Goal = {
   inputs: {},
   outputs: [],
   schedule: null,
+  nextRunAt: null,
+  lastRunAt: null,
   status: "CREATED",
   metadata: {},
   createdAt: new Date(),

@@ -1,5 +1,6 @@
 import { createLogger, withCorrelation } from "@repo/logger";
 import type { SchedulerLock } from "@repo/runtime";
+import { newExecutionFor, nextRunAfterFiring } from "@repo/runtime";
 import type {
   EngineEvent,
   ExecutionEngine,
@@ -20,6 +21,10 @@ export type SchedulerOptions = {
   idleDelayMs?: number;
   /** How often to sweep for lapsed reservations. */
   recoverIntervalMs?: number;
+  /** How often to look for recurring Goals that have come due. */
+  scheduleIntervalMs?: number;
+  /** How many due Goals one sweep may fire. */
+  scheduleBatchSize?: number;
   /** Lock TTL — must exceed a tick, or two nodes could overlap. */
   lockTtlMs?: number;
 };
@@ -29,9 +34,14 @@ const DEFAULTS = {
   idleDelayMs: 250,
   recoverIntervalMs: 10_000,
   lockTtlMs: 30_000,
+  // Cron granularity is one minute, so checking every five seconds is already
+  // far tighter than any schedule can express.
+  scheduleIntervalMs: 5_000,
+  scheduleBatchSize: 20,
 } as const;
 
 const DISPATCH_LOCK = "dispatch";
+const SCHEDULE_LOCK = "schedule";
 
 /**
  * The runtime loop: claim due tasks, run them, publish what happened.
@@ -45,6 +55,7 @@ export class Scheduler {
   private readonly options: Required<SchedulerOptions>;
   private running = false;
   private lastRecoverAt = 0;
+  private lastScheduleSweepAt = 0;
 
   constructor(
     private readonly engine: ExecutionEngine,
@@ -91,6 +102,10 @@ export class Scheduler {
   async tick(): Promise<boolean> {
     await this.recoverExpiredReservations();
 
+    // Fire recurring Goals that have come due, so their new Executions are
+    // waiting for the preparation step below.
+    const fired = await this.fireDueSchedules();
+
     // Plan anything the API submitted since the last tick, so queued work
     // exists to claim below.
     const prepared = await this.prepareNewExecutions();
@@ -114,12 +129,100 @@ export class Scheduler {
       await this.lock.release(DISPATCH_LOCK);
     }
 
-    if (tasks.length === 0) return prepared;
+    if (tasks.length === 0) return prepared || fired;
 
     for (const queued of tasks) {
       await this.runOne(queued.taskId, queued.executionId, queued.workspaceId);
     }
 
+    return true;
+  }
+
+  /**
+   * Create a fresh Execution for every recurring Goal that has come due.
+   *
+   * A cron fire always makes a NEW Execution and never reuses the previous
+   * one, per docs/kernel/02_EXECUTION_MODEL.md — yesterday's run keeps its own
+   * history, its own cost, and its own outcome.
+   */
+  private async fireDueSchedules(): Promise<boolean> {
+    if (!this.preparation) return false;
+
+    const now = Date.now();
+    if (now - this.lastScheduleSweepAt < this.options.scheduleIntervalMs) {
+      return false;
+    }
+    this.lastScheduleSweepAt = now;
+
+    // The lock only reduces contention; claimSchedule's compare-and-swap is
+    // what actually prevents two nodes firing the same occurrence.
+    const claimed = await this.lock.acquire(
+      SCHEDULE_LOCK,
+      this.options.lockTtlMs,
+    );
+    if (!claimed) return false;
+
+    let due: readonly {
+      id: string;
+      schedule: unknown;
+      nextRunAt: Date | null;
+    }[];
+    try {
+      due = await this.preparation.goals.listDueSchedules(
+        new Date(now),
+        this.options.scheduleBatchSize,
+      );
+    } finally {
+      await this.lock.release(SCHEDULE_LOCK);
+    }
+
+    let firedAny = false;
+    for (const goal of due) {
+      if (await this.fireOne(goal.id)) firedAny = true;
+    }
+
+    return firedAny;
+  }
+
+  private async fireOne(goalId: string): Promise<boolean> {
+    if (!this.preparation) return false;
+
+    const goal = await this.preparation.goals.findById(goalId as never);
+    if (!goal?.schedule || !goal.nextRunAt) return false;
+
+    const firedAt = new Date();
+    let next: Date | null;
+    try {
+      next = nextRunAfterFiring(goal.schedule, firedAt);
+    } catch (error) {
+      // An unschedulable expression would otherwise be retried every sweep
+      // forever. Clearing nextRunAt stops the loop and leaves the schedule on
+      // the Goal so it is visible and fixable.
+      logger.error(
+        { err: error, goalId, cron: goal.schedule.cron },
+        "goal has an invalid schedule; disabling it",
+      );
+      await this.preparation.goals.setNextRunAt(goal.id, null);
+      return false;
+    }
+
+    const claimedGoal = await this.preparation.goals.claimSchedule({
+      id: goal.id,
+      expectedNextRunAt: goal.nextRunAt,
+      nextRunAt: next,
+      firedAt,
+    });
+    // Another node claimed this occurrence first.
+    if (!claimedGoal) return false;
+
+    const execution = await this.preparation.executions.create(
+      newExecutionFor(goal, `cron_${goal.id}_${goal.nextRunAt.getTime()}`),
+    );
+
+    logger.info(
+      { goalId: goal.id, executionId: execution.id, nextRunAt: next },
+      "fired scheduled goal",
+    );
     return true;
   }
 

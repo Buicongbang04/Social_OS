@@ -44,6 +44,30 @@ export interface GoalRepository {
     status: Goal["status"],
     expectedVersion: number,
   ): Promise<Goal | null>;
+
+  /** Recurring Goals whose next occurrence has arrived. */
+  listDueSchedules(now: Date, limit: number): Promise<readonly Goal[]>;
+
+  /**
+   * Claim one occurrence, moving the Goal's next run forward.
+   *
+   * Compare-and-swap on `nextRunAt`: the caller passes the value it saw, and
+   * the write only lands if nothing else has moved it. That, not the scheduler
+   * lock, is what makes a firing exactly-once — the lock only reduces
+   * contention, and two nodes racing past it would otherwise both create an
+   * Execution for the same occurrence.
+   *
+   * Returns null when another node got there first.
+   */
+  claimSchedule(input: {
+    id: GoalId;
+    expectedNextRunAt: Date;
+    nextRunAt: Date | null;
+    firedAt: Date;
+  }): Promise<Goal | null>;
+
+  /** Set the first occurrence when a recurring Goal is created. */
+  setNextRunAt(id: GoalId, nextRunAt: Date | null): Promise<void>;
 }
 
 export interface ExecutionRepository {

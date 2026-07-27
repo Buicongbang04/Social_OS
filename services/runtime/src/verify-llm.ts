@@ -142,6 +142,8 @@ function buildGoal(objective: string): Goal {
     inputs: {},
     outputs: [],
     schedule: null,
+    nextRunAt: null,
+    lastRunAt: null,
     status: "CREATED",
     metadata: {},
     createdAt: now,

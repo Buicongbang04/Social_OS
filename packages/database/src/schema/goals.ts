@@ -1,4 +1,11 @@
-import { index, jsonb, pgTable, text, varchar } from "drizzle-orm/pg-core";
+import {
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { goalPriorityEnum, goalStatusEnum, goalTypeEnum } from "./_enums";
 import {
   auditColumns,
@@ -40,6 +47,17 @@ export const goals = pgTable(
     outputs: jsonb("outputs").notNull().default([]),
     /** { cron, timezone } or null for a one-off Goal. */
     schedule: jsonb("schedule"),
+    /**
+     * When this Goal is next due to fire. Null for a one-off Goal, and null
+     * once a recurring one is archived.
+     *
+     * Stored rather than derived so "what is due now" is an indexed range scan
+     * instead of parsing every cron expression in the table on every tick.
+     * It doubles as the concurrency token: firing compares-and-swaps on this
+     * value, so two runtime nodes cannot both claim the same occurrence.
+     */
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
 
     ...auditColumns,
     ...softDeleteColumns,
@@ -49,5 +67,7 @@ export const goals = pgTable(
     // Every list query is workspace-scoped, so this is the index that matters.
     index("goals_workspace_idx").on(table.workspaceId, table.status),
     index("goals_owner_idx").on(table.ownerId),
+    // The scheduler's only query: due, and not deleted.
+    index("goals_next_run_idx").on(table.nextRunAt),
   ],
 );

@@ -27,5 +27,6 @@ export * from "./planning/dag";
 export * from "./planning/template-planner";
 export * from "./engine/enqueue";
 export * from "./policy/approval";
+export * from "./schedule/cron";
 export * from "./policy/approval-gate";
 export * from "./policy/budget-policy";

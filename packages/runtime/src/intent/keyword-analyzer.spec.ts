@@ -20,6 +20,8 @@ function goal(objective: string, overrides: Partial<Goal> = {}): Goal {
     inputs: {},
     outputs: [],
     schedule: null,
+    nextRunAt: null,
+    lastRunAt: null,
     status: "CREATED",
     metadata: {},
     createdAt: new Date(),

@@ -1,4 +1,15 @@
-import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  ne,
+  sql,
+} from "drizzle-orm";
 import type {
   CursorPage,
   CursorPageQuery,
@@ -7,6 +18,7 @@ import type {
   WorkspaceId,
 } from "@repo/core";
 import { MAX_PAGE_LIMIT, newId } from "@repo/core";
+import { nextRunAfter } from "@repo/runtime";
 import type {
   CreateGoalInput,
   ExpectedOutput,
@@ -35,6 +47,8 @@ function toEntity(row: GoalRow): Goal {
     inputs: row.inputs as Record<string, unknown>,
     outputs: row.outputs as ExpectedOutput[],
     schedule: (row.schedule as GoalSchedule | null) ?? null,
+    nextRunAt: row.nextRunAt,
+    lastRunAt: row.lastRunAt,
     status: row.status,
     metadata: row.metadata as Record<string, unknown>,
     createdAt: row.createdAt,
@@ -47,6 +61,61 @@ function toEntity(row: GoalRow): Goal {
 
 export class DrizzleGoalRepository implements GoalRepository {
   constructor(private readonly db: DatabaseClient) {}
+
+  /** Due, recurring, and not archived or deleted. */
+  async listDueSchedules(now: Date, limit: number): Promise<readonly Goal[]> {
+    const rows = await this.db
+      .select()
+      .from(goals)
+      .where(
+        and(
+          lte(goals.nextRunAt, now),
+          isNotNull(goals.nextRunAt),
+          isNull(goals.deletedAt),
+          ne(goals.status, "ARCHIVED"),
+        ),
+      )
+      .orderBy(asc(goals.nextRunAt))
+      .limit(limit);
+
+    return rows.map(toEntity);
+  }
+
+  /**
+   * Compare-and-swap on nextRunAt. Returns null when another node already
+   * claimed this occurrence — which is the whole point: the scheduler lock
+   * reduces contention, this is what makes a firing exactly-once.
+   */
+  async claimSchedule(input: {
+    id: GoalId;
+    expectedNextRunAt: Date;
+    nextRunAt: Date | null;
+    firedAt: Date;
+  }): Promise<Goal | null> {
+    const rows = await this.db
+      .update(goals)
+      .set({
+        nextRunAt: input.nextRunAt,
+        lastRunAt: input.firedAt,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(goals.id, input.id),
+          eq(goals.nextRunAt, input.expectedNextRunAt),
+        ),
+      )
+      .returning();
+
+    return rows[0] ? toEntity(rows[0]) : null;
+  }
+
+  async setNextRunAt(id: GoalId, nextRunAt: Date | null): Promise<void> {
+    await this.db
+      .update(goals)
+      .set({ nextRunAt, updatedAt: new Date() })
+      .where(eq(goals.id, id));
+  }
 
   async create(input: CreateGoalInput): Promise<Goal> {
     const rows = await this.db
@@ -64,6 +133,12 @@ export class DrizzleGoalRepository implements GoalRepository {
         inputs: input.inputs ?? {},
         outputs: input.outputs ?? [],
         schedule: input.schedule ?? null,
+        // Computed on insert so the scheduler's due query is a plain range
+        // scan. A recurring Goal with no nextRunAt would simply never fire —
+        // the exact silence this whole feature exists to remove.
+        nextRunAt: input.schedule
+          ? nextRunAfter(input.schedule, new Date())
+          : null,
         status: "CREATED",
         metadata: input.metadata ?? {},
         createdBy: input.ownerId,
