@@ -3,6 +3,7 @@ import {
   asc,
   desc,
   eq,
+  inArray,
   isNotNull,
   isNull,
   lt,
@@ -18,7 +19,7 @@ import type {
   WorkspaceId,
 } from "@repo/core";
 import { MAX_PAGE_LIMIT, newId } from "@repo/core";
-import { nextRunAfter } from "@repo/runtime";
+import { canTransitionGoal, GOAL_STATUSES, nextRunAfter } from "@repo/runtime";
 import type {
   CreateGoalInput,
   ExpectedOutput,
@@ -171,6 +172,57 @@ export class DrizzleGoalRepository implements GoalRepository {
       .from(goals)
       .where(and(eq(goals.id, id), isNull(goals.deletedAt)))
       .limit(1);
+
+    return rows[0] ? toEntity(rows[0]) : null;
+  }
+
+  /**
+   * Stop a Goal from ever running again.
+   *
+   * One statement, because the two halves must not be separable: clearing
+   * `nextRunAt` is what stops the firing, and it happens whatever the status
+   * is. The status only moves to ARCHIVED when the state machine allows it —
+   * a Goal in the middle of a run cannot, and its Execution has to finish —
+   * so `case when` rather than a second UPDATE that could fail on its own and
+   * leave a Goal that says ARCHIVED but is still scheduled, or the reverse.
+   *
+   * Scoped by membership through a subquery rather than a join: Postgres does
+   * not allow a joined table in an UPDATE's WHERE the way a SELECT does, and
+   * an UPDATE without the scope is one that archives another tenant's Goal.
+   */
+  async archive(id: GoalId, userId: UserId): Promise<Goal | null> {
+    const archivable = GOAL_STATUSES.filter((status) =>
+      canTransitionGoal(status, "ARCHIVED"),
+    );
+
+    const rows = await this.db
+      .update(goals)
+      .set({
+        nextRunAt: null,
+        status: sql`case when ${goals.status} in ${archivable} then 'ARCHIVED'::goal_status else ${goals.status} end`,
+        updatedBy: userId,
+        updatedAt: new Date(),
+        version: sql`${goals.version} + 1`,
+      })
+      .where(
+        and(
+          eq(goals.id, id),
+          isNull(goals.deletedAt),
+          inArray(
+            goals.workspaceId,
+            this.db
+              .select({ id: workspaceMemberships.workspaceId })
+              .from(workspaceMemberships)
+              .where(
+                and(
+                  eq(workspaceMemberships.userId, userId),
+                  eq(workspaceMemberships.status, "ACTIVE"),
+                ),
+              ),
+          ),
+        ),
+      )
+      .returning();
 
     return rows[0] ? toEntity(rows[0]) : null;
   }

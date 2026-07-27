@@ -74,6 +74,15 @@ export type Goal = {
   constraints: Record<string, unknown>;
   status: GoalStatus;
   schedule: { cron: string; timezone: string } | null;
+  /**
+   * When this recurring Goal next fires, or null.
+   *
+   * Null is the only thing that proves a Goal was actually stopped: the status
+   * says ARCHIVED, but a Goal caught mid-run keeps its status until that run
+   * finishes, and the schedule is cleared either way.
+   */
+  nextRunAt: string | null;
+  lastRunAt: string | null;
   createdAt: string;
 };
 

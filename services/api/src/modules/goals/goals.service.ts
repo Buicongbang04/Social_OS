@@ -79,6 +79,25 @@ export class GoalsService {
     return goal;
   }
 
+  /**
+   * Stop a Goal from running again.
+   *
+   * The gap this fills: a recurring Goal could be created and never turned
+   * off. Someone who set up "post every morning at 8" had no way to stop it
+   * short of editing the database by hand — and the verification script that
+   * creates a Goal firing every minute left one running on every machine it
+   * touched.
+   */
+  async archiveGoal(id: GoalId, userId: UserId): Promise<Goal> {
+    const archived = await this.goals.archive(id, userId);
+    if (!archived) {
+      // 404 rather than 403, like every other read here: whether a Goal exists
+      // in another tenant is not this caller's business.
+      throw new NotFoundError("Goal not found.", "GOAL_NOT_FOUND");
+    }
+    return archived;
+  }
+
   async listGoals(
     workspaceId: WorkspaceId,
     userId: UserId,

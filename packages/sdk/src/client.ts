@@ -179,6 +179,18 @@ export class ApiClient {
   }
 
   /** Accepted, not finished — the runtime plans and runs it asynchronously. */
+  /**
+   * Stop a Goal from running again.
+   *
+   * The row stays — an archived Goal keeps its history — but its schedule is
+   * cleared, so a recurring Goal fires no more.
+   */
+  async archiveGoal(goalId: string): Promise<Goal> {
+    return this.request<Goal>("DELETE", `/goals/${goalId}`, {
+      workspaceScoped: true,
+    });
+  }
+
   async submitGoal(goalId: string): Promise<Execution> {
     return this.request<Execution>("POST", `/goals/${goalId}/executions`, {
       workspaceScoped: true,

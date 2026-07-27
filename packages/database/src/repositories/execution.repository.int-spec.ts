@@ -144,6 +144,74 @@ describe.skipIf(!DATABASE_URL)("runtime repositories (integration)", () => {
     expect(found?.status).toBe("CREATED");
   });
 
+  it("stops a recurring goal from ever firing again", async () => {
+    // The gap this closes: a Goal set to "every morning at 8" could be created
+    // and never turned off. The verification script's every-minute Goal made
+    // that visible by leaving one running on every machine it touched.
+    const created = await goals.create({
+      workspaceId,
+      ownerId: userId,
+      title: "Daily posts",
+      objective: "Mỗi sáng viết bài",
+      schedule: { cron: "* * * * *", timezone: "UTC" },
+    });
+    await goals.setNextRunAt(created.id, new Date(Date.now() - 1_000));
+
+    expect(
+      (await goals.listDueSchedules(new Date(), 10)).map((g) => g.id),
+    ).toContain(created.id);
+
+    const archived = await goals.archive(created.id, userId);
+
+    expect(archived?.status).toBe("ARCHIVED");
+    expect(archived?.nextRunAt).toBeNull();
+    expect(
+      (await goals.listDueSchedules(new Date(), 10)).map((g) => g.id),
+    ).not.toContain(created.id);
+  });
+
+  it("clears the schedule even when the status cannot move yet", async () => {
+    // A Goal in the middle of a run cannot become ARCHIVED — the state machine
+    // forbids it and the in-flight Execution has to finish. "Stop this" still
+    // has to mean stopped, so the schedule is cleared regardless.
+    const created = await goals.create({
+      workspaceId,
+      ownerId: userId,
+      title: "Đang chạy",
+      objective: "Mỗi phút viết bài",
+      schedule: { cron: "* * * * *", timezone: "UTC" },
+    });
+    await goals.setNextRunAt(created.id, new Date(Date.now() - 1_000));
+    const validated = await goals.updateStatus(created.id, "VALIDATED", 1);
+    const planned = await goals.updateStatus(
+      created.id,
+      "PLANNED",
+      validated!.version,
+    );
+    await goals.updateStatus(created.id, "EXECUTING", planned!.version);
+
+    const archived = await goals.archive(created.id, userId);
+
+    expect(archived?.status).toBe("EXECUTING");
+    expect(archived?.nextRunAt).toBeNull();
+    expect(
+      (await goals.listDueSchedules(new Date(), 10)).map((g) => g.id),
+    ).not.toContain(created.id);
+  });
+
+  it("will not let an outsider archive a goal", async () => {
+    const created = await goals.create({
+      workspaceId,
+      ownerId: userId,
+      title: "Riêng tư",
+      objective: "Mỗi sáng viết bài",
+      schedule: { cron: "* * * * *", timezone: "UTC" },
+    });
+
+    expect(await goals.archive(created.id, outsiderId)).toBeNull();
+    expect((await goals.findById(created.id))?.status).toBe("CREATED");
+  });
+
   it("hides another tenant's goal", async () => {
     const created = await goals.create({
       workspaceId,

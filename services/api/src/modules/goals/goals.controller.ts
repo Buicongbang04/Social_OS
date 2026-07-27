@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -70,6 +71,19 @@ export class GoalsController {
         query,
       ),
     );
+  }
+
+  /**
+   * Stop a Goal. DELETE because that is what a client means by it, though the
+   * row stays: an archived Goal keeps its history and its past runs.
+   */
+  @RequirePermission("workspace.workflow.delete")
+  @Delete(":id")
+  async archive(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.goals.archiveGoal(parseRouteId("goal", id), user.userId);
   }
 
   @RequirePermission("workspace.workflow.read")

@@ -96,6 +96,57 @@ describe.skipIf(!hasInfra)("runtime API (integration)", () => {
     expect(response.body.data.schedule.cron).toBe("0 8 * * *");
   });
 
+  it("stops a recurring goal when it is archived", async () => {
+    // A Goal that could be created and never turned off. Before this route
+    // existed the only way to stop "post every morning" was to edit the
+    // database by hand.
+    const created = await testApp
+      .http()
+      .post("/api/v1/goals")
+      .set(auth(alice, aliceWorkspace))
+      .send({
+        title: "Mỗi phút",
+        objective: "Viết bài rồi đăng lên facebook",
+        schedule: { cron: "* * * * *", timezone: "UTC" },
+      })
+      .expect(201);
+
+    const archived = await testApp
+      .http()
+      .delete(`/api/v1/goals/${created.body.data.id}`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(200);
+
+    // nextRunAt, not the status, is what proves it stopped: a Goal caught
+    // mid-run keeps its status until that run finishes.
+    expect(archived.body.data.nextRunAt).toBeNull();
+    expect(archived.body.data.status).toBe("ARCHIVED");
+  });
+
+  it("does not let another workspace archive a goal", async () => {
+    const created = await testApp
+      .http()
+      .post("/api/v1/goals")
+      .set(auth(alice, aliceWorkspace))
+      .send({ title: "Riêng tư", objective: OBJECTIVE })
+      .expect(201);
+
+    await testApp
+      .http()
+      .delete(`/api/v1/goals/${created.body.data.id}`)
+      .set(auth(bob, bobWorkspace))
+      .expect(404);
+
+    await testApp
+      .http()
+      .get(`/api/v1/goals/${created.body.data.id}`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.data.status).toBe("CREATED");
+      });
+  });
+
   it("rejects a malformed goal with per-field detail", async () => {
     const response = await testApp
       .http()

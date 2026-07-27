@@ -393,22 +393,35 @@ async function scheduledRun(client: ApiClient): Promise<void> {
   const before = await client.listExecutions();
   const known = new Set(before.map((run) => run.id));
 
-  await client.createGoal({
+  const goal = await client.createGoal({
     title: "verify-stack schedule",
     objective: "Viết bài rồi đăng lên facebook",
     schedule: { cron: "* * * * *", timezone: "UTC" },
   });
 
-  const appeared = await poll(async () => {
-    const runs = await client.listExecutions();
-    return runs.find((run) => !known.has(run.id)) ?? null;
-  }, SCHEDULE_TIMEOUT_MS);
+  try {
+    const appeared = await poll(async () => {
+      const runs = await client.listExecutions();
+      return runs.find((run) => !known.has(run.id)) ?? null;
+    }, SCHEDULE_TIMEOUT_MS);
 
-  check(
-    "lịch tự tạo một lần chạy",
-    appeared !== null,
-    appeared?.id ?? `không thấy sau ${SCHEDULE_TIMEOUT_MS / 1000}s`,
-  );
+    check(
+      "lịch tự tạo một lần chạy",
+      appeared !== null,
+      appeared?.id ?? `không thấy sau ${SCHEDULE_TIMEOUT_MS / 1000}s`,
+    );
+  } finally {
+    // In `finally` because it has to happen even when the check above fails or
+    // throws. This Goal fires every minute for ever, and every run of this
+    // script used to leave one behind — on a machine with a local model, a few
+    // runs of it are enough to starve everything else.
+    const archived = await client.archiveGoal(goal.id);
+    check(
+      "dọn lịch sau khi kiểm tra xong",
+      archived.nextRunAt === null,
+      archived.status,
+    );
+  }
 }
 
 // --- helpers ---------------------------------------------------------------
