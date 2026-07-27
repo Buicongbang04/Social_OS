@@ -148,33 +148,38 @@ function deniedError(required: PermissionKey): ForbiddenError {
  * happened to be found first.
  */
 function resolveWorkspaceId(request: Request): WorkspaceId {
-  const candidate =
-    paramValue(request, "workspaceId") ??
-    paramValue(request, "id") ??
-    request.header(WORKSPACE_ID_HEADER);
+  // `:id` is only the workspace on workspace routes; on /goals/:id it is a
+  // goal. Taking the first candidate that actually parses as a workspace id
+  // lets both shapes work without the guard knowing the route.
+  const candidates = [
+    paramValue(request, "workspaceId"),
+    paramValue(request, "id"),
+    request.header(WORKSPACE_ID_HEADER),
+  ];
 
-  if (!candidate || !isId("workspace", candidate)) {
-    throw new ValidationError(
-      `A workspace id is required, via the route or the ${WORKSPACE_ID_HEADER} header.`,
-    );
+  for (const candidate of candidates) {
+    if (candidate && isId("workspace", candidate)) return candidate;
   }
 
-  return candidate;
+  throw new ValidationError(
+    `A workspace id is required, via the route or the ${WORKSPACE_ID_HEADER} header.`,
+  );
 }
 
 function resolveOrganizationId(request: Request): OrganizationId {
-  const candidate =
-    paramValue(request, "organizationId") ??
-    paramValue(request, "id") ??
-    request.header(ORGANIZATION_ID_HEADER);
+  const candidates = [
+    paramValue(request, "organizationId"),
+    paramValue(request, "id"),
+    request.header(ORGANIZATION_ID_HEADER),
+  ];
 
-  if (!candidate || !isId("organization", candidate)) {
-    throw new ValidationError(
-      `An organization id is required, via the route or the ${ORGANIZATION_ID_HEADER} header.`,
-    );
+  for (const candidate of candidates) {
+    if (candidate && isId("organization", candidate)) return candidate;
   }
 
-  return candidate;
+  throw new ValidationError(
+    `An organization id is required, via the route or the ${ORGANIZATION_ID_HEADER} header.`,
+  );
 }
 
 function paramValue(request: Request, name: string): string | undefined {

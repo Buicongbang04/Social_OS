@@ -9,13 +9,14 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import { assertId, toPagedEnvelope } from "@repo/core";
+import { toPagedEnvelope } from "@repo/core";
 import {
   AuthenticatedOnly,
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
+import { parseRouteId } from "../../common/parse-id";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { listQuerySchema, type ListQuery } from "../workspaces/workspaces.dto";
 import {
@@ -58,7 +59,7 @@ export class OrganizationsController {
   @Get(":id")
   async get(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.organizations.getForUser(
-      assertId("organization", id),
+      parseRouteId("organization", id),
       user.userId,
     );
   }
@@ -72,7 +73,7 @@ export class OrganizationsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.organizations.update(
-      assertId("organization", id),
+      parseRouteId("organization", id),
       body,
       user.userId,
     );

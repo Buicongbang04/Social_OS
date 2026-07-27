@@ -411,6 +411,9 @@ importers:
       "@repo/logger":
         specifier: workspace:*
         version: link:../../packages/logger
+      "@repo/runtime":
+        specifier: workspace:*
+        version: link:../../packages/runtime
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1

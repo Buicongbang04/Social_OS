@@ -10,13 +10,14 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import { assertId, toPagedEnvelope } from "@repo/core";
+import { toPagedEnvelope } from "@repo/core";
 import {
   AuthenticatedOnly,
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
+import { parseRouteId } from "../../common/parse-id";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import {
   addMemberSchema,
@@ -68,7 +69,10 @@ export class WorkspacesController {
   @RequirePermission("workspace.workspace.read")
   @Get(":id")
   async get(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.workspaces.getForUser(assertId("workspace", id), user.userId);
+    return this.workspaces.getForUser(
+      parseRouteId("workspace", id),
+      user.userId,
+    );
   }
 
   @RequirePermission("workspace.workspace.update")
@@ -79,7 +83,11 @@ export class WorkspacesController {
     body: UpdateWorkspaceBody,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.workspaces.update(assertId("workspace", id), body, user.userId);
+    return this.workspaces.update(
+      parseRouteId("workspace", id),
+      body,
+      user.userId,
+    );
   }
 
   @RequirePermission("workspace.workspace.delete")
@@ -92,7 +100,7 @@ export class WorkspacesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.workspaces.remove(
-      assertId("workspace", id),
+      parseRouteId("workspace", id),
       query.version,
       user.userId,
     );
@@ -107,7 +115,7 @@ export class WorkspacesController {
   ) {
     return toPagedEnvelope(
       await this.workspaces.listMembers(
-        assertId("workspace", workspaceId),
+        parseRouteId("workspace", workspaceId),
         user.userId,
         query,
       ),
@@ -123,7 +131,7 @@ export class WorkspacesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.workspaces.addMember(
-      assertId("workspace", workspaceId),
+      parseRouteId("workspace", workspaceId),
       body,
       user.userId,
     );
@@ -138,8 +146,8 @@ export class WorkspacesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.workspaces.removeMember(
-      assertId("workspace", workspaceId),
-      assertId("user", userId),
+      parseRouteId("workspace", workspaceId),
+      parseRouteId("user", userId),
       user.userId,
     );
   }

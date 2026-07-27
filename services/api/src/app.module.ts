@@ -18,6 +18,7 @@ import { DatabaseModule } from "./infra/database/database.module";
 import { RedisModule } from "./infra/redis/redis.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AuthorizationModule } from "./modules/authorization/authorization.module";
+import { GoalsModule } from "./modules/goals/goals.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { UsersModule } from "./modules/users/users.module";
 import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
@@ -51,6 +52,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     UsersModule,
     OrganizationsModule,
     WorkspacesModule,
+    GoalsModule,
   ],
   controllers: [HealthController],
   providers: [

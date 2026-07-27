@@ -1,6 +1,12 @@
 import { createLogger, withCorrelation } from "@repo/logger";
 import type { SchedulerLock } from "@repo/runtime";
-import type { EngineEvent, ExecutionEngine, TaskQueue } from "@repo/runtime";
+import type {
+  EngineEvent,
+  ExecutionEngine,
+  ExecutionRepository,
+  GoalRepository,
+  TaskQueue,
+} from "@repo/runtime";
 import type { EventPublisher } from "@repo/event";
 import { createEvent, isRuntimeEventType, redactPayload } from "@repo/event";
 import type { ExecutionId, TaskId, WorkspaceId } from "@repo/core";
@@ -46,6 +52,15 @@ export class Scheduler {
     private readonly lock: SchedulerLock,
     private readonly events: EventPublisher,
     options: SchedulerOptions = {},
+    /**
+     * Optional so the engine can be driven manually in tests. In production
+     * these are supplied so the scheduler also picks up newly submitted
+     * Executions.
+     */
+    private readonly preparation?: {
+      executions: ExecutionRepository;
+      goals: GoalRepository;
+    },
   ) {
     this.options = { ...DEFAULTS, ...options };
   }
@@ -76,6 +91,10 @@ export class Scheduler {
   async tick(): Promise<boolean> {
     await this.recoverExpiredReservations();
 
+    // Plan anything the API submitted since the last tick, so queued work
+    // exists to claim below.
+    const prepared = await this.prepareNewExecutions();
+
     const claimed = await this.lock.acquire(
       DISPATCH_LOCK,
       this.options.lockTtlMs,
@@ -95,10 +114,46 @@ export class Scheduler {
       await this.lock.release(DISPATCH_LOCK);
     }
 
-    if (tasks.length === 0) return false;
+    if (tasks.length === 0) return prepared;
 
     for (const queued of tasks) {
       await this.runOne(queued.taskId, queued.executionId, queued.workspaceId);
+    }
+
+    return true;
+  }
+
+  /**
+   * Turn newly submitted Executions into queued work.
+   *
+   * The API writes a CREATED row and returns immediately; planning happens
+   * here because from Phase 2 it involves an LLM call, and an HTTP request
+   * must not block on that.
+   */
+  private async prepareNewExecutions(): Promise<boolean> {
+    if (!this.preparation) return false;
+
+    const pending = await this.preparation.executions.listPendingPreparation(
+      this.options.batchSize,
+    );
+    if (pending.length === 0) return false;
+
+    for (const execution of pending) {
+      const goal = await this.preparation.goals.findByIdForUser(
+        execution.goalId,
+        execution.ownerId,
+      );
+
+      if (!goal) {
+        logger.error(
+          { executionId: execution.id, goalId: execution.goalId },
+          "execution references a goal that no longer exists",
+        );
+        continue;
+      }
+
+      const events = await this.engine.prepare(execution, goal);
+      await this.publish(events, execution.workspaceId, execution.id);
     }
 
     return true;

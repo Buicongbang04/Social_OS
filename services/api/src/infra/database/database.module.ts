@@ -1,6 +1,9 @@
 import { Global, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
 import {
+  DrizzleExecutionRepository,
+  DrizzleGoalRepository,
+  DrizzleTaskRepository,
   DrizzleOrganizationMembershipRepository,
   DrizzleOrganizationRepository,
   DrizzleSessionRepository,
@@ -30,6 +33,9 @@ export const ORGANIZATION_MEMBERSHIP_REPOSITORY = Symbol(
   "ORGANIZATION_MEMBERSHIP_REPOSITORY",
 );
 export const SESSION_REPOSITORY = Symbol("SESSION_REPOSITORY");
+export const GOAL_REPOSITORY = Symbol("GOAL_REPOSITORY");
+export const EXECUTION_REPOSITORY = Symbol("EXECUTION_REPOSITORY");
+export const TASK_REPOSITORY = Symbol("TASK_REPOSITORY");
 
 @Global()
 @Module({
@@ -75,6 +81,21 @@ export const SESSION_REPOSITORY = Symbol("SESSION_REPOSITORY");
       inject: [DATABASE_CLIENT],
       useFactory: (db: DatabaseClient) => new DrizzleSessionRepository(db),
     },
+    {
+      provide: GOAL_REPOSITORY,
+      inject: [DATABASE_CLIENT],
+      useFactory: (db: DatabaseClient) => new DrizzleGoalRepository(db),
+    },
+    {
+      provide: EXECUTION_REPOSITORY,
+      inject: [DATABASE_CLIENT],
+      useFactory: (db: DatabaseClient) => new DrizzleExecutionRepository(db),
+    },
+    {
+      provide: TASK_REPOSITORY,
+      inject: [DATABASE_CLIENT],
+      useFactory: (db: DatabaseClient) => new DrizzleTaskRepository(db),
+    },
   ],
   exports: [
     DATABASE_CLIENT,
@@ -84,6 +105,9 @@ export const SESSION_REPOSITORY = Symbol("SESSION_REPOSITORY");
     WORKSPACE_MEMBERSHIP_REPOSITORY,
     ORGANIZATION_MEMBERSHIP_REPOSITORY,
     SESSION_REPOSITORY,
+    GOAL_REPOSITORY,
+    EXECUTION_REPOSITORY,
+    TASK_REPOSITORY,
   ],
 })
 export class DatabaseModule implements OnApplicationShutdown {

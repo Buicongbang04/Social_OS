@@ -75,6 +75,16 @@ export interface ExecutionRepository {
 
   /** Executions the scheduler still has work to do on. */
   listActive(limit: number): Promise<readonly Execution[]>;
+
+  /**
+   * Executions submitted but not yet planned.
+   *
+   * The API only writes a CREATED row; planning happens here because it will
+   * involve an LLM call from Phase 2 onward, and an HTTP request must not
+   * block on that. Keeping it asynchronous now avoids reworking the boundary
+   * later.
+   */
+  listPendingPreparation(limit: number): Promise<readonly Execution[]>;
 }
 
 export interface TaskRepository {

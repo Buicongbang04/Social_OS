@@ -44,9 +44,12 @@ async function main(): Promise<void> {
 
   const queue = new RedisTaskQueue(redis);
 
+  const goals = new DrizzleGoalRepository(db);
+  const executionRepository = new DrizzleExecutionRepository(db);
+
   const engine = new ExecutionEngine({
-    goals: new DrizzleGoalRepository(db),
-    executions: new DrizzleExecutionRepository(db),
+    goals,
+    executions: executionRepository,
     tasks: new DrizzleTaskRepository(db),
     queue,
     intentAnalyzer: new KeywordIntentAnalyzer(),
@@ -60,6 +63,9 @@ async function main(): Promise<void> {
     queue,
     new RedisSchedulerLock(redis),
     new InMemoryEventBus(),
+    {},
+    // Lets the scheduler also pick up Executions the API has submitted.
+    { executions: executionRepository, goals },
   );
 
   const shutdown = async (signal: string): Promise<void> => {

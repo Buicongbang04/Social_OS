@@ -221,6 +221,18 @@ export class DrizzleExecutionRepository implements ExecutionRepository {
     return rows[0] ? toEntity(rows[0]) : null;
   }
 
+  async listPendingPreparation(limit: number): Promise<readonly Execution[]> {
+    const rows = await this.db
+      .select()
+      .from(executions)
+      .where(eq(executions.status, "CREATED"))
+      // Oldest first: whoever submitted first gets planned first.
+      .orderBy(executions.id)
+      .limit(Math.min(limit, MAX_PAGE_LIMIT));
+
+    return rows.map(toEntity);
+  }
+
   async listActive(limit: number): Promise<readonly Execution[]> {
     const rows = await this.db
       .select()
