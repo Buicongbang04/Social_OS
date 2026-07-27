@@ -961,16 +961,13 @@ chạy bù sẽ đăng ba ngày bài trong một phút.
 
 ## 13. Đã cài nhưng chưa dùng
 
-Các dịch vụ sau có trong `docker-compose` và đang chạy, nhưng **chưa có dòng code
-nào gọi tới**:
+Không còn dịch vụ nào trong `docker-compose` ở trạng thái này. Qdrant `:6333`
+đã được `packages/knowledge` dùng (mục 7) và MinIO `:9000` được
+`packages/storage` dùng (mục 8).
 
-Không còn dịch vụ nào trong `docker-compose` ở trạng thái này: Qdrant `:6333`
-đã được dùng từ `packages/knowledge` (mục 7) và MinIO `:9000` từ
-`packages/storage` (mục 8).
-
-Các package sau mới chỉ có README, chưa có mã: `packages/storage`,
-`packages/plugin`, `packages/integration`. Các app `admin`, `docs`, `landing`,
-`playground` cũng vậy.
+Các package sau mới chỉ có README, chưa có mã: `packages/plugin`,
+`packages/integration`. Các app `admin`, `docs`, `landing`, `playground` cũng
+vậy.
 
 (`packages/config` không có thư mục `src` nhưng **đang được dùng** — nó chứa các
 preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
