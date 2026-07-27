@@ -43,6 +43,17 @@ export type CapabilityDescriptor = {
    * around the wrong step. Say what it acts on and what it does not.
    */
   description?: string;
+  /**
+   * Hidden from the Planner, but still executable when named directly.
+   *
+   * For capabilities that exist to exercise the runtime rather than to do
+   * anything for a user — a deliberately flaky step, a step that always fails.
+   * They have to stay registered so an integration test can name one, and they
+   * must never appear in the menu the Planner chooses from: a model offered
+   * "Flaky Once" alongside "Generate Content" will eventually pick it, and it
+   * has.
+   */
+  internal?: boolean;
   /** Semver. Lets a plan pin behaviour across a capability upgrade. */
   version: string;
   category: string;

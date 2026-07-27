@@ -32,6 +32,25 @@ trước khi chạy runtime:
 AI_PROVIDER=ollama AI_MODEL=qwen2.5:7b pnpm --filter @repo/runtime-service dev
 ```
 
+## Tài liệu
+
+Ô tải file ở giữa trang. Tải lên `.txt`, `.md`, `.csv` hoặc `.json`, rồi viết
+một Goal hỏi về nội dung trong đó — bước `knowledge.search` sẽ tra tài liệu
+thật thay vì để model tự nghĩ ra.
+
+Trạng thái của từng tài liệu luôn hiện trên màn hình, vì đó là câu trả lời
+trung thực cho "hỏi được chưa": file được **lưu** trước, **tìm được** sau. Một
+danh sách chỉ hiện tên file sẽ khiến người ta tải lên một chính sách, hỏi ngay
+một giây sau, không thấy gì, và kết luận là tìm kiếm hỏng.
+
+Cần MinIO và Qdrant (`pnpm docker:up`) cùng một AI provider. Thiếu bất cứ thứ
+gì trong ba cái đó thì runtime vẫn khởi động nhưng **nói rõ knowledge bị tắt**
+trong log lúc start, và tài liệu sẽ nằm mãi ở `PENDING`.
+
+PDF và Word chưa nhận: chúng cần một bước bóc tách chữ chưa làm, và lưu chúng
+bây giờ sẽ tạo ra tài liệu kẹt ở `PENDING` vĩnh viễn — trông như lỗi chứ không
+phải như tính năng còn thiếu.
+
 ## Vì sao cổng 3200
 
 Cùng lý do Postgres ở 5433 và API ở 3100: stack này phải sống chung với những
@@ -55,6 +74,18 @@ pnpm --filter @repo/runtime-service verify:stack
 Chạy toàn bộ luồng **chỉ qua API công khai**, đúng như trình duyệt: đăng ký,
 gửi Goal, chờ chạy xong, thử cổng duyệt, thử chặn ngân sách, và chờ một Goal
 theo lịch tự bắn. Không đụng repository, không đụng database.
+
+Model chạy cục bộ (Ollama trên CPU) mất vài phút cho mỗi lời gọi, nên mặc định
+300 giây một lần chạy là không đủ. Nâng lên:
+
+```sh
+VERIFY_RUN_TIMEOUT_MS=900000 pnpm --filter @repo/runtime-service verify:stack
+```
+
+Có cả luồng tài liệu: tải một file tên tiếng Việt lên, chờ runtime tự lập chỉ
+mục, tải về bằng link ký sẵn, rồi chạy một Goal phải đọc tài liệu mới trả lời
+đúng. Kiểm tra khẳng định trên **đoạn được tìm ra**, không phải trên bài viết
+— bài viết thì mỗi lần một khác, còn việc tìm đúng đoạn thì không.
 
 Đây không phải test thừa. Có một lỗi khiến Goal theo lịch **không bao giờ chạy**
 mà toàn bộ 39 test tích hợp — dù chạy trên Postgres và Redis thật — vẫn xanh,

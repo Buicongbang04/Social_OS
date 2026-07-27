@@ -67,6 +67,23 @@ export interface GoalRepository {
 
   /** Set the first occurrence when a recurring Goal is created. */
   setNextRunAt(id: GoalId, nextRunAt: Date | null): Promise<void>;
+
+  /**
+   * Stop a Goal from ever running again.
+   *
+   * Membership-scoped, so a foreign Goal resolves to null rather than being
+   * archived by whoever guessed its id.
+   *
+   * Both halves matter and they answer different questions. Clearing
+   * `nextRunAt` is what actually stops the firing; moving the status to
+   * ARCHIVED is what says the Goal is over rather than merely idle. A Goal
+   * mid-run cannot become ARCHIVED — the state machine forbids it, and the
+   * in-flight Execution has to finish — but its schedule is cleared anyway, so
+   * "stop this" always means stopped even when the bookkeeping has to wait.
+   *
+   * Returns null when there is no such Goal for this user.
+   */
+  archive(id: GoalId, userId: UserId): Promise<Goal | null>;
 }
 
 export interface ExecutionRepository {

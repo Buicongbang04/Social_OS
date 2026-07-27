@@ -87,7 +87,12 @@ export class LlmPlanner implements Planner {
     intents: readonly Intent[];
   }): Promise<ExecutionPlan> {
     const { execution, goal, intents } = input;
-    const available = this.options.capabilities.list();
+    // Internal capabilities are registered but never offered: they exist to
+    // exercise the runtime, and a model given "Flaky Once" next to "Generate
+    // Content" will eventually choose it — which it did, in a real plan.
+    const available = this.options.capabilities
+      .list()
+      .filter((capability) => !capability.internal);
 
     if (available.length === 0) {
       throw new RuntimeError(
