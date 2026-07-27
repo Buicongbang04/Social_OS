@@ -5,18 +5,27 @@
   "description": "Framework-agnostic utility functions shared across apps/packages/services — see docs/06_MONOREPO_STRUCTURE.md#packages",
   "license": "UNLICENSED",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
     "eslint": "^9.15.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
-  }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
 }

@@ -1,8 +1,8 @@
 {
-  "name": "@repo/testing",
+  "name": "@repo/domain",
   "private": true,
   "version": "0.0.0",
-  "description": "Shared test fixtures/mocks/helpers — see docs/development/05_TESTING_STRATEGY.md",
+  "description": "Business domain: entities, enums, permission catalog, role matrices and repository ports — see docs/03_DOMAIN_MODEL.md",
   "license": "UNLICENSED",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,10 +10,11 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@faker-js/faker": "^9.3.0"
+    "@repo/core": "workspace:*"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",

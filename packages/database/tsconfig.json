@@ -1,0 +1,6 @@
+{
+  // Typecheck-only (--noEmit), so no rootDir: this config also covers
+  // drizzle.config.ts, which sits outside src/.
+  "extends": "@repo/config/tsconfig/library.json",
+  "include": ["src/**/*", "drizzle.config.ts"]
+}

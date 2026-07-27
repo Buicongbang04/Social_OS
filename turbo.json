@@ -6,6 +6,7 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
@@ -18,6 +19,10 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
+    },
+    "test:int": {
+      "dependsOn": ["^build"],
+      "cache": false
     },
     "clean": {
       "cache": false

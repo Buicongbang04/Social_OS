@@ -76,14 +76,14 @@ flowchart LR
 
 Đây là tập công nghệ Data/Infrastructure tối thiểu để triển khai Foundation (Phase 0) → AI Runtime (Phase 1) → AI Platform (Phase 2) theo docs/ROADMAP.md. Không cần dựng thêm hạ tầng nào khác ngoài danh sách này để bắt đầu.
 
-| Layer | Technology | Ghi chú |
-|-------|------------|---------|
-| Database (OLTP) | PostgreSQL | Xem mục Database |
-| Cache | Redis | Xem mục Cache |
-| Object Storage | MinIO / S3 | Xem mục Object Storage |
-| Vector Database | Qdrant | Cần sớm cho RAG/Knowledge (Phase 2) — Xem mục Vector Database |
-| Backend Framework | Node.js + NestJS | Giữ nguyên — xem mục Backend |
-| Frontend Framework | Next.js + React | Giữ nguyên — xem mục Frontend |
+| Layer              | Technology       | Ghi chú                                                       |
+| ------------------ | ---------------- | ------------------------------------------------------------- |
+| Database (OLTP)    | PostgreSQL       | Xem mục Database                                              |
+| Cache              | Redis            | Xem mục Cache                                                 |
+| Object Storage     | MinIO / S3       | Xem mục Object Storage                                        |
+| Vector Database    | Qdrant           | Cần sớm cho RAG/Knowledge (Phase 2) — Xem mục Vector Database |
+| Backend Framework  | Node.js + NestJS | Giữ nguyên — xem mục Backend                                  |
+| Frontend Framework | Next.js + React  | Giữ nguyên — xem mục Frontend                                 |
 
 Chi tiết phasing từng công nghệ Data Layer: docs/data/03_DATABASE_STRATEGY.md, docs/data/07_CACHE_LAYER.md, docs/data/06_OBJECT_STORAGE.md, docs/data/08_VECTOR_DATABASE.md.
 
@@ -93,27 +93,27 @@ Chi tiết phasing từng công nghệ Data Layer: docs/data/03_DATABASE_STRATEG
 
 Các công nghệ dưới đây mô tả kiến trúc mục tiêu dài hạn của AI Social OS. Không triển khai ở MVP — chỉ cân nhắc khi có nhu cầu scale thực tế (từ Phase 3 — Social Platform trở đi, hoặc Phase 6 — Enterprise). Không công nghệ nào bị loại bỏ khỏi tầm nhìn dài hạn, chỉ hoãn triển khai.
 
-| Layer | Technology | Khi nào cần | Chi tiết |
-|-------|------------|-------------|----------|
-| Graph Database (Social Graph + Knowledge Graph) | Neo4j / Memgraph | Khi cần suy luận đa bước, Explainable AI trên quan hệ phức tạp | docs/data/09_KNOWLEDGE_GRAPH.md |
-| Dedicated Event Store | Kafka / EventStoreDB | Khi khối lượng Event và yêu cầu Replay/Streaming vượt quá PostgreSQL Event Table | docs/data/05_EVENT_STORE.md |
-| Data Lakehouse | Apache Iceberg / Delta Lake + Spark / Trino | Khi cần AI Training và Analytics ở quy mô lớn | docs/data/12_DATA_LAKEHOUSE.md |
-| Dedicated Search Engine | OpenSearch / Elasticsearch | Khi cần Hybrid Search, Faceted Search ở quy mô lớn (nâng cấp từ Meilisearch / PostgreSQL Full-text Search) | docs/data/10_SEARCH_ENGINE.md |
-| Service Mesh | Istio / Linkerd | Khi số lượng Microservices và yêu cầu mTLS/Traffic Management tăng cao | docs/infrastructure/06_SERVICE_MESH.md |
-| Multi-cloud / Multi-region | — | Khi mở rộng sang nhiều thị trường hoặc cần Disaster Recovery toàn cầu (Phase 6 — Enterprise) | docs/infrastructure/02_CLOUD_ARCHITECTURE.md |
-| Kubernetes (Production Orchestration) | Kubernetes | Khi cần Auto Scaling / Self Healing ở quy mô nhiều Service (Docker Compose đủ cho Phase 0-1) | docs/infrastructure/05_KUBERNETES_ARCHITECTURE.md |
+| Layer                                           | Technology                                  | Khi nào cần                                                                                                | Chi tiết                                          |
+| ----------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Graph Database (Social Graph + Knowledge Graph) | Neo4j / Memgraph                            | Khi cần suy luận đa bước, Explainable AI trên quan hệ phức tạp                                             | docs/data/09_KNOWLEDGE_GRAPH.md                   |
+| Dedicated Event Store                           | Kafka / EventStoreDB                        | Khi khối lượng Event và yêu cầu Replay/Streaming vượt quá PostgreSQL Event Table                           | docs/data/05_EVENT_STORE.md                       |
+| Data Lakehouse                                  | Apache Iceberg / Delta Lake + Spark / Trino | Khi cần AI Training và Analytics ở quy mô lớn                                                              | docs/data/12_DATA_LAKEHOUSE.md                    |
+| Dedicated Search Engine                         | OpenSearch / Elasticsearch                  | Khi cần Hybrid Search, Faceted Search ở quy mô lớn (nâng cấp từ Meilisearch / PostgreSQL Full-text Search) | docs/data/10_SEARCH_ENGINE.md                     |
+| Service Mesh                                    | Istio / Linkerd                             | Khi số lượng Microservices và yêu cầu mTLS/Traffic Management tăng cao                                     | docs/infrastructure/06_SERVICE_MESH.md            |
+| Multi-cloud / Multi-region                      | —                                           | Khi mở rộng sang nhiều thị trường hoặc cần Disaster Recovery toàn cầu (Phase 6 — Enterprise)               | docs/infrastructure/02_CLOUD_ARCHITECTURE.md      |
+| Kubernetes (Production Orchestration)           | Kubernetes                                  | Khi cần Auto Scaling / Self Healing ở quy mô nhiều Service (Docker Compose đủ cho Phase 0-1)               | docs/infrastructure/05_KUBERNETES_ARCHITECTURE.md |
 
 ---
 
 # Programming Languages
 
-| Language | Purpose |
-|-----------|----------|
+| Language   | Purpose            |
+| ---------- | ------------------ |
 | TypeScript | Backend + Frontend |
-| SQL | Database |
-| Python | AI Worker |
-| Bash | DevOps |
-| YAML | Deployment |
+| SQL        | Database           |
+| Python     | AI Worker          |
+| Bash       | DevOps             |
+| YAML       | Deployment         |
 
 ---
 
@@ -383,7 +383,10 @@ Purpose
 
 ## Identity
 
-- Better Auth
+- Passport (`@nestjs/passport`) + JWT (`@nestjs/jwt`)
+- argon2id để hash password
+
+> Trước đây tài liệu ghi "Better Auth". Đã đổi sang Passport + JWT vì backend là NestJS — Passport là idiom chuẩn của NestJS, đồng thời cho phép schema User/Profile/Identity/Session khớp đúng `docs/platform/04_USER_MANAGEMENT.md` và `docs/platform/06_AUTHENTICATION.md` thay vì phải dung hòa với bộ bảng riêng của Better Auth. OAuth/MFA/SSO bổ sung sau (xem mục Future).
 
 ---
 
@@ -391,6 +394,7 @@ Purpose
 
 - RBAC
 - Workspace Permission
+- Permission string dạng `<scope>.<resource>.<action>` — xem `docs/platform/08_PERMISSION_MODEL.md`
 
 ---
 
@@ -625,6 +629,7 @@ flowchart LR
     DockerImage["DockerImage"] --> Deploy
     Deploy["Deploy"] --> HealthCheck
 ```
+
 ---
 
 # Secrets
@@ -661,24 +666,24 @@ Production
 
 PostgreSQL, Redis, Qdrant, MinIO thuộc **MVP Stack (Phase 0-2)**; Kubernetes thuộc **Future / Scale-out Stack (Phase 3+)** — xem chi tiết ở hai bảng nhóm đầu tài liệu.
 
-| Component | Technology | Reason |
-|-----------|------------|--------|
-| Backend | NestJS | Modular Architecture |
-| Frontend | Next.js | Fullstack React |
-| Runtime | Custom Runtime | Full Control |
-| AI SDK | Vercel AI SDK | Provider Agnostic |
-| ORM | Drizzle | Type-safe |
-| Database | PostgreSQL | Mature & Reliable |
-| Queue | NATS JetStream | Event Driven |
-| Cache | Redis | Performance |
-| Vector DB | Qdrant | AI Native |
-| Search | Meilisearch | Fast Search |
-| Storage | MinIO | S3 Compatible |
-| Auth | Better Auth | Modern Auth |
-| Monitoring | Prometheus + Grafana | Industry Standard |
-| Logs | Loki | Cloud Native |
-| Tracing | OpenTelemetry | Distributed Tracing |
-| Deployment | Kubernetes | Scalability |
+| Component  | Technology                | Reason                                          |
+| ---------- | ------------------------- | ----------------------------------------------- |
+| Backend    | NestJS                    | Modular Architecture                            |
+| Frontend   | Next.js                   | Fullstack React                                 |
+| Runtime    | Custom Runtime            | Full Control                                    |
+| AI SDK     | Vercel AI SDK             | Provider Agnostic                               |
+| ORM        | Drizzle                   | Type-safe                                       |
+| Database   | PostgreSQL                | Mature & Reliable                               |
+| Queue      | NATS JetStream            | Event Driven                                    |
+| Cache      | Redis                     | Performance                                     |
+| Vector DB  | Qdrant                    | AI Native                                       |
+| Search     | Meilisearch               | Fast Search                                     |
+| Storage    | MinIO                     | S3 Compatible                                   |
+| Auth       | Passport + JWT + argon2id | Idiom chuẩn NestJS, toàn quyền kiểm soát schema |
+| Monitoring | Prometheus + Grafana      | Industry Standard                               |
+| Logs       | Loki                      | Cloud Native                                    |
+| Tracing    | OpenTelemetry             | Distributed Tracing                             |
+| Deployment | Kubernetes                | Scalability                                     |
 
 ---
 

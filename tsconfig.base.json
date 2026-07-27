@@ -16,27 +16,13 @@
     "declarationMap": true,
     "sourceMap": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": false,
-    "baseUrl": ".",
-    "paths": {
-      "@repo/core": ["packages/core/src"],
-      "@repo/runtime": ["packages/runtime/src"],
-      "@repo/domain": ["packages/domain/src"],
-      "@repo/database": ["packages/database/src"],
-      "@repo/auth": ["packages/auth/src"],
-      "@repo/ai": ["packages/ai/src"],
-      "@repo/integration": ["packages/integration/src"],
-      "@repo/plugin": ["packages/plugin/src"],
-      "@repo/sdk": ["packages/sdk/src"],
-      "@repo/ui": ["packages/ui/src"],
-      "@repo/config/*": ["packages/config/*"],
-      "@repo/logger": ["packages/logger/src"],
-      "@repo/event": ["packages/event/src"],
-      "@repo/queue": ["packages/queue/src"],
-      "@repo/storage": ["packages/storage/src"],
-      "@repo/shared": ["packages/shared/src"],
-      "@repo/testing": ["packages/testing/src"]
-    }
+    "verbatimModuleSyntax": false
   },
+  // NOTE: no `paths` mapping on purpose. Internal packages are resolved through
+  // pnpm's workspace symlinks in node_modules, pointing at each package's built
+  // `dist/*.d.ts`. Mapping `@repo/*` straight at `packages/*/src` would drag a
+  // dependency's source files into the consumer's compilation and trip TS6059
+  // ("not under rootDir"). Turborepo's `dependsOn: ["^build"]` guarantees a
+  // dependency is built before anything that consumes it.
   "exclude": ["node_modules", "dist", ".next", ".turbo", "coverage"]
 }

@@ -5,8 +5,8 @@
   "description": "Structured logging shared across every backend service — see docs/development/02_CODING_STANDARDS.md#logging",
   "license": "UNLICENSED",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -20,5 +20,14 @@
     "eslint": "^9.15.0",
     "pino-pretty": "^13.0.0",
     "typescript": "^5.7.0"
-  }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
 }

@@ -1,8 +1,8 @@
 {
-  "name": "@repo/testing",
+  "name": "@repo/core",
   "private": true,
   "version": "0.0.0",
-  "description": "Shared test fixtures/mocks/helpers — see docs/development/05_TESTING_STRATEGY.md",
+  "description": "Framework-agnostic primitives: prefixed IDs, base entity metadata, typed errors, API envelopes — see docs/06_MONOREPO_STRUCTURE.md#packages",
   "license": "UNLICENSED",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,10 +10,11 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@faker-js/faker": "^9.3.0"
+    "ulid": "^2.3.0"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
