@@ -7,7 +7,7 @@ Cuối mỗi phần có mục **Lưu ý khi làm nền tảng này** — ghi l�
 gặp phải trong quá trình xây dựng. Phần nào chưa có gì đáng lưu ý thì không có
 mục đó.
 
-Tình trạng tính đến 2026-07-27 (commit `0b04303`). Đây là bản kiểm kê **những gì
+Tình trạng tính đến 2026-07-28 (commit `37262ff`). Đây là bản kiểm kê **những gì
 đã cài và đang chạy thật**; stack dự kiến đầy đủ của sản phẩm nằm ở
 `docs/05_TECH_STACK.md`, khoảng cách giữa hai bản ghi ở mục 12.
 
@@ -22,12 +22,13 @@ Tình trạng tính đến 2026-07-27 (commit `0b04303`). Đây là bản kiểm
 5. [Hàng đợi và cache](#5-hàng-đợi-và-cache)
 6. [Tầng AI](#6-tầng-ai)
 7. [Tri thức và tìm kiếm ngữ nghĩa](#7-tri-thức-và-tìm-kiếm-ngữ-nghĩa)
-8. [Xác thực và bảo mật](#8-xác-thực-và-bảo-mật)
-9. [Frontend](#9-frontend)
-10. [Kiểm thử](#10-kiểm-thử)
-11. [Log và tiện ích vận hành](#11-log-và-tiện-ích-vận-hành)
-12. [Đã cài nhưng chưa dùng](#12-đã-cài-nhưng-chưa-dùng)
-13. [Khoảng cách so với stack dự kiến](#13-khoảng-cách-so-với-stack-dự-kiến)
+8. [Lưu trữ file](#8-lưu-trữ-file)
+9. [Xác thực và bảo mật](#9-xác-thực-và-bảo-mật)
+10. [Frontend](#10-frontend)
+11. [Kiểm thử](#11-kiểm-thử)
+12. [Log và tiện ích vận hành](#12-log-và-tiện-ích-vận-hành)
+13. [Đã cài nhưng chưa dùng](#13-đã-cài-nhưng-chưa-dùng)
+14. [Khoảng cách so với stack dự kiến](#14-khoảng-cách-so-với-stack-dự-kiến)
 
 ---
 
@@ -593,7 +594,91 @@ node cỡ nhỏ thì ghi xong là thấy ngay. Nó ở đó dựa trên tài li�
 
 ---
 
-## 8. Xác thực và bảo mật
+## 8. Lưu trữ file
+
+### MinIO + `@aws-sdk/client-s3` `3.7` + `@aws-sdk/s3-request-presigner`
+
+**Là gì.** S3 là giao thức lưu trữ đối tượng của AWS — không phải file system,
+mà là một kho khoá–giá trị khổng lồ: mỗi file là một _object_ có khoá, nội dung
+và metadata, không có thư mục thật (dấu `/` trong khoá chỉ là quy ước). MinIO là
+một server mã nguồn mở nói đúng giao thức đó, chạy được trên máy mình.
+`@aws-sdk/client-s3` là client chính thức, và `s3-request-presigner` ký sẵn một
+URL có hạn dùng để trình duyệt tải thẳng.
+
+**Dùng cho.** Lưu file người dùng tải lên (tài liệu, ảnh, video). Metadata thì
+nằm ở PostgreSQL — bảng `documents` — còn bytes nằm ở đây.
+
+**Điểm mạnh.**
+
+- **Một giao thức, nhiều nhà cung cấp.** Cùng đoạn mã chạy với MinIO lúc dev,
+  AWS S3, Cloudflare R2 hay Backblaze B2 lúc chạy thật. Chỉ đổi cấu hình.
+- **Presigned URL.** Trình duyệt tải trực tiếp từ storage, không đi qua API —
+  một video 200 MB không chiếm giữ tiến trình Node suốt thời gian tải.
+- Rẻ hơn nhiều so với lưu trên ổ đĩa của server ứng dụng, và không mất khi
+  container bị thay.
+- MinIO chạy một container, có sẵn giao diện web để xem file.
+
+**Điểm yếu.**
+
+- **Không phải file system.** Không có "đổi tên", không có "di chuyển thư mục" —
+  chỉ có copy rồi xoá. Liệt kê theo tiền tố thì được, nhưng đắt khi nhiều object.
+- **Nhất quán cuối cùng ở vài thao tác.** S3 hiện đã strong-consistency cho
+  đọc-sau-ghi, nhưng liệt kê và một số thao tác vẫn có độ trễ.
+- SDK của AWS **rất nặng** — cây phụ thuộc lớn, và các kiểu TypeScript sinh tự
+  động từ OpenAPI nên rộng hơn thứ server thật sự chấp nhận.
+- Không có transaction. Ghi file và ghi row database không thể cùng thành công
+  hoặc cùng thất bại; phải tự chọn thứ tự sao cho hỏng giữa chừng vẫn sửa được.
+
+### Multer (qua `@nestjs/platform-express`)
+
+**Là gì.** Middleware xử lý `multipart/form-data` — định dạng trình duyệt dùng
+khi gửi form có file. Nó tách phần file ra khỏi phần text và đưa cho ứng dụng.
+
+**Dùng cho.** Nhận file ở endpoint `POST /documents`.
+
+**Điểm mạnh.** Chặn được kích thước **giữa chừng luồng**, tức là từ chối trước
+khi đọc hết bytes — đó mới là mục đích của giới hạn dung lượng. Tích hợp sẵn
+trong NestJS qua `FileInterceptor`.
+
+**Điểm yếu.** Chỉ hiểu multipart, không hiểu upload theo chunk hay resume. Chế
+độ memory giữ nguyên file trong RAM nên không hợp với file rất lớn.
+
+### Lưu ý khi làm nền tảng này
+
+**SigV4 ký từng byte của header, nên tên file tiếng Việt làm hỏng chữ ký.**
+Đưa thẳng `báo cáo.txt` vào `Content-Disposition` thì **mọi** upload chết với
+`SignatureDoesNotMatch` — một lỗi không nhắc gì tới header lẫn tên file. RFC
+6266 đã có lời giải: một `filename` thuần ASCII cho client cũ, cộng thêm
+`filename*=UTF-8''<đã percent-encode>` mang tên thật.
+
+**Multer giải mã tên file trong multipart bằng latin1.** Nên tên tiếng Việt tới
+nơi đã bị méo _trước cả_ khi chạm vào header S3. Phải đọc lại đúng đám byte đó
+dưới dạng UTF-8: `Buffer.from(file.originalname, "latin1").toString("utf8")`.
+
+**`forcePathStyle: true` là bắt buộc với MinIO trên localhost.** Kiểu địa chỉ
+mặc định của S3 đặt tên bucket vào hostname, tức là phân giải `bucket.localhost`
+— thứ không tồn tại.
+
+**Khoá phải do hệ thống dựng, không được nhận từ người gọi.** Người gọi truyền
+thư mục và tên; workspace luôn được ghép ở đầu. Đó là khác biệt giữa một tên
+`../../documents/<tenant khác>/doc` trỏ tới file của người khác và trỏ tới một
+file tên `.._.._documents_...`.
+
+**Presigned URL là một loại chứng chỉ mang theo (bearer credential).** Ai cầm
+được là đọc được, nên nó phải hết hạn, và cách duy nhất chứng minh nó hoạt động
+là fetch nó mà **không** kèm thông tin xác thực nào.
+
+**Ghi bytes trước, ghi row sau — và đặt tên object theo checksum.** Nhờ vậy thao
+tác ghi là bất biến theo nội dung: hỏng ở bước insert rồi thử lại sẽ rơi đúng
+vào object cũ, thay vì để lại một bản sao không ai đi tìm.
+
+**Xoá thì ngược lại: row trước, bytes sau.** Nếu xoá bytes hỏng thì tài liệu đã
+vô hình và object chỉ là rác chờ dọn; thứ tự ngược lại để lại một tài liệu vẫn
+nhìn thấy được nhưng file đã biến mất.
+
+---
+
+## 9. Xác thực và bảo mật
 
 ### argon2 `0.41`
 
@@ -673,7 +758,7 @@ nguyên có tồn tại.
 
 ---
 
-## 9. Frontend
+## 10. Frontend
 
 ### Next.js `15.1`
 
@@ -755,7 +840,7 @@ là refresh token trong cookie `httpOnly`.
 
 ---
 
-## 10. Kiểm thử
+## 11. Kiểm thử
 
 ### Vitest `2.1`
 
@@ -816,7 +901,7 @@ ra không: một nhánh fallback trong Gateway không bao giờ chạy tới, m�
 
 ---
 
-## 11. Log và tiện ích vận hành
+## 12. Log và tiện ích vận hành
 
 ### pino `9.5` + pino-pretty `13.0`
 
@@ -874,16 +959,14 @@ chạy bù sẽ đăng ba ngày bài trong một phút.
 
 ---
 
-## 12. Đã cài nhưng chưa dùng
+## 13. Đã cài nhưng chưa dùng
 
 Các dịch vụ sau có trong `docker-compose` và đang chạy, nhưng **chưa có dòng code
 nào gọi tới**:
 
-| Dịch vụ | Cổng        | Dự kiến dùng cho             |
-| ------- | ----------- | ---------------------------- |
-| MinIO   | 9000 / 9002 | Lưu trữ file, tương thích S3 |
-
-(Qdrant `:6333` **đã được dùng thật** từ `packages/knowledge` — xem mục 7.)
+Không còn dịch vụ nào trong `docker-compose` ở trạng thái này: Qdrant `:6333`
+đã được dùng từ `packages/knowledge` (mục 7) và MinIO `:9000` từ
+`packages/storage` (mục 8).
 
 Các package sau mới chỉ có README, chưa có mã: `packages/storage`,
 `packages/plugin`, `packages/integration`. Các app `admin`, `docs`, `landing`,
@@ -894,7 +977,7 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 
 ---
 
-## 13. Khoảng cách so với stack dự kiến
+## 14. Khoảng cách so với stack dự kiến
 
 `docs/05_TECH_STACK.md` mô tả stack đầy đủ của sản phẩm. Những phần **chưa làm**:
 
@@ -919,4 +1002,4 @@ typecheck xanh không chứng minh được gì:
   bộ schema hiện có.
 - **`consistent-type-imports` phải tắt cho `services/**`** ở cả hai config ESLint
   — bật lại sẽ phá dependency injection của NestJS lúc chạy.
-- **Cổng lệch chuẩn** — xem mục 11.
+- **Cổng lệch chuẩn** — xem mục 12.
