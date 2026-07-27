@@ -1,5 +1,4 @@
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { createLogger } from "@repo/logger";
 import { closeDbClient, createDbClient } from "./client";
@@ -7,10 +6,8 @@ import { requireDatabaseUrl } from "./env";
 
 const logger = createLogger("db-migrate");
 
-const migrationsFolder = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../migrations",
-);
+// CommonJS output, so __dirname is available (packages/config/tsconfig/library.json).
+const migrationsFolder = resolve(__dirname, "../migrations");
 
 async function main(): Promise<void> {
   const db = createDbClient(requireDatabaseUrl(), { maxConnections: 1 });

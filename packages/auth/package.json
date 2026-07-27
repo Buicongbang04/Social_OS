@@ -1,8 +1,8 @@
 {
-  "name": "@repo/database",
+  "name": "@repo/auth",
   "private": true,
   "version": "0.0.0",
-  "description": "Drizzle ORM schema, migrations, tenant-scoped repositories and seeding — see docs/data/03_DATABASE_STRATEGY.md",
+  "description": "Framework-agnostic auth primitives: argon2id password hashing, opaque refresh tokens, permission evaluation — see docs/platform/06_AUTHENTICATION.md",
   "license": "UNLICENSED",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,33 +13,23 @@
     }
   },
   "files": [
-    "dist",
-    "migrations"
+    "dist"
   ],
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:int": "vitest run --config vitest.int.config.ts",
-    "build": "tsc -p tsconfig.build.json",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/migrate.ts",
-    "db:seed": "tsx src/seed/index.ts",
-    "db:studio": "drizzle-kit studio"
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@repo/core": "workspace:*",
     "@repo/domain": "workspace:*",
-    "@repo/logger": "workspace:*",
-    "drizzle-orm": "^0.38.0",
-    "postgres": "^3.4.5"
+    "argon2": "^0.41.1"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
     "@types/node": "^22.10.0",
-    "drizzle-kit": "^0.30.0",
     "eslint": "^9.15.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
   }

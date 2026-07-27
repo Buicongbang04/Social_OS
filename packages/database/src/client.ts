@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
@@ -37,6 +38,19 @@ export function createDbClient(
 /** Close the underlying pool — call on graceful shutdown and in test teardown. */
 export async function closeDbClient(db: DatabaseClient): Promise<void> {
   await (db.$client as unknown as { end: () => Promise<void> }).end();
+}
+
+/**
+ * Cheapest possible round-trip, for health probes. Lives here so consumers
+ * (services/api) need no direct drizzle-orm dependency just to say "select 1".
+ */
+export async function pingDatabase(db: DatabaseClient): Promise<boolean> {
+  try {
+    await db.execute(sql`select 1`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export { schema };

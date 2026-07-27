@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "description": "Framework-agnostic utility functions shared across apps/packages/services — see docs/06_MONOREPO_STRUCTURE.md#packages",
   "license": "UNLICENSED",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

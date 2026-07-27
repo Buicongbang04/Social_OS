@@ -9,6 +9,14 @@ export const nestjsConfig = tseslint.config(...baseConfig, {
     // parameter-property classes are idiomatic, not dead code.
     "@typescript-eslint/no-useless-constructor": "off",
     "@typescript-eslint/no-extraneous-class": "off",
+
+    // MUST stay off for NestJS. Dependency injection resolves constructor
+    // parameter types at runtime from `emitDecoratorMetadata`, and a
+    // `import type` declaration is erased before that metadata is written —
+    // so "fixing" these imports silently breaks DI at boot. The failure is a
+    // runtime "Nest can't resolve dependencies", far worse than inconsistent
+    // import style.
+    "@typescript-eslint/consistent-type-imports": "off",
   },
 });
 

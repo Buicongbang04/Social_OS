@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "description": "Business domain: entities, enums, permission catalog, role matrices and repository ports — see docs/03_DOMAIN_MODEL.md",
   "license": "UNLICENSED",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

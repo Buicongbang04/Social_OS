@@ -7,7 +7,10 @@
     "target": "ES2022",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "noEmit": false
+    "noEmit": false,
+    // NestJS DI resolves constructor parameter types at runtime via
+    // emitDecoratorMetadata, which cannot see through `import type`.
+    "verbatimModuleSyntax": false
   },
-  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
+  "exclude": ["node_modules", "dist"]
 }

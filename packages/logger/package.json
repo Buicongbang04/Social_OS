@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "description": "Structured logging shared across every backend service — see docs/development/02_CODING_STANDARDS.md#logging",
   "license": "UNLICENSED",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

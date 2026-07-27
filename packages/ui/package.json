@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "description": "Shared UI components (Tailwind + Radix) — see docs/frontend/02_DESIGN_SYSTEM.md",
   "license": "UNLICENSED",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "description": "Shared test fixtures/mocks/helpers — see docs/development/05_TESTING_STRATEGY.md",
   "license": "UNLICENSED",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
