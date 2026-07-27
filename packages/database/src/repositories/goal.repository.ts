@@ -73,6 +73,21 @@ export class DrizzleGoalRepository implements GoalRepository {
     return toEntity(rows[0]!);
   }
 
+  /**
+   * Unscoped, for the runtime acting on its own behalf. Deliberately separate
+   * from findByIdForUser rather than a flag on it: one call site forgetting to
+   * pass the flag would silently turn a tenant-scoped read into a global one.
+   */
+  async findById(id: GoalId): Promise<Goal | null> {
+    const rows = await this.db
+      .select()
+      .from(goals)
+      .where(and(eq(goals.id, id), isNull(goals.deletedAt)))
+      .limit(1);
+
+    return rows[0] ? toEntity(rows[0]) : null;
+  }
+
   /** Membership-scoped, so a foreign Goal is absent rather than forbidden. */
   async findByIdForUser(id: GoalId, userId: UserId): Promise<Goal | null> {
     const rows = await this.db

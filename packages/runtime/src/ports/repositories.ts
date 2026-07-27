@@ -26,6 +26,13 @@ import type { TaskStatus } from "../state/task-state";
  */
 export interface GoalRepository {
   create(input: CreateGoalInput): Promise<Goal>;
+  /**
+   * Unscoped read for the runtime itself, which acts on its own behalf rather
+   * than a user's — the same rule the scheduler's writes follow. Never reachable
+   * from an HTTP handler: those use findByIdForUser so a foreign Goal resolves
+   * to "not found" rather than "forbidden".
+   */
+  findById(id: GoalId): Promise<Goal | null>;
   findByIdForUser(id: GoalId, userId: UserId): Promise<Goal | null>;
   listForUser(
     workspaceId: WorkspaceId,

@@ -249,6 +249,15 @@ export class ExecutionEngine {
       return { events, settled: true };
     }
 
+    // Re-check policy with what has actually been spent, not the plan-time
+    // estimate. A plan approved when it was cheap can still drift past its
+    // budget by the fifth task, and that is exactly when nobody is watching.
+    const blocked = await this.checkPolicyBeforeRun(task);
+    if (blocked) {
+      events.push(blocked.event);
+      return { events, settled: true };
+    }
+
     const started = await this.deps.tasks.transitionStatus({
       id: task.id,
       expectedStatus: task.status === "RETRY" ? "RETRY" : "READY",
@@ -439,6 +448,64 @@ export class ExecutionEngine {
   }
 
   /** Outputs of a task's dependencies, keyed by capability for interpolation. */
+  /**
+   * Ask policy whether this task may still run.
+   *
+   * Returns the event to publish when it may not, and null when it may. The
+   * whole execution is failed rather than only the task: a run that has
+   * exhausted its budget should stop, not grind through the remaining steps
+   * being denied one at a time.
+   */
+  private async checkPolicyBeforeRun(
+    task: Task,
+  ): Promise<{ event: EngineEvent } | null> {
+    if (!this.deps.policy) return null;
+
+    const execution = await this.deps.executions.findById(task.executionId);
+    if (!execution) return null;
+
+    const goal = await this.deps.goals.findById(execution.goalId);
+    if (!goal) return null;
+
+    const decision = await this.deps.policy.evaluate({
+      workspaceId: task.workspaceId,
+      execution,
+      goal,
+      capabilityId: task.capability,
+      // What this one step is expected to cost, not the whole plan: the
+      // question being asked is whether to take the next step. Unknown costs
+      // count as zero, so the "already spent" check remains the real guard.
+      estimatedCostUsd:
+        this.deps.capabilities.get(task.capability)?.estimatedCostUsd ?? 0,
+    });
+
+    if (decision.outcome !== "DENY") return null;
+
+    await this.deps.tasks.transitionStatus({
+      id: task.id,
+      expectedStatus: task.status,
+      status: "CANCELLED",
+      lastError: decision.reason,
+    });
+    await this.fail(
+      execution,
+      `Policy denied ${task.capability}: ${decision.reason}`,
+    );
+
+    return {
+      event: {
+        type: "PolicyDenied",
+        executionId: execution.id,
+        taskId: task.id,
+        payload: {
+          capability: task.capability,
+          reason: decision.reason,
+          code: decision.code,
+        },
+      },
+    };
+  }
+
   private async collectDependencyOutputs(
     task: Task,
   ): Promise<Record<string, Metadata>> {

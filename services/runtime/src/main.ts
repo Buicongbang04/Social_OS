@@ -11,6 +11,7 @@ import {
 } from "@repo/database";
 import { RedisSchedulerLock, RedisTaskQueue } from "@repo/queue";
 import {
+  BudgetPolicy,
   CapabilityExecutor,
   ExecutionEngine,
   InMemoryCapabilityRegistry,
@@ -43,9 +44,11 @@ async function main(): Promise<void> {
   const goals = new DrizzleGoalRepository(db);
   const executionRepository = new DrizzleExecutionRepository(db);
 
+  const usage = new DrizzleAiUsageRepository(db);
+
   const ai = buildAiEngines({
     capabilities: registry,
-    recorder: new DrizzleAiUsageRepository(db),
+    recorder: usage,
     // A metering write that fails must not fail work already paid for, but it
     // must not vanish either — it is unbilled revenue.
     onUsageError: (error, record) => {
@@ -78,6 +81,10 @@ async function main(): Promise<void> {
     planner: ai.planner,
     capabilities: registry,
     capabilityExecutor,
+    // Enforces the Goal's own maxCostUsd. Without this the constraint is
+    // accepted by the API, stored, and never read — a budget that does nothing
+    // is worse than no budget, because someone will rely on it.
+    policy: new BudgetPolicy({ spend: usage }),
   });
 
   const scheduler = new Scheduler(

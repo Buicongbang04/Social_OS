@@ -80,6 +80,10 @@ function researchTrend(options: AiCapabilityOptions): CapabilityImplementation {
       // Generous: a model reasoning over a research prompt is slower than the
       // 60s default, and a timeout here throws away a call we already paid for.
       timeoutMs: 120_000,
+      // Nominal, and deliberately not tiny: the budget check uses it to refuse
+      // a step that will not fit in what is left, and under-declaring would let
+      // a run start a call it cannot afford and be charged for it anyway.
+      estimatedCostUsd: 0.02,
     },
     handler: async (context) => {
       const topic =
@@ -122,6 +126,7 @@ function contentGenerate(
       supportedWorkers: ["FUNCTION"],
       permissions: ["workspace.workflow.execute"],
       timeoutMs: 120_000,
+      estimatedCostUsd: 0.02,
     },
     handler: async (context) => {
       const research = context.previous["research.trend"];

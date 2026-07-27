@@ -43,6 +43,16 @@ export type CapabilityDescriptor = {
   /** Permissions the caller must hold, as `scope.resource.action` keys. */
   permissions: readonly string[];
   timeoutMs?: number;
+  /**
+   * Roughly what one run of this capability costs, in USD.
+   *
+   * A declared nominal figure, not a measurement — it exists so the budget
+   * check can refuse a step that plainly will not fit in what is left, rather
+   * than starting it and being charged anyway. Omit it when the capability
+   * costs nothing (a deterministic function) or when no sensible figure exists;
+   * the budget is still enforced against actual spend either way.
+   */
+  estimatedCostUsd?: number;
   metadata?: Metadata;
 };
 
@@ -72,6 +82,18 @@ export type PolicyContext = {
 
 export interface PolicyEvaluator {
   evaluate(context: PolicyContext): Promise<PolicyDecision>;
+}
+
+/**
+ * What one Execution has already spent, in USD.
+ *
+ * A separate port from the usage recorder because the runtime reads this on a
+ * hot path — before every task — and must not depend on how or where usage is
+ * stored. An estimate made at plan time is a guess; this is the number that
+ * actually stops a runaway.
+ */
+export interface SpendReader {
+  spentUsd(executionId: ExecutionId): Promise<number>;
 }
 
 /** A unit of work handed to the queue. Deliberately small — the full Task lives in the DB. */

@@ -1,5 +1,6 @@
 import type { AiUsageRecord, AiUsageRecorder } from "@repo/ai";
-import type { WorkspaceId } from "@repo/core";
+import type { ExecutionId, WorkspaceId } from "@repo/core";
+import type { SpendReader } from "@repo/runtime";
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import type { DatabaseClient } from "../client";
 import { aiUsage, workspaces } from "../schema";
@@ -11,7 +12,7 @@ import { aiUsage, workspaces } from "../schema";
  * what an invoice is derived from, and a repository that can rewrite it is a
  * repository that can rewrite a bill.
  */
-export class DrizzleAiUsageRepository implements AiUsageRecorder {
+export class DrizzleAiUsageRepository implements AiUsageRecorder, SpendReader {
   constructor(private readonly db: DatabaseClient) {}
 
   async record(record: AiUsageRecord): Promise<void> {
@@ -45,6 +46,24 @@ export class DrizzleAiUsageRepository implements AiUsageRecorder {
       metadata: record.metadata,
       timestamp: record.timestamp,
     });
+  }
+
+  /**
+   * What one execution has spent so far.
+   *
+   * Summed in SQL: this is read before every task to decide whether the run may
+   * continue, and pulling every row into JS to add them would get slower as the
+   * run gets longer — exactly the runs that most need the check.
+   */
+  async spentUsd(executionId: ExecutionId): Promise<number> {
+    const [row] = await this.db
+      .select({
+        total: sql<string>`coalesce(sum(${aiUsage.costUsd}), 0)::text`,
+      })
+      .from(aiUsage)
+      .where(eq(aiUsage.executionId, executionId));
+
+    return Number(row?.total ?? 0);
   }
 
   /**
