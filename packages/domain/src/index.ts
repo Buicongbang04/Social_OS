@@ -1,3 +1,4 @@
+export * from "./entities/document.entity";
 export * from "./entities/membership.entity";
 export * from "./entities/organization.entity";
 export * from "./entities/session.entity";
@@ -8,6 +9,7 @@ export * from "./permission/catalog";
 export * from "./permission/resolver";
 export * from "./permission/roles";
 
+export * from "./ports/document.repository.interface";
 export * from "./ports/membership.repository.interface";
 export * from "./ports/organization.repository.interface";
 export * from "./ports/session.repository.interface";

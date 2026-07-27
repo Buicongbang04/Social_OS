@@ -16,8 +16,10 @@ import { CorrelationIdMiddleware } from "./common/middleware/correlation-id.midd
 import { HealthController } from "./health/health.controller";
 import { DatabaseModule } from "./infra/database/database.module";
 import { RedisModule } from "./infra/redis/redis.module";
+import { StorageModule } from "./infra/storage/storage.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AuthorizationModule } from "./modules/authorization/authorization.module";
+import { DocumentsModule } from "./modules/documents/documents.module";
 import { GoalsModule } from "./modules/goals/goals.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -47,12 +49,14 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     }),
     DatabaseModule,
     RedisModule,
+    StorageModule,
     AuthorizationModule,
     AuthModule,
     UsersModule,
     OrganizationsModule,
     WorkspacesModule,
     GoalsModule,
+    DocumentsModule,
   ],
   controllers: [HealthController],
   providers: [

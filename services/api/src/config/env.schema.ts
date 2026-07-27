@@ -61,6 +61,29 @@ export const envSchema = z.object({
    * internet an authenticated cross-origin surface.
    */
   CORS_ORIGINS: z.string().default("http://localhost:3200"),
+
+  /**
+   * Object storage for uploaded documents (docs/data/06_OBJECT_STORAGE.md).
+   *
+   * MinIO in development, S3 or R2 in production — the same code either way,
+   * so only these values change. `MINIO_URL` unset means uploads are disabled
+   * rather than that the API refuses to boot: everything else on this service
+   * works without storage, and failing to start would be a worse trade.
+   */
+  MINIO_URL: z.string().url().optional(),
+  MINIO_REGION: z.string().default("us-east-1"),
+  MINIO_BUCKET: z.string().default("ai-social-os"),
+  MINIO_ROOT_USER: z.string().optional(),
+  MINIO_ROOT_PASSWORD: z.string().optional(),
+
+  /**
+   * Largest file the API will accept, in megabytes.
+   *
+   * Enforced before the body is read, because the point of a limit is to stop
+   * a 5 GB upload from occupying memory and a connection, and a check after
+   * buffering has already paid that cost. 25 MB is roughly a long PDF.
+   */
+  UPLOAD_MAX_MB: z.coerce.number().int().positive().max(500).default(25),
 });
 
 export type Env = z.infer<typeof envSchema>;

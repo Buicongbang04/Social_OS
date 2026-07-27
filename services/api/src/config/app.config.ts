@@ -77,4 +77,36 @@ export class AppConfig {
   get permissionCacheTtlSeconds(): number {
     return this.get("PERMISSION_CACHE_TTL_SECONDS");
   }
+
+  /** Null when object storage is not configured; uploads are then refused. */
+  get storage(): {
+    url: string;
+    region: string;
+    bucket: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+  } | null {
+    const url = this.config.get("MINIO_URL", { infer: true });
+    const accessKeyId = this.config.get("MINIO_ROOT_USER", { infer: true });
+    const secretAccessKey = this.config.get("MINIO_ROOT_PASSWORD", {
+      infer: true,
+    });
+
+    // All three or none. Half-configured storage fails at the first upload
+    // with an authentication error that reads as a broken deployment rather
+    // than a missing setting.
+    if (!url || !accessKeyId || !secretAccessKey) return null;
+
+    return {
+      url,
+      region: this.config.get("MINIO_REGION", { infer: true }),
+      bucket: this.config.get("MINIO_BUCKET", { infer: true }),
+      accessKeyId,
+      secretAccessKey,
+    };
+  }
+
+  get uploadMaxBytes(): number {
+    return this.config.get("UPLOAD_MAX_MB", { infer: true }) * 1024 * 1024;
+  }
 }
