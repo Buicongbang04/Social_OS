@@ -20,7 +20,9 @@ import type {
   GoalRepository,
   TaskRepository,
 } from "../ports/repositories";
+import { isApprovalRequired } from "../policy/approval";
 import { canTransitionExecution } from "../state/execution-state";
+import { enqueueReadyTasks } from "./enqueue";
 import type { CapabilityExecutor } from "./capabilities";
 
 /**
@@ -184,46 +186,7 @@ export class ExecutionEngine {
    * Called after planning and after each task completes.
    */
   async enqueueReadyTasks(executionId: ExecutionId): Promise<EngineEvent[]> {
-    const events: EngineEvent[] = [];
-    const tasks = await this.deps.tasks.listByExecution(executionId);
-    const completed = new Set(
-      tasks
-        .filter((task) => task.status === "COMPLETED")
-        .map((task) => task.id),
-    );
-
-    for (const task of tasks) {
-      if (task.status !== "PENDING") continue;
-      // Dependencies must be COMPLETED, not merely SUCCESS — see task-state.ts.
-      if (!task.dependencies.every((dependency) => completed.has(dependency)))
-        continue;
-
-      const ready = await this.deps.tasks.transitionStatus({
-        id: task.id,
-        expectedStatus: "PENDING",
-        status: "READY",
-      });
-      if (!ready) continue; // Another engine got there first.
-
-      await this.deps.queue.enqueue({
-        taskId: task.id,
-        executionId,
-        workspaceId: task.workspaceId,
-        capability: task.capability,
-        priority: task.priority,
-        notBefore: Date.now(),
-        attempt: task.attempt,
-      });
-
-      events.push({
-        type: "TaskQueued",
-        executionId,
-        taskId: task.id,
-        payload: { capability: task.capability },
-      });
-    }
-
-    return events;
+    return enqueueReadyTasks(this.deps, executionId);
   }
 
   /**
@@ -325,11 +288,66 @@ export class ExecutionEngine {
 
       return { events, settled: true };
     } catch (error) {
+      // A capability asking for a person is not a failure. Routing it through
+      // the error path would retry it three times and dead-letter a task that
+      // is behaving exactly as designed.
+      if (isApprovalRequired(error)) {
+        return {
+          events: [
+            ...events,
+            ...(await this.suspendForApproval(
+              started,
+              error.summary,
+              error.message,
+            )),
+          ],
+          // Acked: the queue must not hand this back. It resumes only when a
+          // person decides, and a redelivery would ask them twice.
+          settled: true,
+        };
+      }
+
       return {
         events: [...events, ...(await this.handleTaskFailure(started, error))],
         settled: false,
       };
     }
+  }
+
+  /** Park a task, and its Execution, until someone decides. */
+  private async suspendForApproval(
+    task: Task,
+    summary: Metadata,
+    reason: string,
+  ): Promise<EngineEvent[]> {
+    const events: EngineEvent[] = [];
+
+    const waiting = await this.deps.tasks.transitionStatus({
+      id: task.id,
+      expectedStatus: "RUNNING",
+      status: "WAITING",
+      outputs: { ...summary, awaitingApproval: true, reason },
+    });
+    if (!waiting) return events;
+
+    const execution = await this.deps.executions.findById(task.executionId);
+    if (execution && canTransitionExecution(execution.status, "WAITING")) {
+      await this.deps.executions.transitionStatus({
+        id: execution.id,
+        expectedVersion: execution.version,
+        expectedStatus: execution.status,
+        status: "WAITING",
+      });
+    }
+
+    events.push({
+      type: "ApprovalRequested",
+      executionId: task.executionId,
+      taskId: task.id,
+      payload: { capability: task.capability, reason, ...summary },
+    });
+
+    return events;
   }
 
   private async handleTaskFailure(

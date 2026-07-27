@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Headers,
@@ -18,7 +19,12 @@ import { RequirePermission } from "../../common/decorators/require-permission.de
 import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import { parseRouteId } from "../../common/parse-id";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
-import { listQuerySchema, type ListQuery } from "./goals.dto";
+import {
+  approvalSchema,
+  listQuerySchema,
+  type ApprovalBody,
+  type ListQuery,
+} from "./goals.dto";
 import { GoalsService } from "./goals.service";
 
 @Controller("executions")
@@ -59,6 +65,27 @@ export class ExecutionsController {
   @Get(":id/usage")
   async usage(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.goals.listUsage(parseRouteId("execution", id), user.userId);
+  }
+
+  /**
+   * Approve or reject a run that is waiting on a person.
+   *
+   * Requires workflow.execute, not merely execution.read: approving is the act
+   * of authorising the side effect the run was paused before performing.
+   */
+  @RequirePermission("workspace.workflow.execute")
+  @Post(":id/approval")
+  @HttpCode(HttpStatus.OK)
+  async approval(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(approvalSchema)) body: ApprovalBody,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.goals.decideApproval(
+      parseRouteId("execution", id),
+      user.userId,
+      body,
+    );
   }
 
   /**

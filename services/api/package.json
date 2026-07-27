@@ -26,13 +26,14 @@
     "@repo/database": "workspace:*",
     "@repo/domain": "workspace:*",
     "@repo/logger": "workspace:*",
+    "@repo/queue": "workspace:*",
+    "@repo/runtime": "workspace:*",
     "ioredis": "^5.4.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "zod": "^3.24.1",
-    "@repo/runtime": "workspace:*"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",

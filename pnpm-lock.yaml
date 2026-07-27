@@ -371,6 +371,9 @@ importers:
       "@repo/config":
         specifier: workspace:*
         version: link:../config
+      "@repo/runtime":
+        specifier: workspace:*
+        version: link:../runtime
       "@types/node":
         specifier: ^22.10.0
         version: 22.20.1
@@ -481,6 +484,9 @@ importers:
       "@repo/logger":
         specifier: workspace:*
         version: link:../../packages/logger
+      "@repo/queue":
+        specifier: workspace:*
+        version: link:../../packages/queue
       "@repo/runtime":
         specifier: workspace:*
         version: link:../../packages/runtime

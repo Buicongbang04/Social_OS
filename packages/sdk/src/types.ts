@@ -91,21 +91,29 @@ export type CreateGoalInput = {
   schedule?: { cron: string; timezone: string } | null;
 };
 
-export type ExecutionStatus =
-  | "CREATED"
-  | "QUEUED"
-  | "PLANNING"
-  | "PLANNED"
-  | "POLICY_CHECK"
-  | "READY"
-  | "RUNNING"
-  | "WAITING"
-  | "PAUSED"
-  | "RETRYING"
-  | "CANCELLING"
-  | "COMPLETED"
-  | "FAILED"
-  | "CANCELLED";
+/**
+ * Kept as a value, not just a union, so the drift guard in types.spec.ts can
+ * actually compare it against the runtime's list. A type-only mirror looks
+ * checked and is not: a type-level assertion passes at runtime no matter what.
+ */
+export const EXECUTION_STATUSES = [
+  "CREATED",
+  "VALIDATING",
+  "PLANNING",
+  "READY",
+  "SCHEDULED",
+  "RUNNING",
+  "WAITING",
+  "PAUSED",
+  "CANCELLING",
+  "CANCELLED",
+  "FAILED",
+  "RETRYING",
+  "COMPLETED",
+  "ARCHIVED",
+] as const;
+
+export type ExecutionStatus = (typeof EXECUTION_STATUSES)[number];
 
 export type PlannedTask = {
   id: string;
@@ -137,19 +145,19 @@ export type Execution = {
   createdAt: string;
 };
 
-export type TaskStatus =
-  | "PENDING"
-  | "READY"
-  | "QUEUED"
-  | "ASSIGNED"
-  | "RUNNING"
-  | "SUCCESS"
-  | "COMPLETED"
-  | "FAILED"
-  | "RETRYING"
-  | "SKIPPED"
-  | "CANCELLED"
-  | "DEAD_LETTER";
+export const TASK_STATUSES = [
+  "PENDING",
+  "READY",
+  "RUNNING",
+  "WAITING",
+  "SUCCESS",
+  "FAILED",
+  "RETRY",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export type Task = {
   id: string;

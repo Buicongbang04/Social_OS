@@ -211,6 +211,27 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Approve or reject a run parked waiting for a person.
+   *
+   * Rejecting cancels the run, not just the step: "do not publish this" has to
+   * mean the steps after it do not happen either.
+   */
+  async decideApproval(
+    executionId: string,
+    decision: "APPROVED" | "REJECTED",
+    note?: string,
+  ): Promise<Execution> {
+    return this.request<Execution>(
+      "POST",
+      `/executions/${executionId}/approval`,
+      {
+        body: { decision, ...(note === undefined ? {} : { note }) },
+        workspaceScoped: true,
+      },
+    );
+  }
+
   async cancelExecution(executionId: string): Promise<Execution> {
     return this.request<Execution>(
       "POST",

@@ -288,6 +288,60 @@ describe.skipIf(!hasInfra)("runtime API (integration)", () => {
       .expect(404);
   });
 
+  it("refuses to approve a run that is not waiting on anyone", async () => {
+    // No runtime is attached here, so the execution never reaches WAITING.
+    // Saying so beats pretending a decision was recorded.
+    const goal = await createGoal(alice, aliceWorkspace);
+    const submitted = await testApp
+      .http()
+      .post(`/api/v1/goals/${goal.id}/executions`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(202);
+
+    const response = await testApp
+      .http()
+      .post(`/api/v1/executions/${submitted.body.data.id}/approval`)
+      .set(auth(alice, aliceWorkspace))
+      .send({ decision: "APPROVED" })
+      .expect(409);
+
+    expect(response.body.code).toBe("NOT_AWAITING_APPROVAL");
+  });
+
+  it("hides another tenant's pending approval behind 404", async () => {
+    // Approving is authorising a side effect on someone's audience. It has to
+    // be as unreachable across a workspace boundary as the run itself.
+    const goal = await createGoal(alice, aliceWorkspace);
+    const submitted = await testApp
+      .http()
+      .post(`/api/v1/goals/${goal.id}/executions`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(202);
+
+    await testApp
+      .http()
+      .post(`/api/v1/executions/${submitted.body.data.id}/approval`)
+      .set(auth(bob, bobWorkspace))
+      .send({ decision: "APPROVED" })
+      .expect(404);
+  });
+
+  it("rejects a decision that is neither approve nor reject", async () => {
+    const goal = await createGoal(alice, aliceWorkspace);
+    const submitted = await testApp
+      .http()
+      .post(`/api/v1/goals/${goal.id}/executions`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(202);
+
+    await testApp
+      .http()
+      .post(`/api/v1/executions/${submitted.body.data.id}/approval`)
+      .set(auth(alice, aliceWorkspace))
+      .send({ decision: "MAYBE" })
+      .expect(422);
+  });
+
   it("rejects a malformed id rather than treating it as not found", async () => {
     await testApp
       .http()

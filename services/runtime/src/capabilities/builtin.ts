@@ -1,4 +1,8 @@
-import { RuntimeError, type CapabilityImplementation } from "@repo/runtime";
+import {
+  ApprovalRequired,
+  RuntimeError,
+  type CapabilityImplementation,
+} from "@repo/runtime";
 
 /**
  * Deterministic capabilities for Phase 1.
@@ -84,7 +88,24 @@ export const approvalRequest: CapabilityImplementation = {
     supportedWorkers: ["FUNCTION"],
     permissions: ["workspace.workflow.execute"],
   },
-  handler: async () => ({ approved: true, approver: "stub" }),
+  /**
+   * Stops and waits for a person. It does NOT approve itself.
+   *
+   * The previous version returned `{approved: true}` immediately, which meant a
+   * user who asked to review before publishing got a gate that rubber-stamped
+   * itself and published anyway — the platform appearing to honour a request it
+   * did not honour. For a tool that posts to someone's audience, that is the
+   * worst failure mode available.
+   */
+  handler: async (context) => {
+    const content = context.previous["content.generate"];
+
+    throw new ApprovalRequired("Chờ người duyệt trước khi đăng.", {
+      title: content?.title ?? null,
+      body: content?.body ?? null,
+      platforms: context.inputs.platforms ?? context.inputs.platform ?? null,
+    });
+  },
 };
 
 export const socialPublish: CapabilityImplementation = {

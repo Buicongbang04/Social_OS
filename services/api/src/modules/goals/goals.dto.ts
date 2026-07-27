@@ -51,6 +51,13 @@ export const createExecutionSchema = z.object({
 });
 export type CreateExecutionBody = z.infer<typeof createExecutionSchema>;
 
+export const approvalSchema = z.object({
+  decision: z.enum(["APPROVED", "REJECTED"]),
+  /** Optional note, shown back on the task so the trail records the why. */
+  note: z.string().max(1_000).optional(),
+});
+export type ApprovalBody = z.infer<typeof approvalSchema>;
+
 export const listQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),

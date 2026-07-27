@@ -13,9 +13,14 @@ import type {
   Goal,
   GoalRepository,
   Task,
+  TaskQueue,
   TaskRepository,
 } from "@repo/runtime";
-import { canRequestCancellation, newExecutionFor } from "@repo/runtime";
+import {
+  ApprovalGate,
+  canRequestCancellation,
+  newExecutionFor,
+} from "@repo/runtime";
 import type { DrizzleAiUsageRepository } from "@repo/database";
 import {
   AI_USAGE_REPOSITORY,
@@ -23,9 +28,10 @@ import {
   GOAL_REPOSITORY,
   TASK_REPOSITORY,
 } from "../../infra/database/database.module";
+import { TASK_QUEUE } from "../../infra/redis/redis.module";
 import { requestContext } from "../../common/context/request-context";
 import { parseRouteId } from "../../common/parse-id";
-import type { CreateGoalBody } from "./goals.dto";
+import type { ApprovalBody, CreateGoalBody } from "./goals.dto";
 
 @Injectable()
 export class GoalsService {
@@ -36,7 +42,16 @@ export class GoalsService {
     @Inject(TASK_REPOSITORY) private readonly tasks: TaskRepository,
     @Inject(AI_USAGE_REPOSITORY)
     private readonly aiUsage: DrizzleAiUsageRepository,
-  ) {}
+    @Inject(TASK_QUEUE) queue: TaskQueue,
+  ) {
+    this.approvals = new ApprovalGate({
+      executions: this.executions,
+      tasks: this.tasks,
+      queue,
+    });
+  }
+
+  private readonly approvals: ApprovalGate;
 
   async createGoal(
     workspaceId: WorkspaceId,
@@ -138,6 +153,36 @@ export class GoalsService {
       /** Calls whose model had no price, so totalUsd is short by their cost. */
       unpricedCalls: calls.filter((call) => !call.costPriced).length,
     };
+  }
+
+  /**
+   * Record a person's approval decision on a waiting Execution.
+   *
+   * Membership-scoped through getExecution first, so someone outside the
+   * workspace cannot approve a post to it — the whole point of the gate.
+   */
+  async decideApproval(
+    id: ExecutionId,
+    userId: UserId,
+    body: ApprovalBody,
+  ): Promise<Execution> {
+    const execution = await this.getExecution(id, userId);
+
+    if (execution.status !== "WAITING") {
+      throw new ConflictError(
+        `This execution is ${execution.status}, so there is nothing awaiting approval.`,
+        "NOT_AWAITING_APPROVAL",
+      );
+    }
+
+    await this.approvals.decide({
+      executionId: id,
+      decision: body.decision,
+      actorId: userId,
+      ...(body.note === undefined ? {} : { note: body.note }),
+    });
+
+    return this.getExecution(id, userId);
   }
 
   /**

@@ -8,7 +8,7 @@ import {
 } from "@repo/sdk";
 import { useEffect, useState } from "react";
 import { getClient } from "../lib/api";
-import { ErrorNote, Panel, StatusBadge } from "./ui";
+import { ErrorNote, Panel, PrimaryButton, StatusBadge } from "./ui";
 
 /** Nothing more will happen to an execution in one of these. */
 const TERMINAL = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
@@ -28,6 +28,8 @@ export function ExecutionView({ executionId }: { executionId: string }) {
   const [usage, setUsage] = useState<ExecutionUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stalled, setStalled] = useState(false);
+  /** Bumped after a decision so the view re-reads immediately. */
+  const [nudge, setNudge] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +79,7 @@ export function ExecutionView({ executionId }: { executionId: string }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [executionId]);
+  }, [executionId, nudge]);
 
   if (!execution) {
     return (
@@ -182,10 +184,108 @@ export function ExecutionView({ executionId }: { executionId: string }) {
           </p>
         )}
 
+        <ApprovalPanel
+          execution={execution}
+          tasks={tasks}
+          onDecided={() => setNudge((n) => n + 1)}
+        />
+
         <UsagePanel usage={usage} />
         <ErrorNote message={error} />
       </div>
     </Panel>
+  );
+}
+
+/**
+ * The gate a user asked for.
+ *
+ * Shows what is about to be published before asking, because a prompt that
+ * says only "approve?" without showing what is being approved trains people to
+ * click yes — which is the same outcome as auto-approving, just slower.
+ */
+function ApprovalPanel({
+  execution,
+  tasks,
+  onDecided,
+}: {
+  execution: Execution;
+  tasks: Task[];
+  onDecided: () => void;
+}) {
+  const [busy, setBusy] = useState<"APPROVED" | "REJECTED" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const pending = tasks.find(
+    (task) => task.status === "WAITING" && task.outputs?.awaitingApproval,
+  );
+  if (execution.status !== "WAITING" || !pending) return null;
+
+  const preview = pending.outputs ?? {};
+
+  const decide = async (decision: "APPROVED" | "REJECTED") => {
+    setBusy(decision);
+    setError(null);
+    try {
+      await getClient().decideApproval(execution.id, decision);
+      onDecided();
+    } catch (caught) {
+      setError(
+        isApiError(caught)
+          ? `${caught.message} (${caught.code})`
+          : String(caught),
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
+      <h3 className="text-sm font-semibold text-amber-900">
+        Đang chờ bạn duyệt
+      </h3>
+      <p className="mt-1 text-xs text-amber-800">
+        Chưa có gì được đăng. Nội dung bên dưới chỉ được gửi đi sau khi bạn đồng
+        ý.
+      </p>
+
+      {preview.title ? (
+        <p className="mt-3 text-sm font-medium text-neutral-900">
+          {String(preview.title)}
+        </p>
+      ) : null}
+      {preview.body ? (
+        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">
+          {String(preview.body)}
+        </p>
+      ) : null}
+      {preview.platforms ? (
+        <p className="mt-2 text-xs text-neutral-600">
+          Sẽ đăng lên: {JSON.stringify(preview.platforms)}
+        </p>
+      ) : null}
+
+      <div className="mt-4 flex items-center gap-2">
+        <PrimaryButton
+          onClick={() => void decide("APPROVED")}
+          busy={busy === "APPROVED"}
+          disabled={busy !== null}
+        >
+          Duyệt và đăng
+        </PrimaryButton>
+        <button
+          type="button"
+          onClick={() => void decide("REJECTED")}
+          disabled={busy !== null}
+          className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 disabled:opacity-50"
+        >
+          {busy === "REJECTED" ? "Đang xử lý…" : "Từ chối"}
+        </button>
+      </div>
+
+      <ErrorNote message={error} />
+    </div>
   );
 }
 
