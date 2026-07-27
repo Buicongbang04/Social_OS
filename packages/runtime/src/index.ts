@@ -14,6 +14,7 @@ export * from "./errors/taxonomy";
 
 // Ports
 export * from "./ports";
+export * from "./ports/repositories";
 
 // Phase 1 deterministic implementations
 export * from "./capability/registry";

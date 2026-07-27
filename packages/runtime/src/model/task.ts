@@ -1,4 +1,10 @@
-import type { ExecutionId, Metadata, TaskId, WorkerId } from "@repo/core";
+import type {
+  ExecutionId,
+  Metadata,
+  TaskId,
+  WorkerId,
+  WorkspaceId,
+} from "@repo/core";
 import type { TaskStatus } from "../state/task-state";
 
 export const TASK_PRIORITIES = [
@@ -41,6 +47,12 @@ export const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60_000;
 export type Task = {
   id: TaskId;
   executionId: ExecutionId;
+  /**
+   * Denormalised from the Execution. The scheduler filters by workspace on its
+   * hot path and quota is enforced per workspace, so carrying it here avoids a
+   * join on every dispatch.
+   */
+  workspaceId: WorkspaceId;
   /** Capability id, e.g. "content.generate". Never a concrete worker. */
   capability: string;
   /**

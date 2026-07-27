@@ -10,6 +10,14 @@ import {
   USER_STATUSES,
   WORKSPACE_ROLES,
 } from "@repo/domain";
+import {
+  EXECUTION_STATUSES,
+  GOAL_PRIORITIES,
+  GOAL_STATUSES,
+  GOAL_TYPES,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+} from "@repo/runtime";
 
 /**
  * Postgres enums are generated from the domain constants, so the database can
@@ -39,3 +47,14 @@ export const permissionActionEnum = pgEnum(
   "permission_action",
   PERMISSION_ACTIONS,
 );
+
+/** Runtime enums, generated from @repo/runtime for the same anti-drift reason. */
+export const goalStatusEnum = pgEnum("goal_status", GOAL_STATUSES);
+export const goalTypeEnum = pgEnum("goal_type", GOAL_TYPES);
+export const goalPriorityEnum = pgEnum("goal_priority", GOAL_PRIORITIES);
+export const executionStatusEnum = pgEnum(
+  "execution_status",
+  EXECUTION_STATUSES,
+);
+export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
+export const taskPriorityEnum = pgEnum("task_priority", TASK_PRIORITIES);

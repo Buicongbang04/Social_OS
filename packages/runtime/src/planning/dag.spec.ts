@@ -21,6 +21,7 @@ function task(
   return {
     id: id as TaskId,
     executionId: "exe_01HX8ZQ7P9K2M4N6R8T0V2W4Y6" as Task["executionId"],
+    workspaceId: "wsp_01HX8ZQ7P9K2M4N6R8T0V2W4A1" as Task["workspaceId"],
     capability: "content.generate",
     workerId: null,
     inputs: {},

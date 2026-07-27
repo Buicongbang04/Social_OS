@@ -174,6 +174,7 @@ export class TemplatePlanner implements Planner {
     return {
       id: newId("task"),
       executionId: execution.id,
+      workspaceId: execution.workspaceId,
       capability: capabilityId,
       workerId: null, // The Worker Dispatcher decides this at dispatch time.
       inputs,

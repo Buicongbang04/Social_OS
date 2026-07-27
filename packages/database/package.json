@@ -32,7 +32,8 @@
     "@repo/domain": "workspace:*",
     "@repo/logger": "workspace:*",
     "drizzle-orm": "^0.38.0",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "@repo/runtime": "workspace:*"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
