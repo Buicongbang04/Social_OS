@@ -7,7 +7,7 @@ Cuối mỗi phần có mục **Lưu ý khi làm nền tảng này** — ghi l�
 gặp phải trong quá trình xây dựng. Phần nào chưa có gì đáng lưu ý thì không có
 mục đó.
 
-Tình trạng tính đến 2026-07-27 (commit `22af3bd`). Đây là bản kiểm kê **những gì
+Tình trạng tính đến 2026-07-27 (commit `0b04303`). Đây là bản kiểm kê **những gì
 đã cài và đang chạy thật**; stack dự kiến đầy đủ của sản phẩm nằm ở
 `docs/05_TECH_STACK.md`, khoảng cách giữa hai bản ghi ở mục 12.
 
@@ -21,12 +21,13 @@ Tình trạng tính đến 2026-07-27 (commit `22af3bd`). Đây là bản kiểm
 4. [Cơ sở dữ liệu](#4-cơ-sở-dữ-liệu)
 5. [Hàng đợi và cache](#5-hàng-đợi-và-cache)
 6. [Tầng AI](#6-tầng-ai)
-7. [Xác thực và bảo mật](#7-xác-thực-và-bảo-mật)
-8. [Frontend](#8-frontend)
-9. [Kiểm thử](#9-kiểm-thử)
-10. [Log và tiện ích vận hành](#10-log-và-tiện-ích-vận-hành)
-11. [Đã cài nhưng chưa dùng](#11-đã-cài-nhưng-chưa-dùng)
-12. [Khoảng cách so với stack dự kiến](#12-khoảng-cách-so-với-stack-dự-kiến)
+7. [Tri thức và tìm kiếm ngữ nghĩa](#7-tri-thức-và-tìm-kiếm-ngữ-nghĩa)
+8. [Xác thực và bảo mật](#8-xác-thực-và-bảo-mật)
+9. [Frontend](#9-frontend)
+10. [Kiểm thử](#10-kiểm-thử)
+11. [Log và tiện ích vận hành](#11-log-và-tiện-ích-vận-hành)
+12. [Đã cài nhưng chưa dùng](#12-đã-cài-nhưng-chưa-dùng)
+13. [Khoảng cách so với stack dự kiến](#13-khoảng-cách-so-với-stack-dự-kiến)
 
 ---
 
@@ -479,7 +480,120 @@ cho Ollama, còn việc ép đúng cấu trúc vẫn do hàm `parse` đảm nh�
 
 ---
 
-## 7. Xác thực và bảo mật
+## 7. Tri thức và tìm kiếm ngữ nghĩa
+
+### Qdrant `1.18` + `@qdrant/js-client-rest` `1.18`
+
+**Là gì.** Qdrant là một _vector database_ viết bằng Rust: thay vì lưu hàng và
+cột rồi tìm theo điều kiện bằng nhau, nó lưu **vector** — một dãy số biểu diễn
+ý nghĩa của đoạn văn — và tìm theo **độ gần** giữa các vector. Câu hỏi "cà phê
+trồng ở đâu" tìm ra đoạn viết "Đắk Lắk là tỉnh có sản lượng lớn nhất" dù không
+có một từ nào trùng nhau. `@qdrant/js-client-rest` là client chính thức cho
+Node/TypeScript, gọi qua REST.
+
+**Dùng cho.** Lưu các đoạn (_chunk_) đã cắt từ tài liệu của workspace, kèm
+vector và metadata, rồi trả về những đoạn liên quan nhất tới một câu hỏi. Đây
+là nền của RAG (Retrieval-Augmented Generation) — cho model đọc tài liệu thật
+của người dùng thay vì bịa.
+
+**Điểm mạnh.**
+
+- **Lọc và tìm cùng lúc.** Điều kiện lọc (`workspaceId = ...`) được đưa _vào
+  trong_ phép tìm láng giềng gần nhất, không phải lọc sau. Đây là khác biệt rất
+  lớn với các thư viện chỉ biết tìm vector rồi để ứng dụng tự lọc.
+- **Chỉ mục HNSW**, tìm gần đúng nhưng nhanh gần như tuyến tính theo log số
+  điểm — hàng triệu vector vẫn trả lời trong vài mili giây.
+- Chạy một container duy nhất, không cần cụm, không cần phụ thuộc ngoài.
+- Payload là JSON tự do, nên metadata phục vụ trích dẫn (tên tài liệu, vị trí
+  ký tự) nằm ngay cạnh vector.
+
+**Điểm yếu.**
+
+- **Tìm gần đúng, không chính xác tuyệt đối.** HNSW có thể bỏ sót láng giềng
+  thật; đổi lại tốc độ. Với dữ liệu nhỏ thì gần như không thấy, nhưng nó là
+  đánh đổi có thật.
+- Một collection **cố định số chiều** ngay lúc tạo. Đổi model nhúng là phải tạo
+  collection mới và lập chỉ mục lại toàn bộ.
+- Không có transaction xuyên collection, không join. Nó là nơi để _tìm_, không
+  phải nơi để làm nguồn sự thật — nguồn sự thật vẫn là PostgreSQL.
+- Client TypeScript khai báo kiểu **rộng hơn** thứ server thật sự chấp nhận,
+  nên nhiều lỗi chỉ lộ lúc chạy (xem Lưu ý).
+
+### Embedding models
+
+**Là gì.** Model nhúng biến một đoạn văn thành vector. Khác model sinh chữ ở
+chỗ nó không viết gì cả — đầu ra chỉ là một dãy số, và hai đoạn văn có ý nghĩa
+gần nhau thì hai vector gần nhau.
+
+**Dùng cho.** Cả hai đầu của việc tìm kiếm: nhúng từng chunk lúc lập chỉ mục, và
+nhúng câu hỏi lúc tìm.
+
+| Nhà cung cấp | Model mặc định           | Số chiều |
+| ------------ | ------------------------ | -------- |
+| OpenAI       | `text-embedding-3-small` | 1536     |
+| Google       | `text-embedding-004`     | 768      |
+| Ollama       | `nomic-embed-text`       | 768      |
+| Anthropic    | _không có_               | —        |
+
+**Điểm mạnh.** Rẻ hơn model sinh chữ khoảng hai bậc; chạy được cục bộ qua
+Ollama nên không tốn tiền và không gửi tài liệu ra ngoài.
+
+**Điểm yếu.** Mỗi model là một hệ toạ độ riêng — vector của hai model **không
+so sánh được với nhau**, và không có cách nào phát hiện lúc truy vấn. Chất
+lượng phụ thuộc nhiều vào ngôn ngữ: các model trên đều mạnh nhất ở tiếng Anh.
+
+### Lưu ý khi làm nền tảng này
+
+**Anthropic không có API nhúng.** Nên `embed` trên `ProviderAdapter` là
+**optional**, và Gateway _bỏ qua_ nhà cung cấp không nhúng được thay vì làm hỏng
+cả chuỗi. Chuỗi `anthropic,openai` vẫn ưu tiên Anthropic để sinh chữ nhưng lặng
+lẽ dùng OpenAI để nhúng.
+
+**Lấy method ra khỏi object là mất `this`.** Gateway rút `adapter.embed` ra để
+lọc trước, và adapter thật là class có đọc `this` — trong khi stub dùng arrow
+function nên _không_ lộ lỗi. Phải `.bind(adapter)`. Đã viết một test riêng với
+adapter dạng class chỉ để giữ điều này.
+
+**Một collection thuộc về đúng một model nhúng.** Trộn vector của hai model cho
+ra điểm số _trông có vẻ hợp lý_ nhưng vô nghĩa — hỏng kiểu tệ nhất, vì không có
+gì báo lỗi. Tên collection vì thế nhúng cả digest của tên model: `meta-llama/Llama-3`
+(OpenRouter) và `qwen3:0.6b` (Ollama) đều biến thành cùng một chuỗi sau khi thay
+ký tự không hợp lệ bằng `_`.
+
+**Qdrant chỉ nhận số nguyên hoặc UUID làm point ID**, nhưng kiểu TypeScript của
+client ghi là `number | string`. Nên `chk_01HX…` **biên dịch xanh** rồi chết ở
+server với lỗi 400 không nhắc gì tới chunk hay ID. Phải ánh xạ ID sang UUID tất
+định (sha256), và giữ ID thật trong payload.
+
+**`timeout` lúc khởi tạo client là mili giây**, dù JSDoc của chính nó ghi
+"Default 300 seconds"; còn `timeout` theo từng request thì lại **là giây** thật.
+Truyền `30` với ý "30 giây" làm mọi lời gọi bị huỷ sau 30ms, và triệu chứng là
+"timeout kết nối" tới một server trả lời tức thì.
+
+**Overlap phải tính theo chunk thực tế, không theo `size` yêu cầu.** Hai số này
+lệch nhau mỗi khi ranh giới câu rơi sớm trong cửa sổ: `size` 100 mà câu kết thúc
+ở ký tự 57, overlap 50 thì con trỏ chỉ tiến 7 — một trang giấy thành hàng trăm
+chunk gần như trùng nhau, tốn hàng trăm lời gọi nhúng và tìm kiếm trả về cùng
+một câu chục lần.
+
+**Lọc theo workspace phải nằm _trong_ truy vấn.** Lấy top-k trước rồi lọc sau
+sẽ âm thầm trả về ít kết quả hơn số đã yêu cầu mỗi khi tenant khác xếp hạng cao
+hơn — và chính sự thiếu hụt đó là bằng chứng duy nhất cho thấy dữ liệu của
+tenant khác đã từng được đem ra cân nhắc. `SearchQuery.workspaceId` để **bắt
+buộc**, không optional, để bỏ sót nó là lỗi biên dịch.
+
+**Xoá tài liệu phải quét mọi collection.** Workspace từng lập chỉ mục lại bằng
+model khác vẫn còn chunk ở collection cũ — tìm kiếm không thấy, nhưng dữ liệu
+vẫn nằm đó. "Xoá tài liệu của tôi" phải chạm cả bản không ai tìm thấy được.
+
+**`wait: true` khi ghi.** Không có nó, Qdrant xác nhận trước khi dữ liệu tìm
+được, nên lập chỉ mục xong tìm ngay sẽ ra rỗng — trông hệt như lỗi cắt chunk.
+Nói thẳng: bộ test tích hợp **không chứng minh được** điều này, vì Qdrant một
+node cỡ nhỏ thì ghi xong là thấy ngay. Nó ở đó dựa trên tài liệu chính thức.
+
+---
+
+## 8. Xác thực và bảo mật
 
 ### argon2 `0.41`
 
@@ -559,7 +673,7 @@ nguyên có tồn tại.
 
 ---
 
-## 8. Frontend
+## 9. Frontend
 
 ### Next.js `15.1`
 
@@ -641,7 +755,7 @@ là refresh token trong cookie `httpOnly`.
 
 ---
 
-## 9. Kiểm thử
+## 10. Kiểm thử
 
 ### Vitest `2.1`
 
@@ -702,7 +816,7 @@ ra không: một nhánh fallback trong Gateway không bao giờ chạy tới, m�
 
 ---
 
-## 10. Log và tiện ích vận hành
+## 11. Log và tiện ích vận hành
 
 ### pino `9.5` + pino-pretty `13.0`
 
@@ -760,15 +874,16 @@ chạy bù sẽ đăng ba ngày bài trong một phút.
 
 ---
 
-## 11. Đã cài nhưng chưa dùng
+## 12. Đã cài nhưng chưa dùng
 
 Các dịch vụ sau có trong `docker-compose` và đang chạy, nhưng **chưa có dòng code
 nào gọi tới**:
 
-| Dịch vụ | Cổng        | Dự kiến dùng cho                             |
-| ------- | ----------- | -------------------------------------------- |
-| MinIO   | 9000 / 9002 | Lưu trữ file, tương thích S3                 |
-| Qdrant  | 6333        | Vector database cho RAG / Knowledge / Memory |
+| Dịch vụ | Cổng        | Dự kiến dùng cho             |
+| ------- | ----------- | ---------------------------- |
+| MinIO   | 9000 / 9002 | Lưu trữ file, tương thích S3 |
+
+(Qdrant `:6333` **đã được dùng thật** từ `packages/knowledge` — xem mục 7.)
 
 Các package sau mới chỉ có README, chưa có mã: `packages/storage`,
 `packages/plugin`, `packages/integration`. Các app `admin`, `docs`, `landing`,
@@ -779,7 +894,7 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 
 ---
 
-## 12. Khoảng cách so với stack dự kiến
+## 13. Khoảng cách so với stack dự kiến
 
 `docs/05_TECH_STACK.md` mô tả stack đầy đủ của sản phẩm. Những phần **chưa làm**:
 
@@ -804,4 +919,4 @@ typecheck xanh không chứng minh được gì:
   bộ schema hiện có.
 - **`consistent-type-imports` phải tắt cho `services/**`** ở cả hai config ESLint
   — bật lại sẽ phá dependency injection của NestJS lúc chạy.
-- **Cổng lệch chuẩn** — xem mục 10.
+- **Cổng lệch chuẩn** — xem mục 11.
