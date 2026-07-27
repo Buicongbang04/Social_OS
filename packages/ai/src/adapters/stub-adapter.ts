@@ -1,6 +1,8 @@
 import { APICallError } from "ai";
 import type {
   AdapterResult,
+  EmbeddingRequest,
+  EmbeddingResult,
   ProviderAdapter,
   ProviderName,
   ProviderRequest,
@@ -27,6 +29,11 @@ export type StubAdapterOptions = {
   replies?: readonly { when: string | RegExp; reply: StubReply }[];
   /** Used when nothing matches. */
   fallbackReply?: StubReply;
+  /**
+   * Length of the vectors this stub returns. Omit to make the stub unable to
+   * embed at all, which is how Anthropic behaves.
+   */
+  embeddingDimensions?: number;
   inputTokens?: number;
   outputTokens?: number;
 };
@@ -47,11 +54,64 @@ export class StubProviderAdapter implements ProviderAdapter {
   readonly calls: ProviderRequest[] = [];
 
   private readonly options: StubAdapterOptions;
+  /** Texts passed to embed, for assertions about what was indexed. */
+  readonly embedded: string[] = [];
 
   constructor(options: StubAdapterOptions = {}) {
     this.provider = options.provider ?? "anthropic";
     this.defaultModel = options.defaultModel ?? "stub-model";
     this.options = options;
+
+    // Assigned as an own property, and only when configured — so a stub can
+    // model a vendor with no embedding API at all. It has to be an instance
+    // property rather than a method: a method lives on the prototype, where
+    // `delete` cannot reach it, and the Gateway decides by asking whether the
+    // method is there.
+    if (options.embeddingDimensions !== undefined) {
+      this.embed = (request) => this.fakeEmbed(request);
+    }
+  }
+
+  embed?: (request: EmbeddingRequest) => Promise<EmbeddingResult>;
+
+  /**
+   * A deterministic vector derived from the text.
+   *
+   * Not a real embedding, but stable and different per input — enough for a
+   * test to prove the right chunk was retrieved, with no network and no model.
+   */
+  private async fakeEmbed(request: EmbeddingRequest): Promise<EmbeddingResult> {
+    const dimensions = this.options.embeddingDimensions ?? 8;
+    this.embedded.push(...request.texts);
+
+    const vectors = request.texts.map((text) => {
+      const vector = new Array<number>(dimensions).fill(0);
+      for (let i = 0; i < text.length; i += 1) {
+        vector[i % dimensions] =
+          (vector[i % dimensions] ?? 0) + text.charCodeAt(i);
+      }
+      // Normalised, so cosine similarity behaves as it would with a real one.
+      const norm = Math.hypot(...vector) || 1;
+      return vector.map((value) => value / norm);
+    });
+
+    const inputTokens = request.texts.reduce(
+      (total, text) => total + estimateTokens(text),
+      0,
+    );
+
+    return {
+      model: request.model ?? `${this.defaultModel}-embed`,
+      vectors,
+      dimensions,
+      usage: {
+        inputTokens,
+        outputTokens: 0,
+        totalTokens: inputTokens,
+        cachedInputTokens: 0,
+        reasoningTokens: 0,
+      },
+    };
   }
 
   async generate(request: ProviderRequest): Promise<AdapterResult> {

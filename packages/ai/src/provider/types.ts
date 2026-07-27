@@ -146,6 +146,22 @@ export type ProviderResponse = {
 /** A ProviderResponse whose text was parsed and validated against a schema. */
 export type ProviderObjectResponse<T> = ProviderResponse & { object: T };
 
+/** One text turned into a vector, plus what it cost to do so. */
+export type EmbeddingResult = {
+  model: string;
+  /** Same order as the input texts. */
+  vectors: readonly (readonly number[])[];
+  /** Length of each vector. Constant for a given model. */
+  dimensions: number;
+  usage: TokenUsage;
+};
+
+export type EmbeddingRequest = {
+  provider?: ProviderName;
+  model?: string;
+  texts: readonly string[];
+};
+
 /**
  * What an adapter hands back. No latency and no cost: the Gateway measures and
  * prices centrally so every provider is treated identically and an adapter
@@ -178,6 +194,18 @@ export interface ProviderAdapter {
     schema: StructuredSchema<T>,
     signal?: AbortSignal,
   ): Promise<AdapterResult & { object: T }>;
+  /**
+   * Turn texts into vectors.
+   *
+   * Optional because not every vendor offers embeddings — Anthropic has no
+   * embedding API at all. Declaring it optional means the Gateway can skip a
+   * provider that cannot do this rather than failing the whole chain, and the
+   * absence is visible in the type instead of surfacing as a runtime error.
+   */
+  embed?(
+    request: EmbeddingRequest,
+    signal?: AbortSignal,
+  ): Promise<EmbeddingResult>;
 }
 
 export const EMPTY_USAGE: TokenUsage = Object.freeze({

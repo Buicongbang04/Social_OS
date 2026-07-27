@@ -10,9 +10,12 @@ import {
   type ProviderFailure,
 } from "./errors";
 import { costOf, priceOf, type ModelPrice } from "./pricing";
+import type { Cost } from "./types";
 import type { ProviderRegistry } from "./registry";
 import type {
   AdapterResult,
+  EmbeddingRequest,
+  EmbeddingResult,
   ProviderAdapter,
   ProviderName,
   ProviderObjectResponse,
@@ -20,6 +23,13 @@ import type {
   ProviderResponse,
   StructuredSchema,
 } from "./types";
+
+/** An embedding result plus what the Gateway measured and priced. */
+export type ProviderEmbedding = EmbeddingResult & {
+  provider: ProviderName;
+  latencyMs: number;
+  cost: Cost;
+};
 
 /**
  * Gateway configuration, mirroring the `providers:` block in
@@ -115,6 +125,102 @@ export class ProviderGateway {
   }
 
   /**
+   * Turn texts into vectors.
+   *
+   * Skips any provider that cannot embed rather than failing on it: Anthropic
+   * has no embedding API, so a chain of `anthropic,openai` must quietly use
+   * OpenAI here while still preferring Anthropic for generation.
+   */
+  async embed(request: EmbeddingRequest): Promise<ProviderEmbedding> {
+    // Resolved once, into pairs, rather than filtered here and re-checked in
+    // the loop: two guards for one fact means one of them is dead, and a dead
+    // guard reads as protection that is not there.
+    const chain = this.chainFor(request).flatMap((provider) => {
+      const adapter = this.registry.get(provider)?.adapter;
+      // Bound on purpose. Pulling a method off an object drops its `this`, and
+      // the real adapters are classes that use it — the stub is an arrow
+      // function, so it would not have shown the breakage until production.
+      return adapter?.embed
+        ? [{ provider, embed: adapter.embed.bind(adapter) }]
+        : [];
+    });
+
+    if (chain.length === 0) {
+      throw new RuntimeError(
+        "PROVIDER",
+        request.provider
+          ? `Provider ${request.provider} cannot produce embeddings.`
+          : "No registered provider can produce embeddings.",
+        { retryable: false, context: { requested: request.provider ?? null } },
+      );
+    }
+
+    const attempted: ProviderName[] = [];
+    let lastFailure: ProviderFailure | null = null;
+    let lastCause: unknown;
+    let lastModel = "";
+
+    for (const { provider, embed } of chain) {
+      attempted.push(provider);
+
+      for (let attempt = 1; attempt <= this.config.attempts; attempt += 1) {
+        const startedAt = this.clock.now();
+        try {
+          const result = await embed(
+            request,
+            AbortSignal.timeout(this.config.timeoutMs),
+          );
+          lastModel = result.model;
+          this.registry.markHealthy(provider);
+
+          return {
+            provider,
+            ...result,
+            latencyMs: this.clock.now() - startedAt,
+            cost: costOf(
+              result.usage,
+              priceOf(provider, result.model, this.config.pricing),
+            ),
+          };
+        } catch (error) {
+          const failure = classifyFailure(error);
+          lastFailure = failure;
+          lastCause = error;
+
+          if (failure.demoteTo) {
+            this.registry.transition(
+              provider,
+              failure.demoteTo,
+              failure.message,
+            );
+          }
+          if (!isWorthFallingBackFrom(failure)) {
+            throw toRuntimeError(
+              failure,
+              { provider, model: lastModel, attempted },
+              error,
+            );
+          }
+          if (attempt < this.config.attempts) {
+            await this.clock.sleep(retryDelayMs(DEFAULT_RETRY_POLICY, attempt));
+          }
+        }
+      }
+    }
+
+    throw toRuntimeError(
+      lastFailure ?? {
+        retryable: false,
+        demoteTo: null,
+        statusCode: undefined,
+        message: "No provider in the chain produced embeddings.",
+      },
+      { provider: chain[0]?.provider as ProviderName, model: lastModel, attempted },
+      lastCause,
+    );
+  }
+
+  /**
    * Which providers to try, in order.
    *
    * A caller that names a provider gets exactly that provider. Falling back
@@ -122,7 +228,9 @@ export class ProviderGateway {
    * price, a different data-residency story, possibly a different answer —
    * behind the back of someone who was specific on purpose.
    */
-  private chainFor(request: ProviderRequest): readonly ProviderName[] {
+  private chainFor(request: {
+    provider?: ProviderName;
+  }): readonly ProviderName[] {
     if (request.provider) {
       // Still filtered by registration, so an unregistered pin reports "not
       // registered" rather than the generic exhausted-chain message.

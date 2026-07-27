@@ -3,17 +3,22 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
+  embedMany,
   generateObject,
   generateText,
   jsonSchema,
   tool,
+  type EmbeddingModel,
   type JSONSchema7,
   type LanguageModel,
   type ModelMessage,
   type ToolSet,
 } from "ai";
+import { DEFAULT_EMBEDDING_MODELS } from "../provider/catalog";
 import type {
   AdapterResult,
+  EmbeddingRequest,
+  EmbeddingResult,
   FinishReason,
   ProviderAdapter,
   ProviderMessage,
@@ -62,12 +67,14 @@ export class VercelProviderAdapter implements ProviderAdapter {
   readonly provider: ProviderName;
   readonly defaultModel: string;
   private readonly resolve: (model: string) => LanguageModel;
+  private readonly resolveEmbedding: ((model: string) => EmbeddingModel) | null;
   private readonly dialect: SchemaDialect;
 
   constructor(options: VercelAdapterOptions) {
     this.provider = options.provider;
     this.defaultModel = options.defaultModel;
     this.resolve = buildResolver(options);
+    this.resolveEmbedding = buildEmbeddingResolver(options);
     this.dialect =
       options.schemaDialect ??
       (options.provider === "ollama" ? "minimal" : "full");
@@ -136,6 +143,89 @@ export class VercelProviderAdapter implements ProviderAdapter {
       finishReason: toFinishReason(result.finishReason),
       metadata: { warnings: (result.warnings ?? []).length },
     };
+  }
+
+  /**
+   * Embed texts, or report that this vendor cannot.
+   *
+   * Batched into one request: indexing a document produces dozens of chunks,
+   * and one call per chunk would multiply both latency and per-request
+   * overhead for no benefit.
+   */
+  async embed(
+    request: EmbeddingRequest,
+    signal?: AbortSignal,
+  ): Promise<EmbeddingResult> {
+    if (!this.resolveEmbedding) {
+      throw new Error(`Provider ${this.provider} has no embedding model.`);
+    }
+
+    const model = request.model ?? defaultEmbeddingModel(this.provider);
+    const result = await embedMany({
+      model: this.resolveEmbedding(model),
+      values: [...request.texts],
+      ...(signal ? { abortSignal: signal } : {}),
+    });
+
+    const inputTokens = result.usage.tokens ?? 0;
+
+    return {
+      model,
+      vectors: result.embeddings,
+      dimensions: result.embeddings[0]?.length ?? 0,
+      usage: {
+        inputTokens,
+        // Embedding produces no completion tokens; reporting zero keeps the
+        // cost arithmetic identical to every other call.
+        outputTokens: 0,
+        totalTokens: inputTokens,
+        cachedInputTokens: 0,
+        reasoningTokens: 0,
+      },
+    };
+  }
+
+  /** True when this vendor can embed at all. */
+  canEmbed(): boolean {
+    return this.resolveEmbedding !== null;
+  }
+}
+
+function defaultEmbeddingModel(provider: ProviderName): string {
+  const model = DEFAULT_EMBEDDING_MODELS[provider];
+  if (!model) throw new Error(`Provider ${provider} has no embedding model.`);
+  return model;
+}
+
+function buildEmbeddingResolver(
+  options: VercelAdapterOptions,
+): ((model: string) => EmbeddingModel) | null {
+  const { apiKey, baseUrl } = options;
+  const withKey = apiKey ? { apiKey } : {};
+  const withUrl = baseUrl ? { baseURL: baseUrl } : {};
+
+  switch (options.provider) {
+    case "openai": {
+      const provider = createOpenAI({ ...withKey, ...withUrl });
+      return (model) => provider.textEmbeddingModel(model);
+    }
+    case "google": {
+      const provider = createGoogleGenerativeAI({ ...withKey, ...withUrl });
+      return (model) => provider.textEmbeddingModel(model);
+    }
+    case "ollama": {
+      const provider = createOpenAICompatible({
+        name: "ollama",
+        baseURL: baseUrl ?? "http://localhost:11434/v1",
+        supportsStructuredOutputs: true,
+        ...withKey,
+      });
+      return (model) => provider.textEmbeddingModel(model);
+    }
+    // Anthropic has no embedding API. Returning null is what lets the Gateway
+    // skip it instead of failing the whole chain.
+    case "anthropic":
+      return null;
   }
 }
 

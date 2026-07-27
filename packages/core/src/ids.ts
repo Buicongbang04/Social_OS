@@ -25,6 +25,10 @@ export const ID_PREFIXES = {
   worker: "wrk",
   /** One metered AI provider call (docs/platform/24_BILLING_METERING.md). */
   aiUsage: "aiu",
+  // Knowledge (docs/data/08_VECTOR_DATABASE.md): a Document is what was
+  // uploaded, a Chunk is one retrievable piece of it.
+  document: "doc",
+  chunk: "chk",
 } as const;
 
 export type IdPrefixName = keyof typeof ID_PREFIXES;
@@ -57,6 +61,8 @@ export type TaskId = Branded<"task">;
 export type EventId = Branded<"event">;
 export type WorkerId = Branded<"worker">;
 export type AiUsageId = Branded<"aiUsage">;
+export type DocumentId = Branded<"document">;
+export type ChunkId = Branded<"chunk">;
 
 export type IdOf<TName extends IdPrefixName> = Branded<TName>;
 

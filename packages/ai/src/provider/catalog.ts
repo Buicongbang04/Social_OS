@@ -62,6 +62,25 @@ export const DEFAULT_MODELS: Readonly<Record<ProviderName, string>> =
     ollama: "llama3.1",
   });
 
+/**
+ * Default embedding model per provider.
+ *
+ * Anthropic is absent on purpose: it has no embedding API at all. A provider
+ * with no entry here simply cannot embed, and the Gateway skips it rather than
+ * failing the chain.
+ */
+export const DEFAULT_EMBEDDING_MODELS: Readonly<
+  Partial<Record<ProviderName, string>>
+> = Object.freeze({
+  openai: "text-embedding-3-small",
+  google: "text-embedding-004",
+  ollama: "nomic-embed-text",
+});
+
+export function supportsEmbedding(provider: ProviderName): boolean {
+  return DEFAULT_EMBEDDING_MODELS[provider] !== undefined;
+}
+
 export function describeProvider(provider: ProviderName): ProviderDescriptor {
   return { provider, ...PROVIDER_CATALOG[provider] };
 }

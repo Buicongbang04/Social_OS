@@ -6,10 +6,20 @@ import {
   type StubAdapterOptions,
 } from "../adapters/stub-adapter";
 import { describeProvider } from "./catalog";
-import { ProviderGateway, type GatewayConfig } from "./gateway";
+import {
+  DEFAULT_GATEWAY_CONFIG,
+  ProviderGateway,
+  type GatewayConfig,
+} from "./gateway";
 import { ProviderRegistry } from "./registry";
 import { structured } from "./structured";
-import type { ProviderName, ProviderRequest } from "./types";
+import {
+  EMPTY_USAGE,
+  type EmbeddingResult,
+  type ProviderAdapter,
+  type ProviderName,
+  type ProviderRequest,
+} from "./types";
 
 const ASK: ProviderRequest = {
   messages: [{ role: "user", content: "viết bài về xu hướng AI" }],
@@ -355,5 +365,108 @@ describe("provider gateway — structured output", () => {
 
     expect(response.provider).toBe("openai");
     expect(response.object.steps).toHaveLength(1);
+  });
+});
+
+describe("provider gateway — embedding", () => {
+  it("turns texts into vectors and prices the call", async () => {
+    const { gateway } = build({
+      anthropic: { embeddingDimensions: 8, inputTokens: 100, outputTokens: 0 },
+    });
+
+    const result = await gateway.embed({ texts: ["xin chào", "cà phê"] });
+
+    expect(result.vectors).toHaveLength(2);
+    expect(result.dimensions).toBe(8);
+    expect(result.provider).toBe("anthropic");
+    expect(result.cost).toBeDefined();
+  });
+
+  it("keeps vectors in the same order as the texts", async () => {
+    // Off by one here silently associates every chunk with the wrong text, and
+    // the only symptom is retrieval quietly returning nonsense.
+    const { gateway } = build({ anthropic: { embeddingDimensions: 8 } });
+
+    const first = await gateway.embed({ texts: ["a"] });
+    const both = await gateway.embed({ texts: ["a", "b"] });
+
+    expect(both.vectors[0]).toEqual(first.vectors[0]);
+  });
+
+  it("skips a provider that cannot embed instead of failing the chain", async () => {
+    // Anthropic has no embedding API. A chain of anthropic then openai must
+    // still embed via openai while preferring anthropic for generation.
+    const { gateway } = build({
+      anthropic: { fallbackReply: { text: "ok" } },
+      openai: { embeddingDimensions: 4 },
+    });
+
+    const result = await gateway.embed({ texts: ["xin chào"] });
+
+    expect(result.provider).toBe("openai");
+    expect(result.dimensions).toBe(4);
+  });
+
+  it("says so clearly when nothing registered can embed", async () => {
+    const { gateway } = build({ anthropic: { fallbackReply: { text: "ok" } } });
+
+    await expect(gateway.embed({ texts: ["x"] })).rejects.toThrow(
+      /no registered provider can produce embeddings/i,
+    );
+  });
+
+  it("refuses a pinned provider that has no embedding model", async () => {
+    const { gateway } = build({
+      anthropic: { fallbackReply: { text: "ok" } },
+      openai: { embeddingDimensions: 4 },
+    });
+
+    await expect(
+      gateway.embed({ provider: "anthropic", texts: ["x"] }),
+    ).rejects.toThrow(/cannot produce embeddings/i);
+  });
+});
+
+describe("provider gateway — embedding adapters written as classes", () => {
+  /**
+   * The real adapters are classes whose `embed` reads `this`. The stub's is an
+   * arrow function, so it survives being pulled off the object — which means
+   * the stub alone cannot prove the Gateway keeps the binding.
+   */
+  class ClassAdapter implements ProviderAdapter {
+    readonly provider = "openai" as const;
+    readonly defaultModel = "class-embed";
+
+    generate(): Promise<never> {
+      throw new Error("not used");
+    }
+    generateObject(): Promise<never> {
+      throw new Error("not used");
+    }
+
+    async embed(): Promise<EmbeddingResult> {
+      return {
+        // Throws "cannot read properties of undefined" if `this` was lost.
+        model: this.defaultModel,
+        vectors: [[1, 0]],
+        dimensions: 2,
+        usage: EMPTY_USAGE,
+      };
+    }
+  }
+
+  it("keeps the adapter bound when it calls embed", async () => {
+    const clock = fakeClock();
+    const registry = new ProviderRegistry(clock.registryNow);
+    registry.register(new ClassAdapter(), describeProvider("openai"));
+    const gateway = new ProviderGateway(
+      registry,
+      { ...DEFAULT_GATEWAY_CONFIG, default: "openai" },
+      clock.gateway,
+    );
+
+    const result = await gateway.embed({ texts: ["x"] });
+
+    expect(result.model).toBe("class-embed");
   });
 });
