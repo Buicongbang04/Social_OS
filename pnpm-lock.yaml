@@ -306,9 +306,15 @@ importers:
       '@repo/core':
         specifier: workspace:*
         version: link:../core
+      '@repo/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@repo/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@repo/storage':
+        specifier: workspace:*
+        version: link:../storage
     devDependencies:
       '@repo/config':
         specifier: workspace:*
@@ -641,9 +647,15 @@ importers:
       '@repo/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@repo/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@repo/event':
         specifier: workspace:*
         version: link:../../packages/event
+      '@repo/knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
       '@repo/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -656,6 +668,9 @@ importers:
       '@repo/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@repo/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1

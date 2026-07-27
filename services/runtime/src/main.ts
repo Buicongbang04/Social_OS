@@ -3,6 +3,7 @@ import { InMemoryEventBus } from "@repo/event";
 import { createLogger } from "@repo/logger";
 import {
   DrizzleAiUsageRepository,
+  DrizzleDocumentRepository,
   DrizzleExecutionRepository,
   DrizzleGoalRepository,
   DrizzleTaskRepository,
@@ -17,6 +18,7 @@ import {
   InMemoryCapabilityRegistry,
 } from "@repo/runtime";
 import { buildAiEngines } from "./ai-engines";
+import { buildKnowledgeStack } from "./knowledge";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
 import { Scheduler } from "./scheduler";
 
@@ -56,15 +58,28 @@ async function main(): Promise<void> {
     },
   });
 
+  // Document search, when Qdrant, MinIO and a provider are all configured.
+  // Null otherwise, and the runtime starts without it rather than refusing to
+  // start at all — but it says so, because a knowledge capability that is
+  // silently absent looks to a planner exactly like one that never existed.
+  const knowledge = buildKnowledgeStack({
+    gateway: ai.gateway,
+    documents: new DrizzleDocumentRepository(db),
+    onError: (error, document) => {
+      logger.error({ err: error, documentId: document.id }, "indexing failed");
+    },
+  });
+
   // The AI implementations win, and the deterministic builtins fill the rest.
   // Filtered rather than registered over the top, because the registry
   // deliberately refuses a duplicate id — a plugin must not be able to shadow
   // a core capability by registering later. Choosing here keeps that guard
   // intact and makes the substitution visible.
-  const aiIds = new Set(ai.capabilities.map((c) => c.descriptor.id));
+  const provided = [...ai.capabilities, ...(knowledge?.capabilities ?? [])];
+  const providedIds = new Set(provided.map((c) => c.descriptor.id));
   const capabilities = [
-    ...ai.capabilities,
-    ...BUILTIN_CAPABILITIES.filter((c) => !aiIds.has(c.descriptor.id)),
+    ...provided,
+    ...BUILTIN_CAPABILITIES.filter((c) => !providedIds.has(c.descriptor.id)),
   ];
 
   for (const capability of capabilities) {
@@ -97,9 +112,43 @@ async function main(): Promise<void> {
     { executions: executionRepository, goals },
   );
 
+  /**
+   * Index uploaded documents in the background.
+   *
+   * A separate loop from the scheduler rather than a step inside its tick: a
+   * long document is many provider round trips, and running it on the tick
+   * would stall every queued task behind one upload. `running` keeps one pass
+   * at a time in this process — the compare-and-swap in the repository is what
+   * keeps two processes apart.
+   */
+  const indexIntervalMs = positiveInt(process.env.INDEX_INTERVAL_MS, 5_000);
+  let indexing: NodeJS.Timeout | undefined;
+  let running = false;
+
+  if (knowledge) {
+    indexing = setInterval(() => {
+      if (running) return;
+      running = true;
+      void knowledge.indexer
+        .runOnce()
+        .then((result) => {
+          if (result.claimed > 0) {
+            logger.info({ ...result }, "indexed documents");
+          }
+        })
+        .catch((error: unknown) => {
+          logger.error({ err: error }, "indexing pass failed");
+        })
+        .finally(() => {
+          running = false;
+        });
+    }, indexIntervalMs);
+  }
+
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, "shutting down");
     scheduler.stop();
+    if (indexing) clearInterval(indexing);
     // Give the in-flight tick a moment to finish rather than killing a task
     // mid-run and relying on reservation recovery to clean up.
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -115,11 +164,20 @@ async function main(): Promise<void> {
       capabilities: registry.list().length,
       aiMode: ai.mode,
       aiProviders: ai.providers,
+      aiModels: ai.models,
       aiCapabilities: ai.capabilities.map((c) => c.descriptor.id),
+      knowledge: knowledge
+        ? { qdrant: knowledge.qdrantUrl, storage: knowledge.storageEndpoint }
+        : "disabled (cần QDRANT_URL, MINIO_URL và một AI provider)",
     },
     "runtime starting",
   );
   await scheduler.start();
+}
+
+function positiveInt(raw: string | undefined, fallback: number): number {
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function requireEnv(name: string): string {

@@ -26,7 +26,9 @@
     "@qdrant/js-client-rest": "^1.18.0",
     "@repo/ai": "workspace:*",
     "@repo/core": "workspace:*",
-    "@repo/runtime": "workspace:*"
+    "@repo/runtime": "workspace:*",
+    "@repo/domain": "workspace:*",
+    "@repo/storage": "workspace:*"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",

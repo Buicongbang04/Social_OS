@@ -35,6 +35,14 @@ export interface Planner {
 export type CapabilityDescriptor = {
   id: string;
   name: string;
+  /**
+   * One sentence on what this does and when to pick it.
+   *
+   * Written for the Planner, which is a model choosing from a list: given only
+   * an id and a name it has to guess, and a wrong guess is a whole plan built
+   * around the wrong step. Say what it acts on and what it does not.
+   */
+  description?: string;
   /** Semver. Lets a plan pin behaviour across a capability upgrade. */
   version: string;
   category: string;

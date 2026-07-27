@@ -8,7 +8,7 @@
  * version travels on every usage record, so when the registry does arrive it
  * can be back-filled from what actually ran.
  */
-export const PROMPT_VERSION = "2026-07-27.2";
+export const PROMPT_VERSION = "2026-07-28.1";
 
 /**
  * The model is told to read, not to invent.
@@ -53,7 +53,7 @@ Nguyên tắc:
 - Chỉ dùng capability có trong danh sách được cung cấp. Không bịa tên capability.
 - dependsOn là chỉ số (0-based) của các bước trong CHÍNH mảng steps này, và chỉ được trỏ về bước ĐỨNG TRƯỚC nó. Bước 0 luôn có dependsOn rỗng.
 - Bước nào thật sự cần kết quả của bước khác thì mới khai báo phụ thuộc. Bước độc lập để dependsOn rỗng để chúng chạy song song.
-- Nội dung phải tồn tại trước khi đăng.
+- Bước không có dependsOn nghĩa là nó KHÔNG nhìn thấy kết quả của bước nào cả. Nếu một bước cần đọc kết quả bước khác mà bạn để dependsOn rỗng, dữ liệu sẽ không tới được nó.
 - CHỈ tạo bước cho Intent đã nhận diện. KHÔNG thêm bước người dùng không yêu cầu — kể cả bước trông có vẻ cẩn thận như phê duyệt hay thông báo. Chỉ đưa approval.request vào khi người dùng thật sự yêu cầu duyệt; nếu có thì nó phải đứng trước bước đăng.
 - inputs là tham số cụ thể cho bước đó (chủ đề, nền tảng, giọng văn, độ dài...), lấy từ Intent và mục tiêu gốc. Càng cụ thể càng tốt.
 
@@ -82,10 +82,18 @@ export function intentUserPrompt(input: {
 export function planUserPrompt(input: {
   objective: string;
   intents: readonly { type: string; action: string; entities: unknown }[];
-  capabilities: readonly { id: string; name: string; category: string }[];
+  capabilities: readonly {
+    id: string;
+    name: string;
+    category: string;
+    description?: string;
+  }[];
 }): string {
   const capabilities = input.capabilities
-    .map((c) => `- ${c.id} (${c.category}): ${c.name}`)
+    .map(
+      (c) =>
+        `- ${c.id} (${c.category}): ${c.description ?? c.name}`,
+    )
     .join("\n");
 
   const intents = input.intents

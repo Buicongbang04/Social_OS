@@ -73,6 +73,8 @@ function researchTrend(options: AiCapabilityOptions): CapabilityImplementation {
     descriptor: {
       id: "research.trend",
       name: "Research Trend",
+      description:
+        "Hỏi model về xu hướng chung của một chủ đề, dựa trên kiến thức sẵn có của nó. KHÔNG tra internet và KHÔNG đọc tài liệu của workspace — muốn dùng tài liệu nội bộ thì dùng knowledge.search.",
       version: "1.0.0",
       category: "Research",
       supportedWorkers: ["FUNCTION"],
@@ -121,6 +123,8 @@ function contentGenerate(
     descriptor: {
       id: "content.generate",
       name: "Generate Content",
+      description:
+        "Viết bài đăng hoàn chỉnh cho một nền tảng mạng xã hội. Dùng kết quả của các bước đứng trước (nghiên cứu, tra tài liệu) làm căn cứ nếu có.",
       version: "1.0.0",
       category: "AI",
       supportedWorkers: ["FUNCTION"],
@@ -130,6 +134,12 @@ function contentGenerate(
     },
     handler: async (context) => {
       const research = context.previous["research.trend"];
+      // The workspace's own documents, when a knowledge.search step ran first.
+      // Grounding on these is the entire point of having uploaded them: a
+      // pipeline that retrieves the passage and then writes from the model's
+      // imagination has done the expensive half of RAG and skipped the useful
+      // half, and the output looks equally confident either way.
+      const passages = passagesFrom(context.previous["knowledge.search"]);
       const language = text(context.inputs.language) ?? "vi";
       const platform =
         text(context.inputs.platform) ??
@@ -144,6 +154,7 @@ Viết một bài đăng hoàn chỉnh, đúng giọng của nền tảng đư�
 
 - Viết nội dung thật, không viết mẫu điền chỗ trống, không để lại dấu ngoặc vuông chờ điền.
 - Nếu có kết quả nghiên cứu ở phần ngữ cảnh, hãy dùng nó. Đừng thêm số liệu hay trích dẫn mà nghiên cứu không đưa ra.
+- Nếu có TRÍCH ĐOẠN TÀI LIỆU NỘI BỘ, đó là nguồn có thẩm quyền cao nhất: mọi con số, thời hạn, điều kiện trong bài PHẢI khớp với trích đoạn. Không được viết khác đi, không được làm tròn, không được bịa thêm điều kiện tài liệu không nói.
 - hashtags không kèm dấu #.`,
         user: [
           `Nền tảng: ${platform}`,
@@ -155,7 +166,10 @@ Viết một bài đăng hoàn chỉnh, đúng giọng của nền tảng đư�
             : "",
           research
             ? `\nKết quả nghiên cứu từ bước trước:\n${briefResearch(research)}`
-            : "\n(Không có bước nghiên cứu nào chạy trước.)",
+            : "",
+          passages.length > 0
+            ? `\nTRÍCH ĐOẠN TÀI LIỆU NỘI BỘ (nguồn có thẩm quyền — bám sát):\n${passages}`
+            : "",
         ]
           .filter(Boolean)
           .join("\n"),
@@ -168,6 +182,9 @@ Viết một bài đăng hoàn chỉnh, đúng giọng của nền tảng đư�
         // Proves the dependency actually delivered data rather than merely
         // running first — the same property the Phase 1 stub was built to show.
         usedResearch: research !== undefined,
+        // Said in the output so a reader can tell a grounded post from an
+        // invented one without re-reading the plan.
+        usedKnowledge: passages.length > 0,
         model: `${response.provider}/${response.model}`,
       };
     },
@@ -258,6 +275,27 @@ export function briefResearch(research: Metadata): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * The retrieved passages, formatted for a prompt.
+ *
+ * Returns "" when the step did not run or found nothing, so the caller can
+ * tell "no documents matched" from "documents matched and were used" — the
+ * two must not both read as a confident answer.
+ */
+function passagesFrom(previous: Metadata | undefined): string {
+  const raw = previous?.passages;
+  if (!Array.isArray(raw)) return "";
+
+  return raw
+    .slice(0, 8)
+    .map((entry, index) => {
+      const passage = entry as Record<string, unknown>;
+      const title = String(passage.title ?? "tài liệu");
+      return `[${index + 1}] ${title}: ${String(passage.text ?? "")}`;
+    })
+    .join("\n\n");
 }
 
 function text(value: unknown): string | undefined {

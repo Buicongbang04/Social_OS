@@ -32,6 +32,17 @@ export interface DocumentRepository {
     checksum: string,
   ): Promise<Document | null>;
 
+  /**
+   * Documents waiting to be indexed, across every workspace.
+   *
+   * Not workspace-scoped, unlike everything else here: the indexer is a
+   * background process acting for the platform rather than for a tenant, and
+   * scoping it would mean asking "which workspaces exist" first. Claiming is
+   * still safe because the caller compare-and-swaps each row to INDEXING and
+   * a loser simply gets null.
+   */
+  listPendingForIndexing(limit: number): Promise<Document[]>;
+
   create(input: CreateDocumentInput, actorId: UserId | null): Promise<Document>;
 
   /**

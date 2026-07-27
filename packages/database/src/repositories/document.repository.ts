@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type {
   DocumentId,
   Metadata,
@@ -115,6 +115,21 @@ export class DrizzleDocumentRepository implements DocumentRepository {
       .limit(1);
 
     return rows[0] ? toEntity(rows[0]) : null;
+  }
+
+  async listPendingForIndexing(limit: number): Promise<Document[]> {
+    const rows = await this.db
+      .select()
+      .from(documents)
+      .where(
+        and(eq(documents.status, "PENDING"), isNull(documents.deletedAt)),
+      )
+      // Oldest first, so a busy workspace uploading in bulk cannot starve a
+      // single file someone is waiting on.
+      .orderBy(asc(documents.createdAt))
+      .limit(Math.min(Math.max(limit, 1), 100));
+
+    return rows.map(toEntity);
   }
 
   async create(

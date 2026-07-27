@@ -38,9 +38,26 @@ export type AiEngines = {
    * registers these last so the override is explicit rather than incidental.
    */
   capabilities: readonly CapabilityImplementation[];
+  /**
+   * The gateway these engines run on, or null in keyword mode.
+   *
+   * Exposed so the knowledge stack can embed through the same chain, the same
+   * retry policy and the same pricing table. Building a second gateway would
+   * mean a provider demoted for rate limiting on one path stayed Healthy on
+   * the other.
+   */
+  gateway: ProviderGateway | null;
   /** What was actually selected, for the startup log. */
   mode: "llm" | "keyword";
   providers: readonly ProviderName[];
+  /**
+   * The model each provider was actually given.
+   *
+   * In the startup log because "which model is this running?" is the first
+   * question asked of any surprising answer or bill, and reading it back from
+   * configuration gets it wrong exactly when configuration is the problem.
+   */
+  models: Readonly<Partial<Record<ProviderName, string>>>;
 };
 
 /**
@@ -66,20 +83,27 @@ export function buildAiEngines(input: {
       intentAnalyzer: new KeywordIntentAnalyzer(),
       planner: new TemplatePlanner(input.capabilities),
       capabilities: [],
+      gateway: null,
       mode: "keyword",
       providers: [],
+      models: {},
     };
   }
 
   const registry = new ProviderRegistry();
+  const models: Partial<Record<ProviderName, string>> = {};
+
   for (const provider of configured) {
+    const defaultModel = text(env.AI_MODEL) ?? DEFAULT_MODELS[provider];
+    models[provider] = defaultModel;
+
     registry.register(
       new VercelProviderAdapter({
         provider,
-        defaultModel: env.AI_MODEL ?? DEFAULT_MODELS[provider],
+        defaultModel,
         ...keyFor(provider, env),
-        ...(provider === "ollama" && env.OLLAMA_BASE_URL
-          ? { baseUrl: env.OLLAMA_BASE_URL }
+        ...(provider === "ollama" && text(env.OLLAMA_BASE_URL)
+          ? { baseUrl: text(env.OLLAMA_BASE_URL) }
           : {}),
       }),
       describeProvider(provider),
@@ -96,7 +120,7 @@ export function buildAiEngines(input: {
   const shared = {
     gateway,
     recorder: input.recorder,
-    ...(env.AI_MODEL ? { model: env.AI_MODEL } : {}),
+    ...(text(env.AI_MODEL) ? { model: text(env.AI_MODEL) } : {}),
     ...(input.onUsageError ? { onUsageError: input.onUsageError } : {}),
   };
 
@@ -104,8 +128,10 @@ export function buildAiEngines(input: {
     intentAnalyzer: new LlmIntentAnalyzer(shared),
     planner: new LlmPlanner({ ...shared, capabilities: input.capabilities }),
     capabilities: createAiCapabilities(shared),
+    gateway,
     mode: "llm",
     providers: configured,
+    models,
   };
 }
 
@@ -145,6 +171,20 @@ function keyFor(
   const keyEnv = API_KEY_ENV[provider];
   const value = keyEnv ? env[keyEnv] : undefined;
   return value ? { apiKey: value } : {};
+}
+
+/**
+ * A set environment variable, or undefined.
+ *
+ * `.env` files declare a variable and leave it blank to show it exists —
+ * `AI_MODEL=` — which reaches the process as an empty string, not as absent.
+ * `??` does not catch that, so `env.AI_MODEL ?? DEFAULT` yields "" and the
+ * request goes out with no model at all. The vendor's answer is "model is
+ * required", which reads as a bug in the gateway rather than in the config.
+ */
+function text(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed === "" ? undefined : trimmed;
 }
 
 function positiveInt(raw: string | undefined, fallback: number): number {
