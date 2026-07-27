@@ -139,6 +139,48 @@ describe("AI capabilities", () => {
     expect(prompt).toContain("AI agents");
   });
 
+  it("puts retrieved passages in the content prompt", async () => {
+    // Retrieving a passage and then writing from the model's imagination does
+    // the expensive half of RAG and skips the useful half — and the output
+    // looks equally confident either way.
+    const search: Metadata = {
+      found: 1,
+      grounded: true,
+      passages: [
+        {
+          title: "Sổ tay nội bộ",
+          text: "Khách được hoàn tiền trong vòng 14 ngày kể từ ngày nhận hàng.",
+          documentId: "doc_x",
+          chunkIndex: 0,
+          score: 0.8,
+        },
+      ],
+    };
+
+    const outputs = await harness.byId
+      .get("content.generate")!
+      .handler(context({ previous: { "knowledge.search": search } }));
+
+    expect(outputs.usedKnowledge).toBe(true);
+    const prompt = harness.stub.calls
+      .at(-1)!
+      .messages.map((m) => m.content)
+      .join("\n");
+    expect(prompt).toContain("14 ngày");
+    expect(prompt).toContain("Sổ tay nội bộ");
+    // The instruction matters as much as the text: without it the model is
+    // free to treat the quote as one input among many.
+    expect(prompt).toContain("thẩm quyền");
+  });
+
+  it("says so when nothing was retrieved, rather than implying it was", async () => {
+    const outputs = await harness.byId
+      .get("content.generate")!
+      .handler(context({ previous: { "knowledge.search": { found: 0, passages: [] } } }));
+
+    expect(outputs.usedKnowledge).toBe(false);
+  });
+
   it("says so when no research ran, instead of pretending there was some", async () => {
     const outputs = await harness.byId
       .get("content.generate")!

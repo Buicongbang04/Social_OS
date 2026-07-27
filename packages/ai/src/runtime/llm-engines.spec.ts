@@ -268,7 +268,12 @@ describe("LlmPlanner", () => {
   beforeEach(() => {
     recorder = new InMemoryUsageRecorder();
     capabilities = new InMemoryCapabilityRegistry();
-    for (const id of ["research.trend", "content.generate", "social.publish"]) {
+    for (const id of [
+      "research.trend",
+      "content.generate",
+      "social.publish",
+      "knowledge.search",
+    ]) {
       capabilities.register({
         id,
         name: id,
@@ -406,12 +411,16 @@ describe("LlmPlanner", () => {
     ).rejects.toThrow(/does not run before it/);
   });
 
-  it("schedules independent steps to run in parallel", async () => {
+  it("schedules genuinely independent steps to run in parallel", async () => {
     const { gateway } = gatewayWith({
       fallbackReply: {
         text: "",
         object: {
           steps: [
+            // Two gathering steps. research.trend and content.generate would
+            // NOT be independent — the writer reads the researcher's output,
+            // and running those two in parallel is the bug enforceDataFlow
+            // exists to prevent.
             {
               capability: "research.trend",
               description: "",
@@ -419,7 +428,7 @@ describe("LlmPlanner", () => {
               dependsOn: [],
             },
             {
-              capability: "content.generate",
+              capability: "knowledge.search",
               description: "",
               inputs: {},
               dependsOn: [],

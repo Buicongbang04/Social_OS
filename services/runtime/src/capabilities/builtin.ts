@@ -21,6 +21,8 @@ export const researchTrend: CapabilityImplementation = {
   descriptor: {
     id: "research.trend",
     name: "Research Trend",
+    description:
+      "Tìm hiểu xu hướng chung của một chủ đề. Không đọc tài liệu nội bộ.",
     version: "0.1.0",
     category: "Research",
     supportedWorkers: ["FUNCTION"],
@@ -40,6 +42,8 @@ export const contentGenerate: CapabilityImplementation = {
   descriptor: {
     id: "content.generate",
     name: "Generate Content",
+    description:
+      "Viết bài đăng hoàn chỉnh, dùng kết quả của các bước trước làm căn cứ nếu có.",
     version: "0.1.0",
     category: "AI",
     supportedWorkers: ["FUNCTION"],
@@ -68,6 +72,8 @@ export const mediaGenerateImage: CapabilityImplementation = {
   descriptor: {
     id: "media.generate-image",
     name: "Generate Image",
+    description:
+      "Tạo ảnh minh hoạ cho bài đăng.",
     version: "0.1.0",
     category: "Media",
     supportedWorkers: ["FUNCTION"],
@@ -83,6 +89,8 @@ export const approvalRequest: CapabilityImplementation = {
   descriptor: {
     id: "approval.request",
     name: "Request Approval",
+    description:
+      "Dừng lại chờ người thật duyệt. CHỈ dùng khi người dùng yêu cầu duyệt; phải đứng trước bước đăng.",
     version: "0.1.0",
     category: "Automation",
     supportedWorkers: ["FUNCTION"],
@@ -112,6 +120,8 @@ export const socialPublish: CapabilityImplementation = {
   descriptor: {
     id: "social.publish",
     name: "Publish to Social",
+    description:
+      "Đăng nội dung đã có lên nền tảng mạng xã hội. Luôn phụ thuộc vào bước tạo nội dung.",
     version: "0.1.0",
     category: "Social",
     supportedWorkers: ["FUNCTION"],
@@ -131,6 +141,8 @@ export const notificationSend: CapabilityImplementation = {
   descriptor: {
     id: "notification.send",
     name: "Send Notification",
+    description:
+      "Gửi thông báo cho người dùng. Chỉ dùng khi được yêu cầu rõ.",
     version: "0.1.0",
     category: "Notification",
     supportedWorkers: ["FUNCTION"],

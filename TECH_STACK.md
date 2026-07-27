@@ -587,6 +587,31 @@ buộc**, không optional, để bỏ sót nó là lỗi biên dịch.
 model khác vẫn còn chunk ở collection cũ — tìm kiếm không thấy, nhưng dữ liệu
 vẫn nằm đó. "Xoá tài liệu của tôi" phải chạm cả bản không ai tìm thấy được.
 
+**Truy xuất xong mà không dùng thì không phải RAG.** `knowledge.search` trả về
+trích đoạn, nhưng `content.generate` phải thật sự nhét trích đoạn đó vào prompt
+và nói rõ đó là nguồn có thẩm quyền. Lần chạy đầu tiên bước tìm kiếm chạy đúng,
+tìm ra đúng đoạn, rồi bài viết vẫn được viết từ trí tưởng tượng của model —
+nửa đắt tiền của RAG đã trả, nửa hữu ích thì bỏ. Đầu ra trông tự tin y hệt nhau
+trong cả hai trường hợp, nên phải có cờ `usedKnowledge` để phân biệt được.
+
+**Bảo đảm cấu trúc cho thứ tự bước, dù model vẫn đang làm đúng.** Planner là
+một model, và không có gì ngăn nó trả về kế hoạch mà bước đăng không phụ thuộc
+bước viết. Kế hoạch đó vẫn **chạy**: các bước chạy song song, bước đăng nổ khi
+chưa có gì để đăng, và lần chạy báo COMPLETED — không có lỗi nào để mà nhìn
+thấy. Vì vậy có bảng producer→consumer ở `data-flow.ts`: nó sắp xếp lại các bước
+và thêm phụ thuộc còn thiếu sau khi model trả lời. Nói cho sòng phẳng: trong mọi
+lần chạy đã quan sát, model **tự làm đúng** và bảng này không đổi gì cả. Số cạnh
+phải thêm được ghi vào metadata của plan, nên nếu nó khác 0 thì biết ngay.
+
+**Biến môi trường khai báo nhưng để trống KHÔNG phải là chưa đặt.** File `.env`
+hay viết `AI_MODEL=` để cho thấy biến đó tồn tại; nó tới tiến trình dưới dạng
+chuỗi rỗng, mà `??` không bắt được. `env.AI_MODEL ?? DEFAULT` cho ra `""`, request
+đi ra không có model, và vendor trả về "model is required" — đọc như lỗi của
+gateway chứ không phải lỗi cấu hình.
+
+**Model nhúng phải là biến riêng.** `AI_MODEL` là model sinh chữ; bắt nó nhúng
+sẽ lỗi thẳng. Vì vậy có `AI_EMBEDDING_MODEL` tách bạch.
+
 **`wait: true` khi ghi.** Không có nó, Qdrant xác nhận trước khi dữ liệu tìm
 được, nên lập chỉ mục xong tìm ngay sẽ ra rỗng — trông hệt như lỗi cắt chunk.
 Nói thẳng: bộ test tích hợp **không chứng minh được** điều này, vì Qdrant một

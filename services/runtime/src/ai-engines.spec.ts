@@ -94,3 +94,28 @@ describe("AI engine selection", () => {
     expect(engines.providers).toEqual(["anthropic"]);
   });
 });
+
+describe("blank environment variables", () => {
+  it("treats a declared-but-empty AI_MODEL as unset", () => {
+    // `.env` files declare a variable and leave it blank to show it exists —
+    // `AI_MODEL=`. That reaches the process as an empty string, which `??`
+    // does not catch, so the adapter is built with no model at all and the
+    // first request comes back "model is required" — an error that reads as a
+    // bug in the gateway rather than in the configuration.
+    const engines = build({ AI_PROVIDER: "ollama", AI_MODEL: "   " });
+
+    expect(engines.mode).toBe("llm");
+    expect(engines.models.ollama).toBe("llama3.1");
+  });
+
+  it("keeps a real AI_MODEL", () => {
+    const engines = build({ AI_PROVIDER: "ollama", AI_MODEL: "qwen2.5:7b" });
+
+    expect(engines.models.ollama).toBe("qwen2.5:7b");
+    expect(engines.gateway).not.toBeNull();
+  });
+
+  it("has no gateway in keyword mode", () => {
+    expect(build({}).gateway).toBeNull();
+  });
+});

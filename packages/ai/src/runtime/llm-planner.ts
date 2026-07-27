@@ -22,6 +22,7 @@ import {
   type AiUsageRecord,
   type AiUsageRecorder,
 } from "../usage/recorder";
+import { enforceDataFlow } from "./data-flow";
 import { PLAN_SYSTEM_PROMPT, PROMPT_VERSION, planUserPrompt } from "./prompts";
 
 const planSchema = z.object({
@@ -118,6 +119,10 @@ export class LlmPlanner implements Planner {
                   id: c.id,
                   name: c.name,
                   category: c.category,
+                  // Without this the model sees only an id and a two-word
+                  // name and has to guess what each step does — and a wrong
+                  // guess is a whole plan built around the wrong capability.
+                  ...(c.description ? { description: c.description } : {}),
                 })),
               }),
             },
@@ -153,13 +158,42 @@ export class LlmPlanner implements Planner {
       this.options.onUsageError,
     );
 
-    const steps = response.object.steps;
+    const declared = response.object.steps.map((step) => ({
+      ...step,
+      dependsOn: step.dependsOn ?? [],
+    }));
+
+    // Checked against the order the MODEL produced, before any reordering. A
+    // forward or self reference is a broken plan and has always been refused;
+    // letting enforceDataFlow quietly drop it instead would turn a loud
+    // failure into a silent one.
+    declared.forEach((step, index) => {
+      for (const dependency of step.dependsOn) {
+        if (dependency >= index) {
+          throw new RuntimeError(
+            "PLANNING",
+            `Step ${index + 1} depends on step ${dependency + 1}, which does not run before it.`,
+            {
+              retryable: false,
+              context: { step: index, dependsOn: dependency },
+            },
+          );
+        }
+      }
+    });
+
+    // The model's plan, with the data flow imposed on it. See data-flow.ts:
+    // a prompt instruction is not a guarantee, and a plan whose steps all have
+    // an empty dependsOn runs everything in parallel — publishing before there
+    // is anything to publish, and reporting COMPLETED.
+    const flow = enforceDataFlow(declared);
+
     const tasks: Task[] = [];
 
-    for (const [index, step] of steps.entries()) {
+    for (const [index, step] of flow.steps.entries()) {
       this.assertCapabilityAvailable(step.capability, goal, index);
       const dependencies = this.resolveDependencies(
-        step.dependsOn,
+        flow.dependsOn[index] ?? [],
         index,
         tasks,
       );
@@ -191,6 +225,10 @@ export class LlmPlanner implements Planner {
         model: response.model,
         promptVersion: PROMPT_VERSION,
         intentCount: intents.length,
+        // Visible rather than silent: a high number here means the model is
+        // not producing the dependencies it is asked for, which is worth
+        // knowing before trusting its plans for anything subtler.
+        addedDependencies: flow.addedEdges,
       },
     };
   }

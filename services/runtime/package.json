@@ -24,7 +24,10 @@
     "@repo/queue": "workspace:*",
     "@repo/runtime": "workspace:*",
     "@repo/sdk": "workspace:*",
-    "ioredis": "^5.4.2"
+    "ioredis": "^5.4.2",
+    "@repo/knowledge": "workspace:*",
+    "@repo/storage": "workspace:*",
+    "@repo/domain": "workspace:*"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",

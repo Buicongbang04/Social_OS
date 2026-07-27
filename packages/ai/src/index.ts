@@ -20,3 +20,4 @@ export * from "./runtime/prompts";
 export * from "./runtime/llm-intent-analyzer";
 export * from "./runtime/llm-planner";
 export * from "./runtime/ai-capabilities";
+export * from "./runtime/data-flow";
