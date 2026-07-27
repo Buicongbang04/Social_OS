@@ -270,9 +270,23 @@ export class ExecutionEngine {
 
     try {
       const previous = await this.collectDependencyOutputs(task);
+      // One primary-key read, so a capability doing real work can attribute
+      // what it does — an AI call has to be metered against a user and a
+      // request, and both live on the Execution rather than the Task.
+      const execution = await this.deps.executions.findById(task.executionId);
+
       const outputs = await this.deps.capabilityExecutor.execute(
         task.capability,
-        { inputs: task.inputs, previous, attempt: started.attempt },
+        {
+          inputs: task.inputs,
+          previous,
+          attempt: started.attempt,
+          workspaceId: task.workspaceId,
+          executionId: task.executionId,
+          taskId: task.id,
+          ownerId: execution?.ownerId ?? null,
+          correlationId: execution?.correlationId ?? "unknown",
+        },
         task.timeoutMs,
       );
 

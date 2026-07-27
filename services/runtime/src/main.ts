@@ -37,10 +37,6 @@ async function main(): Promise<void> {
 
   const registry = new InMemoryCapabilityRegistry();
   const capabilityExecutor = new CapabilityExecutor();
-  for (const capability of BUILTIN_CAPABILITIES) {
-    registry.register(capability.descriptor);
-    capabilityExecutor.register(capability);
-  }
 
   const queue = new RedisTaskQueue(redis);
 
@@ -56,6 +52,22 @@ async function main(): Promise<void> {
       logger.error({ err: error, record }, "failed to record AI usage");
     },
   });
+
+  // The AI implementations win, and the deterministic builtins fill the rest.
+  // Filtered rather than registered over the top, because the registry
+  // deliberately refuses a duplicate id — a plugin must not be able to shadow
+  // a core capability by registering later. Choosing here keeps that guard
+  // intact and makes the substitution visible.
+  const aiIds = new Set(ai.capabilities.map((c) => c.descriptor.id));
+  const capabilities = [
+    ...ai.capabilities,
+    ...BUILTIN_CAPABILITIES.filter((c) => !aiIds.has(c.descriptor.id)),
+  ];
+
+  for (const capability of capabilities) {
+    registry.register(capability.descriptor);
+    capabilityExecutor.register(capability);
+  }
 
   const engine = new ExecutionEngine({
     goals,
@@ -96,6 +108,7 @@ async function main(): Promise<void> {
       capabilities: registry.list().length,
       aiMode: ai.mode,
       aiProviders: ai.providers,
+      aiCapabilities: ai.capabilities.map((c) => c.descriptor.id),
     },
     "runtime starting",
   );

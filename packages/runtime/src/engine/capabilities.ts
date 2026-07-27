@@ -1,13 +1,34 @@
-import type { Metadata } from "@repo/core";
+import type {
+  ExecutionId,
+  Metadata,
+  TaskId,
+  UserId,
+  WorkspaceId,
+} from "@repo/core";
 import { RuntimeError } from "../errors/taxonomy";
 import type { CapabilityDescriptor } from "../ports";
 
-/** What a capability receives when it runs. */
+/**
+ * What a capability receives when it runs.
+ *
+ * The identifiers are here because a capability that does real work has to be
+ * attributable: an AI call has to be metered against a workspace, and an
+ * external post has to be traceable back to the run that made it. A handler
+ * that only sees `inputs` can do neither, and passing them through a closure
+ * per task would rebuild the handler on every dispatch.
+ */
 export type CapabilityContext = {
   inputs: Metadata;
   /** Outputs of every completed dependency, keyed by capability id. */
   previous: Readonly<Record<string, Metadata>>;
   attempt: number;
+  workspaceId: WorkspaceId;
+  executionId: ExecutionId;
+  taskId: TaskId;
+  /** Null when the runtime acts on its own behalf, e.g. a scheduled run. */
+  ownerId: UserId | null;
+  /** Ties every call made by this task back to the originating request. */
+  correlationId: string;
 };
 
 export type CapabilityHandler = (

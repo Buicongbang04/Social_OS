@@ -158,3 +158,32 @@ Chạy nó là cách phát hiện hai lỗi mà không test nào bắt được:
 `supportsStructuredOutputs` (thiếu thì schema bị bỏ qua), và việc in thẳng đối
 tượng lỗi ra `console.error` có thể làm chết tiến trình ngay trong
 `util.inspect` — xem `formatError`.
+
+## Capability chạy bằng model thật
+
+`createAiCapabilities()` thay hai stub tất định của Phase 1 bằng bản gọi model
+thật: `research.trend` và `content.generate`. Runtime chọn chúng khi có
+`AI_PROVIDER`, và **lọc** builtin cùng id ra thay vì đăng ký đè — registry cố ý
+từ chối id trùng để một plugin không thể âm thầm che capability lõi, nên việc
+thay thế phải hiện rõ ở chỗ gọi.
+
+Mỗi lời gọi được ghi nhận theo **task** đã tạo ra nó. Đây là mảnh mà Intent và
+Planner không cung cấp được: lập kế hoạch tính một lần mỗi lần chạy, còn thực
+thi tính theo từng bước — và hoá đơn của một workspace chủ yếu là phần sau.
+
+`research.trend` **không** có internet. Nó nói rõ điều đó trong chính output
+(`source: "model-knowledge"`, `realtime: false`) chứ không chỉ ghi trong tài
+liệu, để bước sau — hoặc người đọc kết quả — không nhầm kiến thức nhớ được với
+thông tin vừa tra.
+
+## Phương ngữ JSON Schema theo provider
+
+Đo trên Ollama chạy qwen2.5:7b: `maxLength: 2000` chạy tốt, `maxLength: 4000`
+làm **chết hẳn** model runner (`model runner has unexpectedly stopped`). Giải mã
+có ràng buộc grammar phải biên dịch các cận đó thành grammar, và cận lớn làm nó
+nổ.
+
+Vì vậy adapter tỉa các keyword kích thước trước khi gửi, mặc định bật cho Ollama
+và tắt cho các vendor lưu trữ. Không mất gì: schema chỉ là _gợi ý_, còn
+`StructuredSchema.parse` mới là thứ thực sự ép đúng hình dạng khi nhận về —
+đúng nguyên tắc đã đặt từ đầu.

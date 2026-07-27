@@ -2,6 +2,7 @@ import {
   DEFAULT_MODELS,
   LlmIntentAnalyzer,
   LlmPlanner,
+  createAiCapabilities,
   ProviderGateway,
   ProviderRegistry,
   VercelProviderAdapter,
@@ -12,6 +13,7 @@ import {
   type ProviderName,
 } from "@repo/ai";
 import type {
+  CapabilityImplementation,
   CapabilityRegistry,
   IntentAnalyzer,
   Planner,
@@ -30,6 +32,12 @@ const API_KEY_ENV: Readonly<Record<ProviderName, string>> = Object.freeze({
 export type AiEngines = {
   intentAnalyzer: IntentAnalyzer;
   planner: Planner;
+  /**
+   * Capabilities that call a model. Empty in keyword mode, and they replace
+   * the deterministic builtin of the same id when present — the caller
+   * registers these last so the override is explicit rather than incidental.
+   */
+  capabilities: readonly CapabilityImplementation[];
   /** What was actually selected, for the startup log. */
   mode: "llm" | "keyword";
   providers: readonly ProviderName[];
@@ -57,6 +65,7 @@ export function buildAiEngines(input: {
     return {
       intentAnalyzer: new KeywordIntentAnalyzer(),
       planner: new TemplatePlanner(input.capabilities),
+      capabilities: [],
       mode: "keyword",
       providers: [],
     };
@@ -94,6 +103,7 @@ export function buildAiEngines(input: {
   return {
     intentAnalyzer: new LlmIntentAnalyzer(shared),
     planner: new LlmPlanner({ ...shared, capabilities: input.capabilities }),
+    capabilities: createAiCapabilities(shared),
     mode: "llm",
     providers: configured,
   };

@@ -20,10 +20,26 @@ import type {
   ProviderName,
   ProviderRequest,
   ProviderTool,
+  JsonSchema,
   ProviderToolCall,
   StructuredSchema,
   TokenUsage,
 } from "../provider/types";
+
+/**
+ * How much of a JSON Schema the provider can actually be given.
+ *
+ * `full` sends the schema unchanged. `minimal` drops size constraints
+ * (`maxLength`, `minItems`, …) before sending.
+ *
+ * The reason `minimal` exists, measured against Ollama running qwen2.5:7b:
+ * a `maxLength` of 2000 is fine, and one of 4000 crashes the model runner
+ * outright with "model runner has unexpectedly stopped". Grammar-constrained
+ * decoding compiles those bounds into a grammar, and a large bound explodes
+ * it. Nothing is lost by dropping them: the schema is a steer, and
+ * `StructuredSchema.parse` is what actually enforces the shape on arrival.
+ */
+export type SchemaDialect = "full" | "minimal";
 
 /** How to reach one vendor. */
 export type VercelAdapterOptions = {
@@ -31,6 +47,8 @@ export type VercelAdapterOptions = {
   defaultModel: string;
   apiKey?: string;
   baseUrl?: string;
+  /** Defaults to `minimal` for Ollama and `full` elsewhere. */
+  schemaDialect?: SchemaDialect;
 };
 
 /**
@@ -44,11 +62,15 @@ export class VercelProviderAdapter implements ProviderAdapter {
   readonly provider: ProviderName;
   readonly defaultModel: string;
   private readonly resolve: (model: string) => LanguageModel;
+  private readonly dialect: SchemaDialect;
 
   constructor(options: VercelAdapterOptions) {
     this.provider = options.provider;
     this.defaultModel = options.defaultModel;
     this.resolve = buildResolver(options);
+    this.dialect =
+      options.schemaDialect ??
+      (options.provider === "ollama" ? "minimal" : "full");
   }
 
   async generate(
@@ -59,7 +81,9 @@ export class VercelProviderAdapter implements ProviderAdapter {
     const result = await generateText({
       model: this.resolve(model),
       ...toPrompt(request.messages),
-      ...(request.tools?.length ? { tools: toToolSet(request.tools) } : {}),
+      ...(request.tools?.length
+        ? { tools: toToolSet(request.tools, this.dialect) }
+        : {}),
       ...callSettings(request),
       ...(signal ? { abortSignal: signal } : {}),
     });
@@ -83,7 +107,9 @@ export class VercelProviderAdapter implements ProviderAdapter {
     const result = await generateObject({
       model: this.resolve(model),
       output: "object",
-      schema: jsonSchema<unknown>(schema.jsonSchema as JSONSchema7),
+      schema: jsonSchema<unknown>(
+        forDialect(schema.jsonSchema, this.dialect) as JSONSchema7,
+      ),
       schemaName: schema.name,
       ...(schema.description === undefined
         ? {}
@@ -195,17 +221,55 @@ function callSettings(request: ProviderRequest): {
   };
 }
 
-function toToolSet(tools: readonly ProviderTool[]): ToolSet {
+function toToolSet(
+  tools: readonly ProviderTool[],
+  dialect: SchemaDialect,
+): ToolSet {
   const set: ToolSet = {};
   for (const definition of tools) {
     // No `execute`: the SDK then reports the call instead of running it, which
     // is what we want — side effects belong to the Runtime, not the Gateway.
     set[definition.name] = tool({
       description: definition.description,
-      inputSchema: jsonSchema<unknown>(definition.inputSchema as JSONSchema7),
+      inputSchema: jsonSchema<unknown>(
+        forDialect(definition.inputSchema, dialect) as JSONSchema7,
+      ),
     });
   }
   return set;
+}
+
+/**
+ * Size keywords that grammar-constrained decoders compile into the grammar
+ * itself, where a large bound can blow it up. Dropping them costs nothing:
+ * `StructuredSchema.parse` still rejects an answer that violates them.
+ */
+const SIZE_KEYWORDS: readonly string[] = [
+  "maxLength",
+  "minLength",
+  "maxItems",
+  "minItems",
+  "maxProperties",
+  "minProperties",
+];
+
+export function forDialect(
+  schema: JsonSchema,
+  dialect: SchemaDialect,
+): JsonSchema {
+  return dialect === "full" ? schema : (stripSizes(schema) as JsonSchema);
+}
+
+function stripSizes(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(stripSizes);
+  if (!node || typeof node !== "object") return node;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (SIZE_KEYWORDS.includes(key)) continue;
+    out[key] = stripSizes(value);
+  }
+  return out;
 }
 
 function toProviderToolCall(call: {
