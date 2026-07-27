@@ -18,7 +18,7 @@ import {
   KeywordIntentAnalyzer,
   TemplatePlanner,
 } from "@repo/runtime";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import Redis from "ioredis";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
@@ -210,24 +210,40 @@ describe.skipIf(!hasInfra)("scheduled goals (integration)", () => {
     // bypasses the lock and proves the CAS on its own.
     const goal = await createScheduled();
     await makeDue(goal.id);
-    const due = (await goals.findById(goal.id))!;
+    const now = new Date();
 
     const [first, second] = await Promise.all([
       goals.claimSchedule({
         id: goal.id,
-        expectedNextRunAt: due.nextRunAt!,
+        dueAt: now,
         nextRunAt: new Date(Date.now() + 86_400_000),
-        firedAt: new Date(),
+        firedAt: now,
       }),
       goals.claimSchedule({
         id: goal.id,
-        expectedNextRunAt: due.nextRunAt!,
+        dueAt: now,
         nextRunAt: new Date(Date.now() + 86_400_000),
-        firedAt: new Date(),
+        firedAt: now,
       }),
     ]);
 
     expect([first, second].filter(Boolean)).toHaveLength(1);
+  });
+
+  it("still fires when the stored time has sub-millisecond precision", async () => {
+    // The bug this replaced: Postgres keeps microseconds, a JavaScript Date
+    // only milliseconds, so a compare-and-swap on equality could never match a
+    // value written by now() — and the Goal stopped firing for ever, silently.
+    const goal = await createScheduled();
+    await db.execute(
+      sql`update goals set next_run_at = now() - interval '1 minute' where id = ${goal.id}`,
+    );
+
+    await scheduler.tick();
+
+    expect(await executionCount(goal.id)).toBe(1);
+    const after = await goals.findById(goal.id);
+    expect(after?.nextRunAt!.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("moves the schedule forward instead of staying due", async () => {

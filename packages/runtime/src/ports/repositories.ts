@@ -49,19 +49,18 @@ export interface GoalRepository {
   listDueSchedules(now: Date, limit: number): Promise<readonly Goal[]>;
 
   /**
-   * Claim one occurrence, moving the Goal's next run forward.
+   * Claim the occurrence that is currently due, moving the Goal's next run
+   * forward. Returns null when another node got there first.
    *
-   * Compare-and-swap on `nextRunAt`: the caller passes the value it saw, and
-   * the write only lands if nothing else has moved it. That, not the scheduler
-   * lock, is what makes a firing exactly-once — the lock only reduces
-   * contention, and two nodes racing past it would otherwise both create an
-   * Execution for the same occurrence.
-   *
-   * Returns null when another node got there first.
+   * This, not the scheduler lock, is what makes a firing exactly-once: the
+   * lock only reduces contention, and two nodes racing past it would both
+   * create an Execution for the same occurrence — for a publishing tool, two
+   * posts.
    */
   claimSchedule(input: {
     id: GoalId;
-    expectedNextRunAt: Date;
+    /** The moment the sweep considers "now"; the row must still be due at it. */
+    dueAt: Date;
     nextRunAt: Date | null;
     firedAt: Date;
   }): Promise<Goal | null>;

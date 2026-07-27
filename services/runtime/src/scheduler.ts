@@ -208,7 +208,7 @@ export class Scheduler {
 
     const claimedGoal = await this.preparation.goals.claimSchedule({
       id: goal.id,
-      expectedNextRunAt: goal.nextRunAt,
+      dueAt: firedAt,
       nextRunAt: next,
       firedAt,
     });

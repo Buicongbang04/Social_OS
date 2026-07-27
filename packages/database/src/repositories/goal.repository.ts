@@ -82,13 +82,24 @@ export class DrizzleGoalRepository implements GoalRepository {
   }
 
   /**
-   * Compare-and-swap on nextRunAt. Returns null when another node already
-   * claimed this occurrence — which is the whole point: the scheduler lock
-   * reduces contention, this is what makes a firing exactly-once.
+   * Claim the occurrence that is currently due, moving the schedule forward.
+   *
+   * The condition is "still due", not "next_run_at equals the value I read".
+   * Equality looks like the obvious compare-and-swap and is a trap: Postgres
+   * stores this column to microseconds while a JavaScript Date only carries
+   * milliseconds, so any value written with sub-millisecond precision — a
+   * `now()` default, an operator fixing a schedule by hand — can never be
+   * matched again, and the Goal silently stops firing for ever with no error
+   * anywhere. Found exactly that way.
+   *
+   * Still exactly-once: under READ COMMITTED a second UPDATE blocks on the
+   * first, then re-evaluates its WHERE against the committed row. By then
+   * next_run_at is in the future, so it matches nothing and returns null.
    */
   async claimSchedule(input: {
     id: GoalId;
-    expectedNextRunAt: Date;
+    /** The moment the sweep considers "now"; the row must still be due at it. */
+    dueAt: Date;
     nextRunAt: Date | null;
     firedAt: Date;
   }): Promise<Goal | null> {
@@ -102,7 +113,8 @@ export class DrizzleGoalRepository implements GoalRepository {
       .where(
         and(
           eq(goals.id, input.id),
-          eq(goals.nextRunAt, input.expectedNextRunAt),
+          isNotNull(goals.nextRunAt),
+          lte(goals.nextRunAt, input.dueAt),
         ),
       )
       .returning();
