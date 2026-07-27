@@ -411,6 +411,51 @@ describe("LlmPlanner", () => {
     ).rejects.toThrow(/does not run before it/);
   });
 
+  it("never offers an internal capability to the model", async () => {
+    // These exist to exercise the runtime — a deliberately flaky step, a step
+    // that always fails. They stay registered so a test can name one, and a
+    // model given "Flaky Once" next to "Generate Content" will eventually pick
+    // it. It did, in a real plan against a local model.
+    capabilities.register({
+      id: "test.flaky-once",
+      name: "Flaky Once",
+      internal: true,
+      version: "0.1.0",
+      category: "Automation",
+      supportedWorkers: ["FUNCTION"],
+      permissions: [],
+    });
+
+    const { gateway, stub } = gatewayWith({
+      fallbackReply: {
+        text: "",
+        object: {
+          steps: [
+            {
+              capability: "content.generate",
+              description: "",
+              inputs: {},
+              dependsOn: [],
+            },
+          ],
+        },
+      },
+    });
+
+    await new LlmPlanner({
+      gateway,
+      recorder: new InMemoryUsageRecorder(),
+      capabilities,
+    }).plan({ execution, goal, intents });
+
+    const prompt = stub.calls
+      .at(-1)!
+      .messages.map((message) => message.content)
+      .join("\n");
+    expect(prompt).toContain("content.generate");
+    expect(prompt).not.toContain("test.flaky-once");
+  });
+
   it("schedules genuinely independent steps to run in parallel", async () => {
     const { gateway } = gatewayWith({
       fallbackReply: {

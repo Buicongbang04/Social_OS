@@ -4,6 +4,7 @@ import type {
   AuthResult,
   AuthTokens,
   CreateGoalInput,
+  DocumentSummary,
   Envelope,
   Execution,
   ExecutionUsage,
@@ -11,6 +12,7 @@ import type {
   Organization,
   PublicUser,
   Task,
+  UploadedDocument,
   Workspace,
 } from "./types";
 
@@ -240,6 +242,51 @@ export class ApiClient {
     );
   }
 
+  // --- Documents ------------------------------------------------------------
+
+  /**
+   * Upload a file for the workspace to search over.
+   *
+   * Takes a `File` rather than bytes so the browser supplies the name and the
+   * type; both are checked server-side, since neither can be trusted.
+   */
+  async uploadDocument(file: File): Promise<UploadedDocument> {
+    const form = new FormData();
+    form.append("file", file);
+
+    return this.request<UploadedDocument>("POST", "/documents", {
+      rawBody: form,
+      workspaceScoped: true,
+    });
+  }
+
+  async listDocuments(): Promise<DocumentSummary[]> {
+    return this.request<DocumentSummary[]>("GET", "/documents", {
+      workspaceScoped: true,
+    });
+  }
+
+  async getDocument(documentId: string): Promise<DocumentSummary> {
+    return this.request<DocumentSummary>("GET", `/documents/${documentId}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    await this.request<void>("DELETE", `/documents/${documentId}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  async documentDownloadUrl(documentId: string): Promise<string> {
+    const result = await this.request<{ url: string }>(
+      "GET",
+      `/documents/${documentId}/download-url`,
+      { workspaceScoped: true },
+    );
+    return result.url;
+  }
+
   // --- Transport ------------------------------------------------------------
 
   private async request<T>(
@@ -247,12 +294,21 @@ export class ApiClient {
     path: string,
     options: {
       body?: unknown;
+      /**
+       * Sent as-is, with no content-type header of our own.
+       *
+       * For multipart: the boundary is part of the content type and only the
+       * runtime knows it, so setting `multipart/form-data` by hand produces a
+       * header the server cannot parse the body against.
+       */
+      rawBody?: BodyInit;
       anonymous?: boolean;
       workspaceScoped?: boolean;
     } = {},
   ): Promise<T> {
     const wire = {
       ...(options.body === undefined ? {} : { body: options.body }),
+      ...(options.rawBody === undefined ? {} : { rawBody: options.rawBody }),
       ...(options.anonymous === undefined
         ? {}
         : { anonymous: options.anonymous }),
@@ -280,7 +336,12 @@ export class ApiClient {
   private async send(
     method: string,
     path: string,
-    options: { body?: unknown; anonymous?: boolean; workspaceScoped?: boolean },
+    options: {
+      body?: unknown;
+      rawBody?: BodyInit;
+      anonymous?: boolean;
+      workspaceScoped?: boolean;
+    },
   ): Promise<Response> {
     const headers: Record<string, string> = { accept: "application/json" };
 
@@ -298,9 +359,11 @@ export class ApiClient {
     return this.doFetch(`${this.baseUrl}${path}`, {
       method,
       headers,
-      ...(options.body === undefined
-        ? {}
-        : { body: JSON.stringify(options.body) }),
+      ...(options.rawBody === undefined
+        ? options.body === undefined
+          ? {}
+          : { body: JSON.stringify(options.body) }
+        : { body: options.rawBody }),
     });
   }
 

@@ -160,6 +160,7 @@ export const notificationSend: CapabilityImplementation = {
 export const flakyOnce: CapabilityImplementation = {
   descriptor: {
     id: "test.flaky-once",
+    internal: true,
     name: "Flaky Once",
     version: "0.1.0",
     category: "Automation",
@@ -182,6 +183,7 @@ export const flakyOnce: CapabilityImplementation = {
 export const alwaysFails: CapabilityImplementation = {
   descriptor: {
     id: "test.always-fails",
+    internal: true,
     name: "Always Fails",
     version: "0.1.0",
     category: "Automation",

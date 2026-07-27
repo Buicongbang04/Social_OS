@@ -196,3 +196,37 @@ export type ExecutionUsage = {
   /** Calls whose model had no price, so totalUsd is short by their cost. */
   unpricedCalls: number;
 };
+
+export const DOCUMENT_STATUSES = [
+  "PENDING",
+  "INDEXING",
+  "READY",
+  "FAILED",
+] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+/**
+ * An uploaded file, as the browser sees it.
+ *
+ * Deliberately without `storageKey`: where the bytes live is the server's
+ * business, and a client that knows the key is a client that will eventually
+ * try to build one.
+ */
+export type DocumentSummary = {
+  id: string;
+  workspaceId: string;
+  title: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: DocumentStatus;
+  failureReason: string | null;
+  /** 0 until indexing succeeds. */
+  chunkCount: number;
+  embeddingModel: string | null;
+  indexedAt: string | null;
+  createdAt: string;
+};
+
+/** True when the same bytes were already uploaded, and nothing new was stored. */
+export type UploadedDocument = DocumentSummary & { duplicate: boolean };

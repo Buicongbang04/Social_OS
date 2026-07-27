@@ -919,10 +919,19 @@ kiểu viết bằng `expectTypeOf`; nó xanh trong khi kiểu đang sai. Phải
 thành so sánh giá trị thật.
 
 **Mọi test bảo vệ đều được kiểm chứng ngược** — cố tình khôi phục lỗi để chắc
-test thật sự fail. Cách này đã tìm ra ba thứ trông như đang gánh việc nhưng thực
-ra không: một nhánh fallback trong Gateway không bao giờ chạy tới, một cờ
-`retryOn401` trong SDK không bao giờ được đặt, và chính cái test `expectTypeOf`
-ở trên.
+test thật sự fail. Cách này đã tìm ra nhiều thứ trông như đang gánh việc nhưng
+thực ra không: một nhánh fallback trong Gateway không bao giờ chạy tới, một cờ
+`retryOn401` trong SDK không bao giờ được đặt, một guard `if (!entry?.embed)`
+mà bộ lọc phía trên đã đảm bảo, chính cái test `expectTypeOf` ở trên, và một
+test đếm số chunk **tự so với chính nó** nên cả hai vế cùng sai vẫn xanh.
+
+**Kiểm tra đỏ không có nghĩa là hệ thống sai.** Hai lần chạy `verify:stack` báo
+đỏ mà hệ thống hoàn toàn đúng: một là timeout 120s quá ngắn cho model 7B chạy
+cục bộ (Goal thật sự đã dừng ở `WAITING` đúng như mong đợi, chỉ là muộn hơn),
+hai là kiểm tra ngân sách hỏi sai câu — nó hỏi "đã tiêu gì chưa", trong khi
+ngân sách chặn theo **giá ước tính khai báo trước khi chạy**, nên một provider
+miễn phí vẫn bị chặn đúng và câu hỏi kia rút ra kết luận ngược. Đọc kỹ dữ liệu
+thật trước khi sửa mã.
 
 ---
 

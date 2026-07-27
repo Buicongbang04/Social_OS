@@ -3,6 +3,7 @@
 import { isApiError, type Workspace } from "@repo/sdk";
 import { useState } from "react";
 import { getClient } from "../lib/api";
+import { DocumentList } from "./document-list";
 import { ExecutionView } from "./execution-view";
 import { RunList } from "./run-list";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
@@ -166,6 +167,10 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
           <ErrorNote message={error} />
         </div>
       </Panel>
+
+      {/* Above the run list: what a Goal can read has to be visible before
+          someone writes a Goal that assumes it. */}
+      <DocumentList />
 
       <RunList
         selectedId={executionId}

@@ -313,3 +313,78 @@ describe("ApiClient", () => {
     expect(calls[0]?.url).toBe("http://api.test/api/v1/goals");
   });
 });
+
+describe("ApiClient — documents", () => {
+  it("sends the file as multipart without naming the content type", async () => {
+    // The boundary is part of the content type and only the runtime knows it,
+    // so a hand-written `multipart/form-data` header produces one the server
+    // cannot parse the body against — and the upload fails with a message
+    // about a missing file rather than about the header.
+    const { fetch, calls } = fakeFetch([() => ok({ id: "doc_1" })]);
+    const client = new ApiClient({
+      baseUrl: "http://api.test",
+      fetch,
+      tokens: inMemoryTokenStore(TOKENS),
+    });
+    client.setWorkspace("wsp_1");
+
+    await client.uploadDocument(
+      new File(["nội dung"], "ghi-chu.txt", { type: "text/plain" }),
+    );
+
+    const { init } = calls[0]!;
+    const headers = init.headers as Record<string, string>;
+    expect(headers["content-type"]).toBeUndefined();
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get("file")).toBeInstanceOf(File);
+  });
+
+  it("does not JSON-stringify the form", async () => {
+    // `JSON.stringify(new FormData())` is "{}" — the request would succeed at
+    // the transport layer and arrive with no file at all.
+    const { fetch, calls } = fakeFetch([() => ok({ id: "doc_1" })]);
+    const client = new ApiClient({
+      baseUrl: "http://api.test",
+      fetch,
+      tokens: inMemoryTokenStore(TOKENS),
+    });
+
+    await client.uploadDocument(new File(["x"], "a.txt", { type: "text/plain" }));
+
+    expect(typeof calls[0]!.init.body).not.toBe("string");
+  });
+
+  it("scopes every document call to the workspace", async () => {
+    const { fetch, calls } = fakeFetch([
+      () => ok([]),
+      () => ok({ url: "http://minio/x" }),
+    ]);
+    const client = new ApiClient({
+      baseUrl: "http://api.test",
+      fetch,
+      tokens: inMemoryTokenStore(TOKENS),
+    });
+    client.setWorkspace("wsp_1");
+
+    await client.listDocuments();
+    await client.documentDownloadUrl("doc_1");
+
+    for (const call of calls) {
+      const headers = call.init.headers as Record<string, string>;
+      expect(headers["x-workspace-id"]).toBe("wsp_1");
+    }
+  });
+
+  it("returns the download URL rather than the envelope around it", async () => {
+    const { fetch } = fakeFetch([() => ok({ url: "http://minio/signed" })]);
+    const client = new ApiClient({
+      baseUrl: "http://api.test",
+      fetch,
+      tokens: inMemoryTokenStore(TOKENS),
+    });
+
+    expect(await client.documentDownloadUrl("doc_1")).toBe(
+      "http://minio/signed",
+    );
+  });
+});
