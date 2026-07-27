@@ -16,6 +16,13 @@ export const ID_PREFIXES = {
   role: "rol",
   request: "req",
   idempotency: "idm",
+  // Runtime (docs/kernel/): a Goal is the user's objective, an Execution is
+  // one run of it, and a Task is one node of that run's plan.
+  goal: "gol",
+  execution: "exe",
+  task: "tsk",
+  event: "evt",
+  worker: "wrk",
 } as const;
 
 export type IdPrefixName = keyof typeof ID_PREFIXES;
@@ -42,6 +49,11 @@ export type SessionId = Branded<"session">;
 export type RoleId = Branded<"role">;
 export type RequestId = Branded<"request">;
 export type IdempotencyId = Branded<"idempotency">;
+export type GoalId = Branded<"goal">;
+export type ExecutionId = Branded<"execution">;
+export type TaskId = Branded<"task">;
+export type EventId = Branded<"event">;
+export type WorkerId = Branded<"worker">;
 
 export type IdOf<TName extends IdPrefixName> = Branded<TName>;
 
