@@ -1,0 +1,24 @@
+{
+  "name": "@repo/testing",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Shared test fixtures/mocks/helpers — see docs/development/05_TESTING_STRATEGY.md",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.3.0"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "eslint": "^9.15.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

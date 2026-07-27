@@ -241,7 +241,7 @@ packages/
 ├── database/
 ├── auth/
 ├── ai/
-├── social/
+├── integration/
 ├── plugin/
 ├── sdk/
 ├── ui/
@@ -329,7 +329,9 @@ Embedding.
 
 ---
 
-## social
+## integration
+
+> Đổi tên từ `social` để khớp **Integration Domain** (`docs/03_DOMAIN_MODEL.md`) — tách bạch với `docs/social_network/` (mạng xã hội nội bộ, future-vision, không thuộc package nào ở đây).
 
 Connector SDK.
 
@@ -603,16 +605,16 @@ flowchart LR
 
 # Ownership
 
-| Directory | Owner |
-|-----------|-------|
-| apps | Frontend Team |
-| services | Backend Team |
-| packages/runtime | Runtime Team |
-| packages/ai | AI Team |
-| packages/social | Integration Team |
-| packages/plugin | Platform Team |
-| packages/database | Backend Team |
-| packages/ui | Frontend Team |
+| Directory            | Owner            |
+| -------------------- | ---------------- |
+| apps                 | Frontend Team    |
+| services             | Backend Team     |
+| packages/runtime     | Runtime Team     |
+| packages/ai          | AI Team          |
+| packages/integration | Integration Team |
+| packages/plugin      | Platform Team    |
+| packages/database    | Backend Team     |
+| packages/ui          | Frontend Team    |
 
 ---
 

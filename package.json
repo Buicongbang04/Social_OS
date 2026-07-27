@@ -1,0 +1,46 @@
+{
+  "name": "ai-social-os",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "AI Social OS — AI-Native Runtime Platform for Social Media, Marketing Automation and Digital Workforce",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "docker:up": "docker compose --env-file .env -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose --env-file .env -f docker/docker-compose.yml down",
+    "docker:logs": "docker compose --env-file .env -f docker/docker-compose.yml logs -f",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,yml,yaml}\" --ignore-path .gitignore",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@next/eslint-plugin-next": "^15.1.0",
+    "@repo/config": "workspace:*",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.4.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.15.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "*.{ts,tsx,md,json,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}
