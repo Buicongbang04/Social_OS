@@ -5,13 +5,14 @@
   "type": "module",
   "description": "AI Social OS — Frontend shell (Dashboard, AI Chat, Marketing Studio, Campaign, Analytics, Plugin Marketplace). Reserved for Phase 1+ — see docs/06_MONOREPO_STRUCTURE.md#apps",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3200",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3200",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/sdk": "workspace:*",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

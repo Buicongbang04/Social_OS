@@ -47,6 +47,20 @@ export const envSchema = z.object({
     .default(10_000),
 
   PERMISSION_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+
+  /**
+   * Browser origins allowed to call this API, comma-separated.
+   *
+   * Defaults to apps/web's dev port, which is 3200 rather than Next's usual
+   * 3000 for the same reason Postgres is on 5433 and the API on 3100: this
+   * stack has to coexist with whatever else is running locally, and silently
+   * landing on a neighbour's port produces a CORS failure that reads as a bug
+   * in the app.
+   *
+   * Set it explicitly in production — a wildcard would hand any site on the
+   * internet an authenticated cross-origin surface.
+   */
+  CORS_ORIGINS: z.string().default("http://localhost:3200"),
 });
 
 export type Env = z.infer<typeof envSchema>;

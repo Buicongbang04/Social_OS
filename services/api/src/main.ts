@@ -14,6 +14,20 @@ async function bootstrap(): Promise<void> {
   // so probes do not have to track the API version.
   app.setGlobalPrefix(config.apiPrefix, { exclude: ["health"] });
 
+  // An explicit allowlist, never `*`. The browser sends the access token in an
+  // Authorization header, so a wildcard origin would let any site on the
+  // internet make authenticated calls on a signed-in user's behalf.
+  app.enableCors({
+    origin: config.corsOrigins,
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    // `x-workspace-id` is a custom header, so it is not simple and the browser
+    // will fail the preflight unless it is named here. Omitting it breaks
+    // every workspace-scoped call while leaving login working — a confusing
+    // half-broken state.
+    allowedHeaders: ["content-type", "authorization", "x-workspace-id"],
+    maxAge: 600,
+  });
+
   app.enableShutdownHooks();
 
   await app.listen(config.port);

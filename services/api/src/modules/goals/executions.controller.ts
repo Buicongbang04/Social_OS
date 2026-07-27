@@ -54,6 +54,13 @@ export class ExecutionsController {
     return this.goals.listTasks(parseRouteId("execution", id), user.userId);
   }
 
+  /** What this run has cost in AI provider calls so far. */
+  @RequirePermission("workspace.execution.read")
+  @Get(":id/usage")
+  async usage(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.goals.listUsage(parseRouteId("execution", id), user.userId);
+  }
+
   /**
    * Request cancellation. 202, not 200: the Execution enters CANCELLING and
    * only reaches CANCELLED once the runtime has unwound in-flight work.

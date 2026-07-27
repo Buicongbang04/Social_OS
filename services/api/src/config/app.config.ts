@@ -58,6 +58,14 @@ export class AppConfig {
     return this.get("AUTH_ARGON2_TIME_COST");
   }
 
+  /** Parsed allowlist. Empty entries are dropped so a trailing comma is harmless. */
+  get corsOrigins(): string[] {
+    return this.get("CORS_ORIGINS")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+  }
+
   get rateLimitUserPerMinute(): number {
     return this.get("RATE_LIMIT_USER_PER_MINUTE");
   }

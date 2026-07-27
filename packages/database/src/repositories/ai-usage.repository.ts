@@ -1,6 +1,6 @@
 import type { AiUsageRecord, AiUsageRecorder } from "@repo/ai";
 import type { WorkspaceId } from "@repo/core";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import type { DatabaseClient } from "../client";
 import { aiUsage, workspaces } from "../schema";
 
@@ -45,6 +45,47 @@ export class DrizzleAiUsageRepository implements AiUsageRecorder {
       metadata: record.metadata,
       timestamp: record.timestamp,
     });
+  }
+
+  /**
+   * Every metered call made for one execution, oldest first.
+   *
+   * Takes no userId: callers reach this only after resolving the Execution
+   * through a membership-scoped read, so authorisation has already happened
+   * and re-deriving it here would be a second, divergent rule.
+   */
+  async listByExecution(executionId: string): Promise<
+    readonly {
+      id: string;
+      operation: string;
+      provider: string;
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      costUsd: string;
+      costPriced: boolean;
+      latencyMs: number;
+      timestamp: Date;
+    }[]
+  > {
+    return this.db
+      .select({
+        id: aiUsage.id,
+        operation: aiUsage.operation,
+        provider: aiUsage.provider,
+        model: aiUsage.model,
+        inputTokens: aiUsage.inputTokens,
+        outputTokens: aiUsage.outputTokens,
+        totalTokens: aiUsage.totalTokens,
+        costUsd: aiUsage.costUsd,
+        costPriced: aiUsage.costPriced,
+        latencyMs: aiUsage.latencyMs,
+        timestamp: aiUsage.timestamp,
+      })
+      .from(aiUsage)
+      .where(eq(aiUsage.executionId, executionId))
+      .orderBy(asc(aiUsage.timestamp));
   }
 
   /**

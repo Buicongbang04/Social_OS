@@ -16,7 +16,9 @@ import type {
   TaskRepository,
 } from "@repo/runtime";
 import { canRequestCancellation, newExecutionFor } from "@repo/runtime";
+import type { DrizzleAiUsageRepository } from "@repo/database";
 import {
+  AI_USAGE_REPOSITORY,
   EXECUTION_REPOSITORY,
   GOAL_REPOSITORY,
   TASK_REPOSITORY,
@@ -32,6 +34,8 @@ export class GoalsService {
     @Inject(EXECUTION_REPOSITORY)
     private readonly executions: ExecutionRepository,
     @Inject(TASK_REPOSITORY) private readonly tasks: TaskRepository,
+    @Inject(AI_USAGE_REPOSITORY)
+    private readonly aiUsage: DrizzleAiUsageRepository,
   ) {}
 
   async createGoal(
@@ -111,6 +115,29 @@ export class GoalsService {
     // unreachable rather than merely forbidden.
     await this.getExecution(executionId, userId);
     return this.tasks.listByExecution(executionId);
+  }
+
+  /**
+   * What one execution cost in AI provider calls.
+   *
+   * Goes through getExecution first so a foreign execution's spend is
+   * unreachable rather than merely forbidden — the same rule as its tasks.
+   */
+  async listUsage(executionId: ExecutionId, userId: UserId) {
+    await this.getExecution(executionId, userId);
+    const calls = await this.aiUsage.listByExecution(executionId);
+
+    return {
+      calls,
+      // Summed from the exact decimal strings, not from floats, and reported
+      // as a string for the same reason: this is money.
+      totalUsd: calls
+        .reduce((sum, call) => sum + Number(call.costUsd), 0)
+        .toFixed(8),
+      totalTokens: calls.reduce((sum, call) => sum + call.totalTokens, 0),
+      /** Calls whose model had no price, so totalUsd is short by their cost. */
+      unpricedCalls: calls.filter((call) => !call.costPriced).length,
+    };
   }
 
   /**

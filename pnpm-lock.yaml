@@ -43,6 +43,9 @@ importers:
 
   apps/web:
     dependencies:
+      "@repo/sdk":
+        specifier: workspace:*
+        version: link:../../packages/sdk
       next:
         specifier: ^15.1.0
         version: 15.5.22(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -346,6 +349,24 @@ importers:
       "@repo/domain":
         specifier: workspace:*
         version: link:../domain
+    devDependencies:
+      "@repo/config":
+        specifier: workspace:*
+        version: link:../config
+      "@types/node":
+        specifier: ^22.10.0
+        version: 22.20.1
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.5(jiti@1.21.7)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(terser@5.49.0)
+
+  packages/sdk:
     devDependencies:
       "@repo/config":
         specifier: workspace:*

@@ -250,6 +250,44 @@ describe.skipIf(!hasInfra)("runtime API (integration)", () => {
     expect(cancelled.body.data.status).toBe("CANCELLING");
   });
 
+  it("reports zero spend for a run that has not been planned yet", async () => {
+    // No runtime process is attached here, so nothing has called a provider.
+    // Zero is the honest answer; an empty body or a 404 would not be.
+    const goal = await createGoal(alice, aliceWorkspace);
+    const submitted = await testApp
+      .http()
+      .post(`/api/v1/goals/${goal.id}/executions`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(202);
+
+    const usage = await testApp
+      .http()
+      .get(`/api/v1/executions/${submitted.body.data.id}/usage`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(usage.body.data.calls).toEqual([]);
+    expect(Number(usage.body.data.totalUsd)).toBe(0);
+    expect(usage.body.data.unpricedCalls).toBe(0);
+  });
+
+  it("hides another tenant's spend behind 404", async () => {
+    // Cost is commercially sensitive: what a competitor spends on AI is a
+    // signal about their volume. It has to be as unreachable as the run itself.
+    const goal = await createGoal(alice, aliceWorkspace);
+    const submitted = await testApp
+      .http()
+      .post(`/api/v1/goals/${goal.id}/executions`)
+      .set(auth(alice, aliceWorkspace))
+      .expect(202);
+
+    await testApp
+      .http()
+      .get(`/api/v1/executions/${submitted.body.data.id}/usage`)
+      .set(auth(bob, bobWorkspace))
+      .expect(404);
+  });
+
   it("rejects a malformed id rather than treating it as not found", async () => {
     await testApp
       .http()
