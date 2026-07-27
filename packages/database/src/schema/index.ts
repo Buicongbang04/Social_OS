@@ -1,5 +1,6 @@
 export * from "./_enums";
 export * from "./_shared";
+export * from "./ai-usage";
 export * from "./execution-events";
 export * from "./executions";
 export * from "./goals";

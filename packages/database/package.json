@@ -2,7 +2,7 @@
   "name": "@repo/database",
   "private": true,
   "version": "0.0.0",
-  "description": "Drizzle ORM schema, migrations, tenant-scoped repositories and seeding — see docs/data/03_DATABASE_STRATEGY.md",
+  "description": "Drizzle ORM schema, migrations, tenant-scoped repositories and seeding \u2014 see docs/data/03_DATABASE_STRATEGY.md",
   "license": "UNLICENSED",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,12 +28,13 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@repo/ai": "workspace:*",
     "@repo/core": "workspace:*",
     "@repo/domain": "workspace:*",
     "@repo/logger": "workspace:*",
+    "@repo/runtime": "workspace:*",
     "drizzle-orm": "^0.38.0",
-    "postgres": "^3.4.5",
-    "@repo/runtime": "workspace:*"
+    "postgres": "^3.4.5"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",

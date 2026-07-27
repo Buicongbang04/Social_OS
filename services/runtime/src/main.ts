@@ -2,6 +2,7 @@ import Redis from "ioredis";
 import { InMemoryEventBus } from "@repo/event";
 import { createLogger } from "@repo/logger";
 import {
+  DrizzleAiUsageRepository,
   DrizzleExecutionRepository,
   DrizzleGoalRepository,
   DrizzleTaskRepository,
@@ -13,9 +14,8 @@ import {
   CapabilityExecutor,
   ExecutionEngine,
   InMemoryCapabilityRegistry,
-  KeywordIntentAnalyzer,
-  TemplatePlanner,
 } from "@repo/runtime";
+import { buildAiEngines } from "./ai-engines";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
 import { Scheduler } from "./scheduler";
 
@@ -47,13 +47,23 @@ async function main(): Promise<void> {
   const goals = new DrizzleGoalRepository(db);
   const executionRepository = new DrizzleExecutionRepository(db);
 
+  const ai = buildAiEngines({
+    capabilities: registry,
+    recorder: new DrizzleAiUsageRepository(db),
+    // A metering write that fails must not fail work already paid for, but it
+    // must not vanish either — it is unbilled revenue.
+    onUsageError: (error, record) => {
+      logger.error({ err: error, record }, "failed to record AI usage");
+    },
+  });
+
   const engine = new ExecutionEngine({
     goals,
     executions: executionRepository,
     tasks: new DrizzleTaskRepository(db),
     queue,
-    intentAnalyzer: new KeywordIntentAnalyzer(),
-    planner: new TemplatePlanner(registry),
+    intentAnalyzer: ai.intentAnalyzer,
+    planner: ai.planner,
     capabilities: registry,
     capabilityExecutor,
   });
@@ -81,7 +91,14 @@ async function main(): Promise<void> {
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));
 
-  logger.info({ capabilities: registry.list().length }, "runtime starting");
+  logger.info(
+    {
+      capabilities: registry.list().length,
+      aiMode: ai.mode,
+      aiProviders: ai.providers,
+    },
+    "runtime starting",
+  );
   await scheduler.start();
 }
 
