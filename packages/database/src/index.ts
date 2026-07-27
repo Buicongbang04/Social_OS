@@ -6,4 +6,5 @@ export * from "./repositories/user.repository";
 export * from "./repositories/workspace.repository";
 export * from "./seed/dev";
 export * from "./seed/system";
+export * from "./testing/reset";
 export * as schemaTables from "./schema";

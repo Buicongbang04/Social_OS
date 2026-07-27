@@ -16,14 +16,20 @@ Mặc định: `http://localhost:3100`, prefix `/api/v1`, health ở `/health` (
 
 ## Endpoint hiện có
 
-| Method | Path                    | Auth                         |
-| ------ | ----------------------- | ---------------------------- |
-| GET    | `/health`               | Public                       |
-| POST   | `/api/v1/auth/register` | Public                       |
-| POST   | `/api/v1/auth/login`    | Public, giới hạn 5 req/phút  |
-| POST   | `/api/v1/auth/refresh`  | Public, giới hạn 10 req/phút |
-| POST   | `/api/v1/auth/logout`   | Bearer token                 |
-| GET    | `/api/v1/users/me`      | Bearer token                 |
+| Method           | Path                                     | Auth                                               |
+| ---------------- | ---------------------------------------- | -------------------------------------------------- |
+| GET              | `/health`                                | Public                                             |
+| POST             | `/api/v1/auth/register`                  | Public                                             |
+| POST             | `/api/v1/auth/login`                     | Public, giới hạn 5 req/phút                        |
+| POST             | `/api/v1/auth/refresh`                   | Public, giới hạn 10 req/phút                       |
+| POST             | `/api/v1/auth/logout`                    | Bearer token                                       |
+| GET              | `/api/v1/users/me`                       | Bearer token                                       |
+| GET/POST         | `/api/v1/organizations`                  | Bearer token                                       |
+| GET/PATCH        | `/api/v1/organizations/:id`              | `organization.organization.read` / `.update`       |
+| GET/POST         | `/api/v1/workspaces`                     | Bearer token                                       |
+| GET/PATCH/DELETE | `/api/v1/workspaces/:id`                 | `workspace.workspace.read` / `.update` / `.delete` |
+| GET/POST         | `/api/v1/workspaces/:id/members`         | `workspace.member.read` / `.create`                |
+| DELETE           | `/api/v1/workspaces/:id/members/:userId` | `workspace.member.delete`                          |
 
 ## Cách API Gateway concern được hiện thực
 
@@ -36,6 +42,7 @@ Mặc định: `http://localhost:3100`, prefix `/api/v1`, health ở `/health` (
 | Validation        | `ZodValidationPipe` → 422 kèm `details` từng field                                                                     |
 | Rate limit        | `ScopedThrottlerGuard` — key theo **user**, không theo IP (IP chung NAT sẽ phạt oan)                                   |
 | Authentication    | `JwtAuthGuard` là **global** — route mặc định là protected, phải `@Public()` mới mở                                    |
+| Authorization     | `PermissionGuard` là **global** và **fail closed** — route không khai báo chính sách nào sẽ bị từ chối, không phải mở  |
 
 ## Quyết định về token
 
@@ -43,8 +50,32 @@ Mặc định: `http://localhost:3100`, prefix `/api/v1`, health ở `/health` (
 - **Refresh token**: chuỗi ngẫu nhiên 32 byte (không phải JWT), 30 ngày, **dùng một lần** và xoay vòng. DB chỉ lưu SHA-256 hash.
 - **Logout tức thì**: access token đã ký vẫn hợp lệ tới khi hết hạn, nên có thêm denylist trên Redis (`revoked:sid:*`) với TTL bằng tuổi thọ access token.
 
+## Phân quyền
+
+Mỗi route phải khai báo đúng một trong ba:
+
+| Decorator                                     | Ý nghĩa                                                 |
+| --------------------------------------------- | ------------------------------------------------------- |
+| `@Public()`                                   | Không cần token (login, register, health)               |
+| `@AuthenticatedOnly()`                        | Cần token hợp lệ, không cần quyền cụ thể                |
+| `@RequirePermission("scope.resource.action")` | Cần quyền cụ thể trong Workspace/Organization tương ứng |
+
+Quên khai báo không làm route bị mở — `PermissionGuard` từ chối luôn, và `src/route-coverage.spec.ts` làm build fail ngay tại commit.
+
+### 404 hay 403?
+
+| Tình huống                      | Mã trả về | Vì sao                                                                |
+| ------------------------------- | --------- | --------------------------------------------------------------------- |
+| Không phải thành viên           | **404**   | Trả 403 sẽ xác nhận tài nguyên đó tồn tại, làm lộ dữ liệu tenant khác |
+| Là thành viên nhưng thiếu quyền | **403**   | Họ đã biết tài nguyên tồn tại rồi, không còn gì để giấu               |
+
+`PermissionGuard` phân biệt hai trường hợp này qua `AuthorizationOutcome`.
+
 ## Test
 
 ```bash
-pnpm --filter @repo/api test   # unit, không cần Docker
+pnpm --filter @repo/api test       # unit, không cần Docker
+pnpm --filter @repo/api test:int   # integration, cần pnpm docker:up
 ```
+
+Bộ integration test (`src/workspace-isolation.int-spec.ts`) chạy trên Postgres/Redis thật, không mock gì — vì test cách ly mà mock repository thì không chứng minh được điều gì.

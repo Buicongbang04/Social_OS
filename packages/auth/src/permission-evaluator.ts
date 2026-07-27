@@ -10,16 +10,13 @@ import {
 } from "@repo/domain";
 
 /**
- * Cache port. The concrete Redis implementation lives in services/api so this
- * package stays free of an ioredis dependency and remains unit-testable.
+ * Generic JSON cache port. The concrete Redis implementation lives in
+ * services/api so this package stays free of an ioredis dependency and remains
+ * unit-testable.
  */
 export interface PermissionCachePort {
-  get(key: string): Promise<PermissionKey[] | null>;
-  set(
-    key: string,
-    permissions: PermissionKey[],
-    ttlSeconds: number,
-  ): Promise<void>;
+  get<T>(key: string): Promise<T | null>;
+  set(key: string, value: unknown, ttlSeconds: number): Promise<void>;
   delete(key: string): Promise<void>;
 }
 
@@ -29,6 +26,27 @@ export type PermissionEvaluatorOptions = {
 };
 
 export const DEFAULT_PERMISSION_CACHE_TTL_SECONDS = 300;
+
+/**
+ * The outcome of resolving one membership.
+ *
+ * `isMember` is kept distinct from an empty permission set because the two
+ * warrant different HTTP responses: a non-member must get 404 (revealing that
+ * the resource exists would leak another tenant's data), while a member who
+ * lacks one permission gets 403 — there is nothing left to hide from them.
+ */
+export type MembershipAuthorization = {
+  isMember: boolean;
+  permissions: ReadonlySet<PermissionKey>;
+};
+
+/** Cache-friendly shape; Sets do not survive JSON.stringify. */
+type CachedAuthorization = { isMember: boolean; permissions: PermissionKey[] };
+
+const NOT_A_MEMBER: MembershipAuthorization = Object.freeze({
+  isMember: false,
+  permissions: new Set<PermissionKey>(),
+});
 
 /**
  * Resolves what a user may do inside ONE workspace (or ONE organization).
@@ -64,47 +82,61 @@ export class PermissionEvaluator {
     return `perm:org:${organizationId}:user:${userId}`;
   }
 
-  /** Effective permissions for a user in one workspace; empty when not a member. */
-  async forWorkspace(
+  /** Membership and effective permissions for a user in one workspace. */
+  async authorizeWorkspace(
     workspaceId: WorkspaceId,
     userId: UserId,
-  ): Promise<ReadonlySet<PermissionKey>> {
+  ): Promise<MembershipAuthorization> {
     const cacheKey = PermissionEvaluator.workspaceCacheKey(workspaceId, userId);
 
-    const cached = await this.cache?.get(cacheKey);
-    if (cached) return new Set(cached);
+    const cached = await this.cache?.get<CachedAuthorization>(cacheKey);
+    if (cached) {
+      return {
+        isMember: cached.isMember,
+        permissions: new Set(cached.permissions),
+      };
+    }
 
     const membership = await this.workspaceMemberships.findForUserInWorkspace(
       workspaceId,
       userId,
     );
 
-    // Not a member, or membership suspended → deny everything.
+    // No membership, or one that is suspended, means no access at all.
     if (!membership || membership.status !== "ACTIVE") {
-      await this.cache?.set(cacheKey, [], this.cacheTtlSeconds);
-      return new Set();
+      await this.cacheAuthorization(cacheKey, NOT_A_MEMBER);
+      return NOT_A_MEMBER;
     }
 
-    const effective = resolveWorkspacePermissions(membership.role, {
+    const permissions = resolveWorkspacePermissions(membership.role, {
       grants: membership.permissionGrants,
       denies: membership.permissionDenies,
     });
 
-    await this.cache?.set(cacheKey, [...effective], this.cacheTtlSeconds);
-    return effective;
+    const authorization: MembershipAuthorization = {
+      isMember: true,
+      permissions,
+    };
+    await this.cacheAuthorization(cacheKey, authorization);
+    return authorization;
   }
 
-  async forOrganization(
+  async authorizeOrganization(
     organizationId: OrganizationId,
     userId: UserId,
-  ): Promise<ReadonlySet<PermissionKey>> {
+  ): Promise<MembershipAuthorization> {
     const cacheKey = PermissionEvaluator.organizationCacheKey(
       organizationId,
       userId,
     );
 
-    const cached = await this.cache?.get(cacheKey);
-    if (cached) return new Set(cached);
+    const cached = await this.cache?.get<CachedAuthorization>(cacheKey);
+    if (cached) {
+      return {
+        isMember: cached.isMember,
+        permissions: new Set(cached.permissions),
+      };
+    }
 
     const membership =
       await this.organizationMemberships.findForUserInOrganization(
@@ -113,17 +145,37 @@ export class PermissionEvaluator {
       );
 
     if (!membership || membership.status !== "ACTIVE") {
-      await this.cache?.set(cacheKey, [], this.cacheTtlSeconds);
-      return new Set();
+      await this.cacheAuthorization(cacheKey, NOT_A_MEMBER);
+      return NOT_A_MEMBER;
     }
 
-    const effective = resolveOrganizationPermissions(membership.role, {
+    const permissions = resolveOrganizationPermissions(membership.role, {
       grants: membership.permissionGrants,
       denies: membership.permissionDenies,
     });
 
-    await this.cache?.set(cacheKey, [...effective], this.cacheTtlSeconds);
-    return effective;
+    const authorization: MembershipAuthorization = {
+      isMember: true,
+      permissions,
+    };
+    await this.cacheAuthorization(cacheKey, authorization);
+    return authorization;
+  }
+
+  /** Effective permissions only; empty for a non-member. */
+  async forWorkspace(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+  ): Promise<ReadonlySet<PermissionKey>> {
+    return (await this.authorizeWorkspace(workspaceId, userId)).permissions;
+  }
+
+  async forOrganization(
+    organizationId: OrganizationId,
+    userId: UserId,
+  ): Promise<ReadonlySet<PermissionKey>> {
+    return (await this.authorizeOrganization(organizationId, userId))
+      .permissions;
   }
 
   /** Call whenever a membership or role changes, so the next check re-reads. */
@@ -143,5 +195,16 @@ export class PermissionEvaluator {
     await this.cache?.delete(
       PermissionEvaluator.organizationCacheKey(organizationId, userId),
     );
+  }
+
+  private async cacheAuthorization(
+    key: string,
+    authorization: MembershipAuthorization,
+  ): Promise<void> {
+    const serializable: CachedAuthorization = {
+      isMember: authorization.isMember,
+      permissions: [...authorization.permissions],
+    };
+    await this.cache?.set(key, serializable, this.cacheTtlSeconds);
   }
 }

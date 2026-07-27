@@ -8,8 +8,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "noEmit": false,
-    // NestJS DI resolves constructor parameter types at runtime via
-    // emitDecoratorMetadata, which cannot see through `import type`.
     "verbatimModuleSyntax": false
   },
   "exclude": ["node_modules", "dist"]

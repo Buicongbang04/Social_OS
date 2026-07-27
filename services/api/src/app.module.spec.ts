@@ -27,6 +27,9 @@ const INJECTABLE_CLASSES = [
   "ModuleRef",
   "PasswordService",
   "RefreshTokenService",
+  "PermissionService",
+  "WorkspacesService",
+  "OrganizationsService",
 ];
 
 function collectTypeScriptFiles(dir: string): string[] {

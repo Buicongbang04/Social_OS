@@ -23,6 +23,8 @@ Drizzle ORM schema, migration, repository và seed cho PostgreSQL. Xem `docs/dat
 - **Soft delete** là mặc định; `sessions` và `idempotency_keys` là ngoại lệ có chủ đích (dữ liệu vận hành, hết hạn thay vì lưu giữ).
 - **Cách ly tenant**: mọi read đều join với membership của chính người gọi. Workspace mà user không phải thành viên coi như không tồn tại → 404, không phải 403, để không lộ sự tồn tại dữ liệu của tenant khác.
 
+> `tsconfig.json` ở đây cố ý **không** đặt `rootDir` (chỉ dùng cho typecheck `--noEmit`), vì nó bao cả `drizzle.config.ts` nằm ngoài `src/`. Việc emit do `tsconfig.build.json` đảm nhiệm.
+
 ## Lệnh
 
 ```bash

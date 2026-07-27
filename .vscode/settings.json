@@ -1,0 +1,16 @@
+{
+  // TypeScript reads tsconfig files as JSONC (comments are officially
+  // supported and tsc parses them fine), but the editor only applies that
+  // language mode to files literally named `tsconfig.json`. Without these
+  // associations the shared config fragments and `tsconfig.base.json` show
+  // spurious "comments not permitted" errors even though every build passes.
+  "files.associations": {
+    "tsconfig*.json": "jsonc",
+    "packages/config/tsconfig/*.json": "jsonc"
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" }
+}

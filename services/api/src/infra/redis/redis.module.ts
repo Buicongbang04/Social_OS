@@ -6,7 +6,6 @@ import {
   type OnApplicationShutdown,
 } from "@nestjs/common";
 import Redis from "ioredis";
-import type { PermissionKey } from "@repo/domain";
 import type { PermissionCachePort } from "@repo/auth";
 import { AppConfig } from "../../config/app.config";
 
@@ -24,23 +23,19 @@ export const PERMISSION_CACHE = Symbol("PERMISSION_CACHE");
 export class RedisPermissionCache implements PermissionCachePort {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
-  async get(key: string): Promise<PermissionKey[] | null> {
+  async get<T>(key: string): Promise<T | null> {
     try {
       const raw = await this.redis.get(key);
-      return raw ? (JSON.parse(raw) as PermissionKey[]) : null;
+      return raw ? (JSON.parse(raw) as T) : null;
     } catch {
       // Treat an unreachable/corrupt cache as a miss — the caller re-reads the DB.
       return null;
     }
   }
 
-  async set(
-    key: string,
-    permissions: PermissionKey[],
-    ttlSeconds: number,
-  ): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds: number): Promise<void> {
     try {
-      await this.redis.set(key, JSON.stringify(permissions), "EX", ttlSeconds);
+      await this.redis.set(key, JSON.stringify(value), "EX", ttlSeconds);
     } catch {
       // A cache write failure is not a request failure.
     }

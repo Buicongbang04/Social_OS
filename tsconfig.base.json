@@ -18,11 +18,5 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false
   },
-  // NOTE: no `paths` mapping on purpose. Internal packages are resolved through
-  // pnpm's workspace symlinks in node_modules, pointing at each package's built
-  // `dist/*.d.ts`. Mapping `@repo/*` straight at `packages/*/src` would drag a
-  // dependency's source files into the consumer's compilation and trip TS6059
-  // ("not under rootDir"). Turborepo's `dependsOn: ["^build"]` guarantees a
-  // dependency is built before anything that consumes it.
   "exclude": ["node_modules", "dist", ".next", ".turbo", "coverage"]
 }

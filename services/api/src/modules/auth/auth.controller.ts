@@ -47,7 +47,7 @@ export class AuthController {
    * "Login Rate Limiting").
    */
   @Public()
-  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @Throttle({ user: { limit: 5, ttl: 60_000 } })
   @Post("login")
   @HttpCode(HttpStatus.OK)
   async login(
@@ -58,7 +58,7 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ auth: { limit: 10, ttl: 60_000 } })
+  @Throttle({ user: { limit: 10, ttl: 60_000 } })
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   async refresh(

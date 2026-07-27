@@ -2,10 +2,6 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    // CommonJS output: NestJS services (services/*) are CommonJS and cannot
-    // `require()` an ESM package, whereas Next.js consumes CommonJS without
-    // issue. Emitting CJS from the shared packages keeps one build output that
-    // both consumers can use, instead of a dual-format build.
     "module": "CommonJS",
     "moduleResolution": "Node",
     "noEmit": false
