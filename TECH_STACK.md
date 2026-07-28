@@ -29,7 +29,7 @@ Tình trạng tính đến 2026-07-28 (commit `37262ff`). Đây là bản kiểm
 12. [Log và tiện ích vận hành](#12-log-và-tiện-ích-vận-hành)
 13. [Đã cài nhưng chưa dùng](#13-đã-cài-nhưng-chưa-dùng)
 14. [Khoảng cách so với stack dự kiến](#14-khoảng-cách-so-với-stack-dự-kiến)
-15. [Phase 2 — những gì còn thiếu](#15-phase-2--những-gì-còn-thiếu)
+15. [Phase 2 và Phase 3 — còn thiếu gì](#15-phase-2-và-phase-3--còn-thiếu-gì)
 
 ---
 
@@ -1405,36 +1405,57 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 
 `docs/05_TECH_STACK.md` mô tả stack đầy đủ của sản phẩm. Những phần **chưa làm**:
 
-| Dự kiến                     | Trạng thái hiện tại                                                                                                                                                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NATS JetStream              | Chưa. Đang dùng Redis + `InMemoryEventBus`. Quyết định có chủ đích: dùng Redis trước, nâng cấp sau                                                                                                                                    |
-| Meilisearch                 | Chưa                                                                                                                                                                                                                                  |
-| Social Connectors           | OAuth cho Facebook / TikTok / Threads, nối Page bằng token dán tay, và **đăng bài thật lên Facebook Page** (đã kiểm chứng với Facebook thật). Chưa có: chọn Page từ `/me/accounts`, làm mới token, webhook, inbox, 7 nền tảng còn lại |
-| Prometheus / Grafana / Loki | Chưa. Mới có log dạng JSON, sẵn sàng để cắm vào                                                                                                                                                                                       |
-| OpenTelemetry / Jaeger      | Chưa. Mới có `correlationId` xuyên suốt một lần chạy                                                                                                                                                                                  |
-| Swagger                     | Chưa sinh tài liệu API                                                                                                                                                                                                                |
-| Secret Manager              | **Xong phần cốt lõi.** AES-256-GCM có keyring xoay khoá, bảng `secrets` + `secret_versions`, và Gateway đọc key riêng của từng workspace (FR-031). Còn thiếu: HashiCorp Vault, scope ngoài PLATFORM/WORKSPACE, xoay khoá tự động      |
+| Dự kiến                     | Trạng thái hiện tại                                                                                                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NATS JetStream              | Chưa. Đang dùng Redis + `InMemoryEventBus`. Quyết định có chủ đích: dùng Redis trước, nâng cấp sau                                                                                                                                                                    |
+| Meilisearch                 | Chưa                                                                                                                                                                                                                                                                  |
+| Social Connectors           | OAuth cho Facebook / TikTok / Threads, nối Page bằng token dán tay, **đăng bài**, **đọc hộp thư**, **số liệu tương tác** — tất cả đã kiểm chứng với Facebook thật. Chưa có: chọn Page từ `/me/accounts`, làm mới token, webhook, lượt tiếp cận, và 7 nền tảng còn lại |
+| Prometheus / Grafana / Loki | **Có `GET /metrics`** dạng exposition Prometheus (thời gian request theo route, lời gọi provider, số bài đăng), tắt mặc định tới khi đặt `METRICS_TOKEN`. Chưa dựng Prometheus/Grafana/Loki để thu và vẽ                                                              |
+| OpenTelemetry / Jaeger      | Chưa, và **cố ý chưa**: tracing chỉ có nghĩa khi có collector chạy thật, mà đưa vào thứ không kiểm chứng được với hạ tầng thật đúng là cách sinh lỗi mà repo này đã gặp nhiều lần. Mới có `correlationId` xuyên suốt một lần chạy                                     |
+| Swagger                     | **Xong.** `GET /docs` ở môi trường phát triển, `openapi.json` commit trong repo kèm test chống trôi. Request body sinh từ chính schema zod đang validate                                                                                                              |
+| Secret Manager              | **Xong phần cốt lõi.** AES-256-GCM có keyring xoay khoá, bảng `secrets` + `secret_versions`, và Gateway đọc key riêng của từng workspace (FR-031). Còn thiếu: HashiCorp Vault, scope ngoài PLATFORM/WORKSPACE, xoay khoá tự động                                      |
 
 ---
 
-## 15. Phase 2 — những gì còn thiếu
+## 15. Phase 2 và Phase 3 — còn thiếu gì
 
-Bốn tiêu chí thoát của `docs/ROADMAP.md` Phase 2 đều đã chạy được và có kiểm
-chứng thật: Multi Provider, Streaming Chat, RAG, Memory. Nhưng phần deliverables
-thì chưa hết. Ghi ra để khỏi nhầm "tiêu chí thoát đạt" với "phase xong":
+Bảng này từng lạc hậu nặng: nó liệt kê là "chưa" những thứ đã làm xong từ lâu.
+Một bảng sai còn tệ hơn không có bảng, nên mỗi dòng dưới đây đã được kiểm lại
+với mã nguồn chứ không chép lại từ bản cũ.
 
-| Deliverable                  | Trạng thái                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------------ |
-| OpenRouter                   | Chưa. Dùng chung giao thức OpenAI nên thêm adapter rất rẻ                            |
-| Prompt Versioning / Registry | Chưa. Prompt hiện là hằng số có gắn `PROMPT_VERSION`; chưa có kho lưu, chưa A/B được |
-| Tool Calling trong chat      | Gateway đã truyền tool call qua stream, nhưng endpoint chat chưa khai báo tool nào   |
-| Multi Conversation           | Có nhiều hội thoại rồi, nhưng UI mới hiện một luồng tại một thời điểm                |
-| Workspace / Brand Memory     | Chưa. Mới có Conversation Memory; ghi nhớ lâu dài xuyên hội thoại là kho riêng       |
-| Trích dẫn nguồn trong chat   | Chưa. `knowledge.search` có trả về nguồn, nhưng chat chưa gọi nó                     |
+### Phase 2
 
-Điểm cuối là đáng chú ý nhất: **chat chưa đọc tài liệu của workspace.** RAG chạy
-trong đường Goal, không chạy trong đường chat. Hỏi khung chat về một file vừa
-tải lên thì model trả lời bằng kiến thức sẵn có của nó chứ không mở tài liệu ra.
+Bốn tiêu chí thoát đều đạt và có kiểm chứng thật: Multi Provider, Streaming
+Chat, RAG, Memory.
+
+| Deliverable                  | Trạng thái                                                                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenRouter                   | **Xong.** Dùng chung giao thức OpenAI qua `createOpenAICompatible`                                                                      |
+| Tool Calling trong chat      | **Xong.** Năm tool, tất cả chỉ-đọc: tài liệu, tìm trong tài liệu, ghi nhớ, hộp thư, số liệu bài đăng                                    |
+| Workspace / Brand Memory     | **Xong.** Có kho riêng, có màn hình sửa                                                                                                 |
+| Trích dẫn nguồn trong chat   | **Xong.** Sự kiện `sources` tới trước token đầu tiên, giao diện hiện nguồn                                                              |
+| Prompt Versioning / Registry | Mỗi prompt có version riêng, nhưng vẫn là hằng số trong mã. Kho lưu trong CSDL **đã cân nhắc và cố ý không làm** — xem ghi chú bên dưới |
+| Multi Conversation           | API có nhiều hội thoại; giao diện vẫn chỉ hiện một luồng tại một thời điểm                                                              |
+
+**Vì sao không làm Prompt Registry trong CSDL.** Bản theo workspace trùng gần
+hết với Workspace Memory đã có. Phần thật sự khác biệt — sửa system prompt của
+Planner — không nên trao cho tenant. Bản cấp người vận hành thì đáng có, nhưng
+buộc phải biến sáu hằng số prompt (đang tính một lần lúc nạp module) thành đọc
+CSDL mỗi lời gọi, kèm cache, kèm đường lui khi CSDL chết: nhiều bề mặt hỏng mới
+cho một lợi ích là "sửa không cần deploy".
+
+### Phase 3
+
+| Tiêu chí thoát  | Trạng thái                                                                                                                                                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Đăng bài        | **Đạt.** Đã đăng lên Page thật rồi xoá. Có chống trùng khi thử lại, có chặn lịch tự chạy khi không có người duyệt                                                                                                                                                               |
+| Nhận tin nhắn   | **Đạt.** Đọc hộp thư Page thật, có màn hình riêng, chat cũng đọc được                                                                                                                                                                                                           |
+| Đồng bộ dữ liệu | **Nửa.** Tương tác từng bài (thích / bình luận / chia sẻ) đã kiểm chứng thật. Lượt tiếp cận **cố ý chưa làm**: Meta bỏ chỉ số impressions từ 15/6/2026 và không trả chỉ số thay thế cho Page dưới ngưỡng follower, nên phần đọc phản hồi chưa từng gặp một câu trả lời thật nào |
+
+Còn thiếu, và mỗi thứ vướng một điều kiện bên ngoài chứ không vướng mã: chọn
+Page từ `/me/accounts`, làm mới token trước khi hết hạn, webhook, inbox của
+TikTok / Threads, và bảy nền tảng còn lại — tất cả đều cần một ứng dụng đã đăng
+ký ở nền tảng tương ứng.
 
 ---
 
