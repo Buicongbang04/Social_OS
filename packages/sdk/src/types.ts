@@ -365,6 +365,30 @@ export type InboxThread = {
 };
 
 /**
+ * How one post has done.
+ *
+ * Engagement counts, not reach. Meta removed the impressions metrics in June
+ * 2026 and withholds the replacements below a follower threshold, so reading
+ * them could not be checked against a real answer — and a number that is
+ * quietly always zero looks exactly like a post nobody saw.
+ */
+export type PostStats = {
+  postId: string;
+  account: string;
+  createdAt: string;
+  message: string | null;
+  likes: number;
+  comments: number;
+  shares: number;
+  url: string;
+};
+
+export type PostStatsReport = {
+  posts: PostStats[];
+  failed: { account: string; reason: string }[];
+};
+
+/**
  * The inbox, plus the channels that could not be read.
  *
  * Reported rather than thrown: one expired token must not hide the messages

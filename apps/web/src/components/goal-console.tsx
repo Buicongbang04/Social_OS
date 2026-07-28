@@ -9,6 +9,7 @@ import { ConnectionsPanel } from "./connections-panel";
 import { InboxPanel } from "./inbox-panel";
 import { KeysPanel } from "./keys-panel";
 import { MemoryPanel } from "./memory-panel";
+import { StatsPanel } from "./stats-panel";
 import { ExecutionView } from "./execution-view";
 import { RunList } from "./run-list";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
@@ -186,6 +187,9 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
           anything below, and burying it under the run history would mean
           finding out days later. */}
       <InboxPanel />
+
+      {/* After the inbox: what went out, and what came back of it. */}
+      <StatsPanel />
 
       {/* Above the run list: what a Goal can read has to be visible before
           someone writes a Goal that assumes it. */}
