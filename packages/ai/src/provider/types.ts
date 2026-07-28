@@ -143,6 +143,43 @@ export type ProviderResponse = {
   metadata: Metadata;
 };
 
+/**
+ * One piece of a streaming answer.
+ *
+ * Deliberately three shapes, not the vendor SDK's two dozen. The whole point of
+ * this package is that a caller writes against one surface no matter which
+ * vendor answered, and a union that grows every time a vendor ships a feature
+ * is not that surface. Reasoning traces, source citations and raw frames are
+ * dropped rather than passed through: nothing here consumes them yet, and a
+ * field that exists but is never read is a promise this layer has not kept.
+ */
+export type StreamChunk =
+  /** A fragment of the answer, in order. Never the whole text so far. */
+  | { type: "text"; delta: string }
+  | { type: "tool-call"; call: ProviderToolCall }
+  /**
+   * The last chunk, carrying exactly what `generate()` would have returned.
+   *
+   * Usage and cost are only knowable here — a vendor reports token counts when
+   * the response ends — so metering happens on this chunk and nowhere else. A
+   * stream that fails partway never produces one, and the tokens generated
+   * before the failure were still charged; see `ProviderStreamError`.
+   */
+  | { type: "done"; response: ProviderResponse };
+
+/**
+ * A stream that died after the caller had already seen part of the answer.
+ *
+ * Carries what was produced so far, because two things are true at once: the
+ * answer is unusable, and the vendor has already billed for the tokens behind
+ * it. Throwing a bare error would lose the second, and a workspace's bill would
+ * quietly understate what it spent.
+ */
+export type StreamFailure = {
+  textSoFar: string;
+  usage: TokenUsage;
+};
+
 /** A ProviderResponse whose text was parsed and validated against a schema. */
 export type ProviderObjectResponse<T> = ProviderResponse & { object: T };
 
@@ -206,7 +243,28 @@ export interface ProviderAdapter {
     request: EmbeddingRequest,
     signal?: AbortSignal,
   ): Promise<EmbeddingResult>;
+
+  /**
+   * The same request as `generate`, delivered in pieces.
+   *
+   * Optional for the same reason `embed` is: an adapter that cannot stream
+   * should be skippable rather than a hole the Gateway falls into at runtime.
+   *
+   * The adapter yields text deltas and tool calls and finishes with the usage
+   * and finish reason; latency and pricing stay in the Gateway, exactly as
+   * they do for `generate`.
+   */
+  stream?(
+    request: ProviderRequest,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AdapterStreamChunk, void, undefined>;
 }
+
+/** What an adapter yields. No latency, no cost — the Gateway adds those. */
+export type AdapterStreamChunk =
+  | { type: "text"; delta: string }
+  | { type: "tool-call"; call: ProviderToolCall }
+  | { type: "done"; result: AdapterResult };
 
 export const EMPTY_USAGE: TokenUsage = Object.freeze({
   inputTokens: 0,

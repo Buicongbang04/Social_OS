@@ -6,11 +6,12 @@ import {
 import {
   classifyFailure,
   isWorthFallingBackFrom,
+  ProviderStreamError,
   toRuntimeError,
   type ProviderFailure,
 } from "./errors";
 import { costOf, priceOf, type ModelPrice } from "./pricing";
-import type { Cost } from "./types";
+import { EMPTY_USAGE, type Cost } from "./types";
 import type { ProviderRegistry } from "./registry";
 import type {
   AdapterResult,
@@ -21,6 +22,7 @@ import type {
   ProviderObjectResponse,
   ProviderRequest,
   ProviderResponse,
+  StreamChunk,
   StructuredSchema,
 } from "./types";
 
@@ -252,6 +254,135 @@ export class ProviderGateway {
       ...chain.filter((name) => this.registry.isDispatchable(name)),
       ...chain.filter((name) => !this.registry.isDispatchable(name)),
     ];
+  }
+
+  /**
+   * The same completion, delivered in pieces.
+   *
+   * The one decision that makes this different from `generate`: **fallback and
+   * retry stop the moment the first chunk is handed to the caller.** Before
+   * that nothing has been seen and a failure can be retried on the next
+   * provider exactly as usual. After it, retrying would replay the answer from
+   * the beginning on top of text the reader already has — two half-answers
+   * spliced together, and no way for the reader to tell. So a failure mid-
+   * stream is a failure, and it carries what was produced so it can still be
+   * metered: the vendor charged for those tokens whether or not they were
+   * useful.
+   *
+   * Providers that cannot stream are skipped rather than fallen into, like
+   * `embed`.
+   */
+  async *stream(
+    request: ProviderRequest,
+  ): AsyncGenerator<StreamChunk, void, undefined> {
+    const chain = this.chainFor(request).flatMap((provider) => {
+      const adapter = this.registry.get(provider)?.adapter;
+      // Bound, for the same reason `embed` binds: the real adapters are
+      // classes that read `this`.
+      return adapter?.stream
+        ? [{ provider, stream: adapter.stream.bind(adapter) }]
+        : [];
+    });
+
+    if (chain.length === 0) {
+      throw new RuntimeError(
+        "PROVIDER",
+        request.provider
+          ? `Provider ${request.provider} cannot stream.`
+          : "No registered provider can stream.",
+        { retryable: false, context: { requested: request.provider ?? null } },
+      );
+    }
+
+    const attempted: ProviderName[] = [];
+    let lastFailure: ProviderFailure | null = null;
+    let lastCause: unknown;
+    let lastModel = "";
+
+    for (const { provider, stream } of chain) {
+      attempted.push(provider);
+      const startedAt = this.clock.now();
+      let delivered = 0;
+      let textSoFar = "";
+
+      try {
+        for await (const chunk of stream(
+          request,
+          AbortSignal.timeout(this.config.timeoutMs),
+        )) {
+          if (chunk.type === "done") {
+            this.registry.markHealthy(provider);
+            lastModel = chunk.result.model;
+            yield {
+              type: "done",
+              response: this.finalize(
+                provider,
+                chunk.result,
+                this.clock.now() - startedAt,
+                attempted,
+                1,
+              ),
+            };
+            return;
+          }
+
+          delivered += 1;
+          if (chunk.type === "text") textSoFar += chunk.delta;
+          yield chunk;
+        }
+
+        // The adapter ended without a `done`. Treated as a failure rather than
+        // as an empty answer: a caller waiting for usage would otherwise wait
+        // for ever, and a caller that ignores usage would bill nothing for a
+        // response the vendor charged for.
+        throw new RuntimeError(
+          "PROVIDER",
+          `Provider ${provider} ended the stream without finishing it.`,
+          { retryable: true, context: { provider } },
+        );
+      } catch (error: unknown) {
+        const failure = classifyFailure(error);
+        lastFailure = failure;
+        lastCause = error;
+
+        if (failure.demoteTo) {
+          this.registry.transition(provider, failure.demoteTo, failure.message);
+        }
+
+        // Past this point the caller has already seen part of the answer.
+        if (delivered > 0) {
+          throw new ProviderStreamError(
+            `Provider ${provider} failed after streaming ${delivered} chunk(s): ${failure.message}`,
+            { textSoFar, usage: EMPTY_USAGE },
+            { provider, model: lastModel, attempted },
+            error,
+          );
+        }
+
+        if (!isWorthFallingBackFrom(failure)) {
+          throw toRuntimeError(
+            failure,
+            { provider, model: lastModel, attempted },
+            error,
+          );
+        }
+      }
+    }
+
+    throw toRuntimeError(
+      lastFailure ?? {
+        retryable: false,
+        demoteTo: null,
+        statusCode: undefined,
+        message: "No provider in the chain produced a stream.",
+      },
+      {
+        provider: chain[0]?.provider as ProviderName,
+        model: lastModel,
+        attempted,
+      },
+      lastCause,
+    );
   }
 
   private async run(

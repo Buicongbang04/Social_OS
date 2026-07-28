@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { VercelProviderAdapter, forDialect } from "./vercel-adapter";
 import { structured } from "../provider/structured";
+import type { TokenUsage } from "../provider/types";
 import { z } from "zod";
 
 /**
@@ -108,5 +109,149 @@ describe("forDialect", () => {
     const before = JSON.stringify(nested);
     forDialect(nested, "minimal");
     expect(JSON.stringify(nested)).toBe(before);
+  });
+});
+
+describe("what actually goes on the wire", () => {
+  /** Records the request the SDK builds, then answers with a canned response. */
+  function recordingFetch(body: string, contentType = "application/json") {
+    const requests: { url: string; body: unknown }[] = [];
+
+    const fetch = (async (
+      url: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      requests.push({
+        url: String(url),
+        body:
+          typeof init?.body === "string"
+            ? (JSON.parse(init.body) as unknown)
+            : null,
+      });
+      return new Response(body, {
+        status: 200,
+        headers: { "content-type": contentType },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    return { fetch, requests };
+  }
+
+  it("asks Ollama to report usage on a streamed response", async () => {
+    // The OpenAI protocol reports token counts on a streamed response only
+    // when the request says so. Without it every streamed call comes back
+    // with a usage of zero, which prices to zero — measured against a real
+    // Ollama, generate() reported 38/25 tokens where stream() reported 0/0.
+    // Nothing above the request body can see this, which is why the assertion
+    // is on the body.
+    const sse = [
+      'data: {"id":"1","choices":[{"delta":{"content":"xin chào"},"index":0}]}',
+      "",
+      'data: {"id":"1","choices":[{"delta":{},"finish_reason":"stop","index":0}],"usage":{"prompt_tokens":7,"completion_tokens":3}}',
+      "",
+      "data: [DONE]",
+      "",
+    ].join("\n");
+    const { fetch, requests } = recordingFetch(sse, "text/event-stream");
+
+    const adapter = new VercelProviderAdapter({
+      provider: "ollama",
+      defaultModel: "qwen2.5:7b",
+      fetch,
+    });
+
+    for await (const _ of adapter.stream!({
+      messages: [{ role: "user", content: "chào" }],
+    })) {
+      // drained
+    }
+
+    const sent = requests[0]?.body as {
+      stream?: boolean;
+      stream_options?: { include_usage?: boolean };
+    };
+    expect(sent.stream).toBe(true);
+    expect(sent.stream_options?.include_usage).toBe(true);
+  });
+
+  it("carries tool calls through the stream", async () => {
+    // The adapter reads `result.stream` rather than `result.textStream`
+    // precisely for this: textStream drops tool calls silently, so a caller
+    // asking for a tool would watch the model say nothing and finish.
+    const sse = [
+      'data: {"id":"1","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"tim_kiem","arguments":""}}]},"index":0}]}',
+      "",
+      'data: {"id":"1","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"q\\":\\"cà phê\\"}"}}]},"index":0}]}',
+      "",
+      'data: {"id":"1","choices":[{"delta":{},"finish_reason":"tool_calls","index":0}],"usage":{"prompt_tokens":9,"completion_tokens":5}}',
+      "",
+      "data: [DONE]",
+      "",
+    ].join("\n");
+    const { fetch } = recordingFetch(sse, "text/event-stream");
+
+    const adapter = new VercelProviderAdapter({
+      provider: "ollama",
+      defaultModel: "qwen2.5:7b",
+      fetch,
+    });
+
+    const streamed: string[] = [];
+    let finalCalls: readonly { name: string; input: unknown }[] = [];
+
+    for await (const chunk of adapter.stream!({
+      messages: [{ role: "user", content: "tìm giúp tôi" }],
+      tools: [
+        {
+          name: "tim_kiem",
+          description: "Tìm kiếm",
+          inputSchema: {
+            type: "object",
+            properties: { q: { type: "string" } },
+            required: ["q"],
+          },
+        },
+      ],
+    })) {
+      if (chunk.type === "tool-call") streamed.push(chunk.call.name);
+      if (chunk.type === "done") finalCalls = chunk.result.toolCalls;
+    }
+
+    expect(streamed).toEqual(["tim_kiem"]);
+    // Also on the final chunk, so a caller that ignores the deltas and reads
+    // only the result sees the same thing.
+    expect(finalCalls.map((call) => call.name)).toEqual(["tim_kiem"]);
+    expect(finalCalls[0]?.input).toEqual({ q: "cà phê" });
+  });
+
+  it("reports the usage the vendor sent, not an estimate", async () => {
+    const sse = [
+      'data: {"id":"1","choices":[{"delta":{"content":"xin chào"},"index":0}]}',
+      "",
+      'data: {"id":"1","choices":[{"delta":{},"finish_reason":"stop","index":0}],"usage":{"prompt_tokens":7,"completion_tokens":3}}',
+      "",
+      "data: [DONE]",
+      "",
+    ].join("\n");
+    const { fetch } = recordingFetch(sse, "text/event-stream");
+
+    const adapter = new VercelProviderAdapter({
+      provider: "ollama",
+      defaultModel: "qwen2.5:7b",
+      fetch,
+    });
+
+    let usage: TokenUsage | undefined;
+    let text = "";
+    for await (const chunk of adapter.stream!({
+      messages: [{ role: "user", content: "chào" }],
+    })) {
+      if (chunk.type === "text") text += chunk.delta;
+      if (chunk.type === "done") usage = chunk.result.usage;
+    }
+
+    expect(text).toBe("xin chào");
+    expect(usage?.inputTokens).toBe(7);
+    expect(usage?.outputTokens).toBe(3);
   });
 });
