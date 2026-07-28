@@ -511,6 +511,22 @@ sẽ đệm cả câu trả lời rồi mới đưa ra một lượt, đúng th�
 tránh. Và khi byte đầu tiên đã đi rồi thì lỗi không thể thành 500 được nữa — status
 line đã gửi — nên lỗi đi dưới dạng sự kiện `error`.
 
+**Một chuỗi version chung cho mọi prompt là nói dối.** Sửa câu chữ của planner
+mà đóng dấu version mới lên **cả** bản ghi intent thì ai so sánh chất lượng theo
+version sẽ thấy một mốc chia nơi chẳng có gì thay đổi — và chỗ mốc đó quan trọng
+nhất lại đúng là chỗ nó sai. Giờ mỗi prompt có version riêng.
+
+**Nhãn đặt trên request thì KHÔNG tự đi tới bản ghi chi phí.** `usageRecordFrom`
+dựng bản ghi từ **response**, nên `promptVersion` đặt trên request bị ghi rồi
+rơi. Mọi dòng `ai_usage` nền tảng này từng ghi đều có `promptVersion` **rỗng** —
+đúng cái trường làm cho việc đánh version prompt có ý nghĩa. Gateway giờ mang
+nhãn của request sang response, và đặt **trước** metadata của adapter để người
+gọi không giả mạo được số liệu Gateway tự đo (`attemptedProviders`, `attempt`).
+
+**Thiếu biến khi render là lỗi, không phải chuỗi rỗng.** Prompt render ra
+`Chủ đề: ` đọc như một chỉ dẫn hoàn chỉnh; model trả lời về không-gì-cả và kết
+quả trông như model kém chứ không như một lỗi.
+
 **OpenRouter: một key, vài trăm model, id mang tên vendor.** `anthropic/claude-sonnet-5`.
 Nó nói giao thức OpenAI nên dùng chung client với Ollama — khác biệt nằm ở base
 URL và ở chỗ id model có tiền tố. Không liệt kê model vào catalog: vài trăm cái,

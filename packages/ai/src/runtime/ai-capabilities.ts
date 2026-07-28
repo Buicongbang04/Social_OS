@@ -14,7 +14,14 @@ import {
   type AiUsageRecord,
   type AiUsageRecorder,
 } from "../usage/recorder";
-import { PROMPT_VERSION } from "./prompts";
+import { createDefaultPromptRegistry } from "../prompt/builtin";
+import type { RenderedPrompt } from "../prompt/registry";
+
+/** Rendered once: these have no variables. See the intent analyzer. */
+const PROMPTS = createDefaultPromptRegistry();
+const RESEARCH_PROMPT = PROMPTS.render("research.trend.system");
+const CONTENT_PROMPT = PROMPTS.render("content.generate.system");
+
 
 export type AiCapabilityOptions = {
   gateway: ProviderGateway;
@@ -93,11 +100,7 @@ function researchTrend(options: AiCapabilityOptions): CapabilityImplementation {
 
       const response = await call(options, context, "research.trend", {
         schema: researchSchema,
-        system: `Bạn là nhà nghiên cứu xu hướng cho một đội marketing.
-
-Nêu các xu hướng thật sự đáng chú ý về chủ đề được hỏi, mỗi cái kèm lý do ngắn gọn vì sao nó quan trọng lúc này.
-
-QUAN TRỌNG: bạn không có quyền truy cập internet, nên chỉ được dựa vào kiến thức sẵn có của mình. Đừng bịa số liệu, đừng bịa nguồn, đừng khẳng định điều gì là "mới trong tuần này" khi bạn không thể biết. Nếu chủ đề đòi hỏi thông tin thời gian thực, hãy nói rõ giới hạn đó trong summary.`,
+        system: RESEARCH_PROMPT,
         user: `Chủ đề: ${topic ?? "(không rõ)"}\n\nNgữ cảnh: ${JSON.stringify(context.inputs)}`,
       });
 
@@ -148,14 +151,7 @@ function contentGenerate(
 
       const response = await call(options, context, "content.generate", {
         schema: contentSchema,
-        system: `Bạn là người viết nội dung mạng xã hội.
-
-Viết một bài đăng hoàn chỉnh, đúng giọng của nền tảng được nêu, bằng ngôn ngữ được yêu cầu.
-
-- Viết nội dung thật, không viết mẫu điền chỗ trống, không để lại dấu ngoặc vuông chờ điền.
-- Nếu có kết quả nghiên cứu ở phần ngữ cảnh, hãy dùng nó. Đừng thêm số liệu hay trích dẫn mà nghiên cứu không đưa ra.
-- Nếu có TRÍCH ĐOẠN TÀI LIỆU NỘI BỘ, đó là nguồn có thẩm quyền cao nhất: mọi con số, thời hạn, điều kiện trong bài PHẢI khớp với trích đoạn. Không được viết khác đi, không được làm tròn, không được bịa thêm điều kiện tài liệu không nói.
-- hashtags không kèm dấu #.`,
+        system: CONTENT_PROMPT,
         user: [
           `Nền tảng: ${platform}`,
           `Ngôn ngữ: ${language}`,
@@ -196,17 +192,20 @@ async function call<T>(
   options: AiCapabilityOptions,
   context: CapabilityContext,
   operation: string,
-  prompt: { schema: StructuredSchema<T>; system: string; user: string },
+  // The rendered prompt, not just its text, so the usage record carries the
+  // version of the prompt that actually ran rather than a release-wide string
+  // that changes when some other prompt is edited.
+  prompt: { schema: StructuredSchema<T>; system: RenderedPrompt; user: string },
 ): Promise<{ object: T; provider: string; model: string }> {
   const response = await options.gateway
     .generateObject(
       {
         ...(options.model === undefined ? {} : { model: options.model }),
         messages: [
-          { role: "system", content: prompt.system },
+          { role: "system", content: prompt.system.text },
           { role: "user", content: prompt.user },
         ],
-        metadata: { operation, promptVersion: PROMPT_VERSION },
+        metadata: { operation, promptVersion: prompt.system.version },
       },
       prompt.schema,
     )

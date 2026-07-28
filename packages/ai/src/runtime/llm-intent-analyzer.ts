@@ -15,11 +15,20 @@ import {
   type AiUsageRecord,
   type AiUsageRecorder,
 } from "../usage/recorder";
+import { createDefaultPromptRegistry } from "../prompt/builtin";
 import {
-  INTENT_SYSTEM_PROMPT,
-  PROMPT_VERSION,
   intentUserPrompt,
 } from "./prompts";
+
+/**
+ * Rendered once at module load.
+ *
+ * A system prompt has no variables, so re-rendering it per request would only
+ * repeat the same string work — and doing it once means a prompt that cannot
+ * render fails at startup rather than on somebody's first goal.
+ */
+const INTENT_PROMPT = createDefaultPromptRegistry().render("intent.system");
+
 
 const intentSchema = z.object({
   intents: z
@@ -82,7 +91,7 @@ export class LlmIntentAnalyzer implements IntentAnalyzer {
             : { model: this.options.model }),
           temperature: this.options.temperature ?? 0.1,
           messages: [
-            { role: "system", content: INTENT_SYSTEM_PROMPT },
+            { role: "system", content: INTENT_PROMPT.text },
             {
               role: "user",
               content: intentUserPrompt({
@@ -95,7 +104,7 @@ export class LlmIntentAnalyzer implements IntentAnalyzer {
           ],
           metadata: {
             operation: "intent.analyze",
-            promptVersion: PROMPT_VERSION,
+            promptVersion: INTENT_PROMPT.version,
           },
         },
         LlmIntentAnalyzer.schema,
@@ -141,7 +150,7 @@ export class LlmIntentAnalyzer implements IntentAnalyzer {
         analyzer: "llm",
         provider: response.provider,
         model: response.model,
-        promptVersion: PROMPT_VERSION,
+        promptVersion: INTENT_PROMPT.version,
         goalId: goal.id,
       },
       timestamp,

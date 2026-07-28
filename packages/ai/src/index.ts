@@ -17,6 +17,8 @@ export * from "./provider/from-env";
 export * from "./adapters/vercel-adapter";
 export * from "./adapters/stub-adapter";
 export * from "./usage/recorder";
+export * from "./prompt/registry";
+export * from "./prompt/builtin";
 export * from "./runtime/prompts";
 export * from "./runtime/llm-intent-analyzer";
 export * from "./runtime/llm-planner";

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   ProviderStreamError,
+  createDefaultPromptRegistry,
   recordUsageSafely,
   usageRecordFrom,
   type AiUsageRecorder,
@@ -48,25 +49,18 @@ const HISTORY_TURNS = 20;
  */
 const SUMMARY_LAG = 10;
 
-const SUMMARY_PROMPT = `Bạn đang nén phần đầu của một cuộc trò chuyện để giữ lại trong bộ nhớ.
+/**
+ * Rendered once at module load.
+ *
+ * These have no variables, so re-rendering per request would repeat the same
+ * string work — and doing it here means a prompt that cannot render fails at
+ * startup rather than on somebody's first message.
+ */
+const PROMPTS = createDefaultPromptRegistry();
+const CHAT_PROMPT = PROMPTS.render("chat.system");
+const SUMMARY_PROMPT = PROMPTS.render("chat.summary.system");
 
-Viết lại thành một đoạn tóm tắt ngắn, ở ngôi thứ ba, giữ đúng những thứ mà lượt sau còn cần:
 
-- Người dùng là ai, đang làm gì, muốn gì.
-- Những quyết định đã chốt và những con số, tên riêng, ràng buộc đã nêu.
-- Những gì đã bị bác bỏ, để không đề xuất lại.
-
-Bỏ lời chào, lời cảm ơn, và mọi thứ chỉ có ý nghĩa tại thời điểm nói.
-
-Nếu đã có tóm tắt trước đó, hãy gộp phần mới vào chứ đừng viết lại từ đầu và đừng làm mất thông tin cũ.
-
-Chỉ trả về đoạn tóm tắt, không thêm lời dẫn.`;
-
-const SYSTEM_PROMPT = `Bạn là trợ lý của một nền tảng tự động hoá mạng xã hội.
-
-Trả lời ngắn gọn, đúng trọng tâm, bằng ngôn ngữ người dùng đang dùng.
-
-Nếu không biết thì nói là không biết. Đừng bịa số liệu, đừng bịa nguồn.`;
 
 /**
  * A passage the answer was allowed to draw on, and where it came from.
@@ -274,7 +268,7 @@ export class ChatService {
 
       const response = await this.requireGateway().generate({
         messages: [
-          { role: "system", content: SUMMARY_PROMPT },
+          { role: "system", content: SUMMARY_PROMPT.text },
           {
             role: "user",
             content: [
@@ -435,7 +429,7 @@ function toPrompt(
   const recent = history.slice(-HISTORY_TURNS);
 
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: CHAT_PROMPT.text },
     // Labelled as a summary rather than replayed as dialogue, so the model
     // does not quote it back as something the user said in those words.
     ...(summary

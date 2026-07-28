@@ -12,6 +12,7 @@ import {
 } from "./errors";
 import { costOf, priceOf, type ModelPrice } from "./pricing";
 import { EMPTY_USAGE, type Cost } from "./types";
+import type { Metadata } from "@repo/core";
 import type { ProviderRegistry } from "./registry";
 import type {
   AdapterResult,
@@ -332,6 +333,7 @@ export class ProviderGateway {
                 this.clock.now() - startedAt,
                 attempted,
                 1,
+                request.metadata,
               ),
             };
             return;
@@ -443,6 +445,7 @@ export class ProviderGateway {
             this.clock.now() - startedAt,
             attempted,
             attempt,
+            request.metadata,
           );
         } catch (error) {
           const failure = classifyFailure(error);
@@ -495,6 +498,16 @@ export class ProviderGateway {
     latencyMs: number,
     attempted: readonly ProviderName[],
     attempt: number,
+    /**
+     * What the caller labelled the request with — operation, prompt version.
+     *
+     * Carried onto the response because that is the only place anything
+     * downstream can read it. Metering builds its record from the response, so
+     * a label that stayed on the request was written and then dropped: every
+     * ai_usage row this platform has ever written has an empty promptVersion,
+     * which is exactly the field that makes versioning prompts worth doing.
+     */
+    requested: Metadata = {},
   ): ProviderResponse {
     return {
       provider,
@@ -509,6 +522,9 @@ export class ProviderGateway {
         priceOf(provider, result.model, this.config.pricing),
       ),
       metadata: {
+        // The caller's labels first, so an adapter cannot overwrite them by
+        // happening to use the same key.
+        ...requested,
         ...result.metadata,
         // Enough to see, from a stored response alone, that a fallback
         // happened and how hard it was to get an answer.

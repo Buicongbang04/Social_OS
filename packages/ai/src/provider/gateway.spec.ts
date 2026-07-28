@@ -715,3 +715,50 @@ describe("provider gateway — streaming", () => {
     ).rejects.toThrow(/cannot stream/i);
   });
 });
+
+describe("provider gateway — request labels", () => {
+  it("carries the caller's labels onto the response", async () => {
+    // Metering builds its record from the response, so a label left on the
+    // request is written and then dropped. Every ai_usage row this platform
+    // had written before this fix has an empty promptVersion — the one field
+    // that makes versioning prompts worth doing.
+    const { gateway } = build({ anthropic: { fallbackReply: { text: "ok" } } });
+
+    const response = await gateway.generate({
+      ...ASK,
+      metadata: { operation: "intent.analyze", promptVersion: "7" },
+    });
+
+    expect(response.metadata.operation).toBe("intent.analyze");
+    expect(response.metadata.promptVersion).toBe("7");
+  });
+
+  it("carries them through a stream as well", async () => {
+    const { gateway } = build({
+      anthropic: { fallbackReply: { text: "xin chào" }, streamChunkSize: 4 },
+    });
+
+    let done: ProviderResponse | undefined;
+    for await (const chunk of gateway.stream({
+      ...ASK,
+      metadata: { operation: "chat.message", promptVersion: "2" },
+    })) {
+      if (chunk.type === "done") done = chunk.response;
+    }
+
+    expect(done?.metadata.promptVersion).toBe("2");
+  });
+
+  it("does not let a label overwrite what the gateway measured", async () => {
+    // A caller cannot fake which providers were tried.
+    const { gateway } = build({ anthropic: { fallbackReply: { text: "ok" } } });
+
+    const response = await gateway.generate({
+      ...ASK,
+      metadata: { attemptedProviders: ["giả mạo"], attempt: 99 },
+    });
+
+    expect(response.metadata.attemptedProviders).toEqual(["anthropic"]);
+    expect(response.metadata.attempt).toBe(1);
+  });
+});
