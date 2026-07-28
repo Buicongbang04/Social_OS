@@ -30,6 +30,18 @@ export type ExecutionPlan = {
 };
 
 /**
+ * What started this run.
+ *
+ * A first-class field rather than something inferred, because it decides
+ * whether the platform may post to a real audience with nobody watching. That
+ * was inferred once, from `ownerId` being null — and it was wrong: a scheduled
+ * Execution inherits the Goal's owner, so the check never fired and a cron run
+ * published to a real Page.
+ */
+export const EXECUTION_TRIGGERS = ["MANUAL", "SCHEDULE"] as const;
+export type ExecutionTrigger = (typeof EXECUTION_TRIGGERS)[number];
+
+/**
  * One run of a Goal. A Goal may produce many Executions over time (a daily
  * cron creates a fresh one per fire); an Execution never restarts as a new
  * Execution — retry happens in place (docs/kernel/04_STATE_MACHINE.md).
@@ -38,6 +50,8 @@ export type Execution = BaseEntity<ExecutionId> & {
   goalId: GoalId;
   workspaceId: WorkspaceId;
   ownerId: UserId;
+  /** Who or what started this run. Never guessed; see EXECUTION_TRIGGERS. */
+  trigger: ExecutionTrigger;
   status: ExecutionStatus;
   priority: GoalPriority;
   /** Null until the Planning Engine has run. */
@@ -55,6 +69,7 @@ export type CreateExecutionInput = {
   goalId: GoalId;
   workspaceId: WorkspaceId;
   ownerId: UserId;
+  trigger?: ExecutionTrigger;
   priority?: GoalPriority;
   correlationId: string;
   metadata?: Metadata;

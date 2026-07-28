@@ -6,7 +6,11 @@ import {
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
-import { executionStatusEnum, goalPriorityEnum } from "./_enums";
+import {
+  executionStatusEnum,
+  executionTriggerEnum,
+  goalPriorityEnum,
+} from "./_enums";
 import { auditColumns, idColumn, idRef, metadataColumn } from "./_shared";
 import { goals } from "./goals";
 import { users } from "./users";
@@ -34,6 +38,18 @@ export const executions = pgTable(
       .notNull()
       .references(() => users.id),
 
+    /**
+     * What started this run.
+     *
+     * Stored rather than inferred from the Goal having a schedule: a scheduled
+     * Goal can also be run by hand, and the difference decides whether the
+     * platform may post with nobody watching.
+     *
+     * Defaults to MANUAL because that is the safe reading — a run wrongly
+     * called manual asks for a confirmation it did not need, while one wrongly
+     * called scheduled would post without one.
+     */
+    trigger: executionTriggerEnum("trigger").notNull().default("MANUAL"),
     status: executionStatusEnum("status").notNull().default("CREATED"),
     priority: goalPriorityEnum("priority").notNull().default("NORMAL"),
 

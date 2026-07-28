@@ -40,6 +40,7 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
   let accounts: DrizzleSocialAccountRepository;
   let secrets: DrizzleSecretRepository;
   let publish: ReturnType<typeof buildSocialPublish>;
+  let unattendedPublish: ReturnType<typeof buildSocialPublish>;
   let workspaceId: WorkspaceId;
   let userId: UserId;
 
@@ -60,6 +61,7 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
       executionId: newId("execution") as ExecutionId,
       taskId: newId("task") as TaskId,
       ownerId: userId,
+      trigger: "MANUAL",
       correlationId: "req_test",
     }) as CapabilityContext;
 
@@ -123,7 +125,18 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     db = createDbClient(DATABASE_URL!, { maxConnections: 3 });
     accounts = new DrizzleSocialAccountRepository(db);
     secrets = new DrizzleSecretRepository(db);
-    publish = buildSocialPublish({ accounts, secrets, keyring });
+    publish = buildSocialPublish({
+      accounts,
+      secrets,
+      keyring,
+      allowUnattended: false,
+    });
+    unattendedPublish = buildSocialPublish({
+      accounts,
+      secrets,
+      keyring,
+      allowUnattended: true,
+    });
   });
 
   afterAll(async () => {
@@ -301,6 +314,59 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
 
     expect(failure).toBeInstanceOf(RuntimeError);
     expect(seen.url).toBeUndefined();
+  });
+
+  it("will not publish on a scheduled run", async () => {
+    // What actually happened here: live publishing was switched on, and a
+    // scheduled Goal put marketing copy on a real Page minutes later with
+    // nobody watching.
+    //
+    // The first version of this guard read `ownerId === null` and never fired,
+    // because a scheduled Execution inherits the Goal's owner. The test passed
+    // anyway — it built the context by hand with ownerId null, so it proved
+    // the assumption rather than the system. `trigger` is a real field the
+    // scheduler sets, and `verify:stack` publishing from a cron run is what
+    // exposed the difference.
+    await connect("page-1", "Trang một");
+
+    const failure = (await publish
+      .handler({
+        ...context({}, { "content.generate": { body: "x" } }),
+        trigger: "SCHEDULE",
+      })
+      .catch((error: unknown) => error)) as RuntimeError;
+
+    expect(failure).toBeInstanceOf(RuntimeError);
+    expect(failure.retryable).toBe(false);
+    expect(seen.url).toBeUndefined();
+  });
+
+  it("still publishes when a person ran it, schedule or not", async () => {
+    // A Goal with a schedule can also be run by hand, and that run has a
+    // person behind it. Refusing it would make scheduled Goals unusable even
+    // when somebody is sitting there watching.
+    await connect("page-1", "Trang một");
+
+    await publish.handler({
+      ...context({}, { "content.generate": { body: "x" } }),
+      trigger: "MANUAL",
+      ownerId: null,
+    });
+
+    expect(seen.url).toBe("/v21.0/page-1/feed");
+  });
+
+  it("does publish on a schedule once the operator has said so", async () => {
+    // The escape hatch has to exist — posting on a schedule is the point of a
+    // marketing platform — but it is a decision someone makes on purpose.
+    await connect("page-1", "Trang một");
+
+    await unattendedPublish.handler({
+      ...context({}, { "content.generate": { body: "x" } }),
+      trigger: "SCHEDULE",
+    });
+
+    expect(seen.url).toBe("/v21.0/page-1/feed");
   });
 
   it("ignores a connection the platform has revoked", async () => {

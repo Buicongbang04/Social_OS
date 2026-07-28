@@ -5,7 +5,7 @@ import {
   type TaskId,
 } from "@repo/core";
 import { RuntimeError, classify, isRetryable } from "../errors/taxonomy";
-import type { Execution } from "../model/execution";
+import type { Execution, ExecutionTrigger } from "../model/execution";
 import type { Goal } from "../model/goal";
 import { canRetry, retryDelayMs, type Task } from "../model/task";
 import type {
@@ -257,6 +257,9 @@ export class ExecutionEngine {
           executionId: task.executionId,
           taskId: task.id,
           ownerId: execution?.ownerId ?? null,
+          // Unknown execution reads as scheduled: the cautious side of the
+          // choice, since the only thing this gates is publishing unattended.
+          trigger: execution?.trigger ?? "SCHEDULE",
           correlationId: execution?.correlationId ?? "unknown",
         },
         task.timeoutMs,
@@ -582,12 +585,22 @@ export class ExecutionEngine {
 }
 
 /** Convenience for building an Execution row from a Goal. */
-export function newExecutionFor(goal: Goal, correlationId: string): Execution {
+export function newExecutionFor(
+  goal: Goal,
+  correlationId: string,
+  /**
+   * Defaults to MANUAL because that is the safe reading: a run wrongly called
+   * manual gets an extra confirmation, a run wrongly called scheduled posts
+   * without one.
+   */
+  trigger: ExecutionTrigger = "MANUAL",
+): Execution {
   return {
     id: newId("execution"),
     goalId: goal.id,
     workspaceId: goal.workspaceId,
     ownerId: goal.ownerId,
+    trigger,
     status: "CREATED",
     priority: goal.priority,
     plan: null,

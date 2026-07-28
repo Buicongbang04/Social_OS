@@ -52,6 +52,7 @@ const execution: Execution = {
   goalId: GOAL_ID,
   workspaceId: WORKSPACE,
   ownerId: OWNER,
+  trigger: "MANUAL",
   status: "PLANNING",
   priority: "NORMAL",
   plan: null,

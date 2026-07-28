@@ -58,6 +58,7 @@ function execution(): Execution {
     goalId: GOAL_ID,
     workspaceId: WORKSPACE_ID,
     ownerId: OWNER_ID,
+    trigger: "MANUAL",
     status: "PLANNING",
     priority: "NORMAL",
     plan: null,

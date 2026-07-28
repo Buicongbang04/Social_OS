@@ -71,6 +71,13 @@
       "when": 1785216433980,
       "tag": "0009_shallow_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785225850254,
+      "tag": "0010_mature_maximus",
+      "breakpoints": true
     }
   ]
 }

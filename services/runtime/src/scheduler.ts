@@ -216,7 +216,13 @@ export class Scheduler {
     if (!claimedGoal) return false;
 
     const execution = await this.preparation.executions.create(
-      newExecutionFor(goal, `cron_${goal.id}_${goal.nextRunAt.getTime()}`),
+      newExecutionFor(
+        goal,
+        `cron_${goal.id}_${goal.nextRunAt.getTime()}`,
+        // Said explicitly. Everything downstream that must not act without a
+        // person reads this, and the default is deliberately the other way.
+        "SCHEDULE",
+      ),
     );
 
     logger.info(

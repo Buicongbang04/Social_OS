@@ -17,6 +17,7 @@ import {
 } from "@repo/domain";
 import {
   EXECUTION_STATUSES,
+  EXECUTION_TRIGGERS,
   GOAL_PRIORITIES,
   GOAL_STATUSES,
   GOAL_TYPES,
@@ -68,6 +69,10 @@ export const goalPriorityEnum = pgEnum("goal_priority", GOAL_PRIORITIES);
 export const executionStatusEnum = pgEnum(
   "execution_status",
   EXECUTION_STATUSES,
+);
+export const executionTriggerEnum = pgEnum(
+  "execution_trigger",
+  EXECUTION_TRIGGERS,
 );
 export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
 export const taskPriorityEnum = pgEnum("task_priority", TASK_PRIORITIES);

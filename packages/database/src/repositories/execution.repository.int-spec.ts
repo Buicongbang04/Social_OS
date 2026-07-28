@@ -106,6 +106,7 @@ describe.skipIf(!DATABASE_URL)("runtime repositories (integration)", () => {
       goalId: goal.id,
       workspaceId: target,
       ownerId: owner,
+      trigger: "MANUAL",
       status: "CREATED",
       priority: "NORMAL",
       plan: null,
