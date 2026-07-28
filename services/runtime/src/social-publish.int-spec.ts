@@ -48,6 +48,9 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
   const seen: { url?: string; auth?: string | null; body?: URLSearchParams } =
     {};
   let behaviour: { status: number; body: string };
+  /** What the fake Page already has on it, for the duplicate check to find. */
+  let existingPosts: { id: string; message: string; created_time: string }[];
+  let feedReads: number;
 
   const context = (
     inputs: Record<string, unknown> = {},
@@ -102,6 +105,16 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
       const chunks: Buffer[] = [];
       request.on("data", (chunk: Buffer) => chunks.push(chunk));
       request.on("end", () => {
+        // A feed read is the duplicate check, not a publish. Answered
+        // separately so a test can say "this post is already there" without
+        // changing how the publish itself behaves.
+        if (request.method === "GET" && request.url?.includes("/feed?")) {
+          feedReads += 1;
+          response.writeHead(200, { "content-type": "application/json" });
+          response.end(JSON.stringify({ data: existingPosts }));
+          return;
+        }
+
         seen.url = request.url;
         seen.auth = request.headers.authorization ?? null;
         seen.body = new URLSearchParams(Buffer.concat(chunks).toString());
@@ -150,6 +163,8 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     delete seen.url;
     delete seen.body;
     behaviour = { status: 200, body: JSON.stringify({ id: "page-1_777" }) };
+    existingPosts = [];
+    feedReads = 0;
 
     const organizationId = newId("organization");
     userId = newId("user");
@@ -437,6 +452,98 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     expect((await accounts.find(workspaceId, account.id))?.status).toBe(
       "ACTIVE",
     );
+  });
+
+  it("does not post twice when a retry follows a dropped connection", async () => {
+    // The hazard this exists for: Facebook accepted the post, the answer was
+    // lost, the engine retried. Posting again puts one message on somebody's
+    // audience twice, and there is no undo.
+    await connect("page-1", "Trang một");
+    existingPosts = [
+      {
+        id: "page-1_555",
+        message: "x",
+        created_time: new Date().toISOString(),
+      },
+    ];
+
+    const result = await publish.handler({
+      ...context({}, { "content.generate": { body: "x" } }),
+      attempt: 1,
+    });
+
+    const posts = result.posts as { postId: string; alreadyPosted: boolean }[];
+    expect(posts[0]?.postId).toBe("page-1_555");
+    expect(posts[0]?.alreadyPosted).toBe(true);
+    // Nothing was published: the only call was the feed read.
+    expect(seen.url).toBeUndefined();
+  });
+
+  it("does publish on a retry when the earlier attempt never landed", async () => {
+    await connect("page-1", "Trang một");
+    existingPosts = [];
+
+    const result = await publish.handler({
+      ...context({}, { "content.generate": { body: "x" } }),
+      attempt: 2,
+    });
+
+    expect(seen.url).toBe("/v21.0/page-1/feed");
+    expect(
+      (result.posts as { alreadyPosted: boolean }[])[0]?.alreadyPosted,
+    ).toBe(false);
+  });
+
+  it("does not confuse an older identical post for this one", async () => {
+    // A campaign that runs the same sentence next month is not a duplicate of
+    // this attempt, and suppressing it would silently drop a real post.
+    await connect("page-1", "Trang một");
+    existingPosts = [
+      {
+        id: "page-1_old",
+        message: "x",
+        created_time: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    await publish.handler({
+      ...context({}, { "content.generate": { body: "x" } }),
+      attempt: 1,
+    });
+
+    expect(seen.url).toBe("/v21.0/page-1/feed");
+  });
+
+  it("does not treat a merely similar post as the same one", async () => {
+    // Two posts that differ at all are two posts. Matching loosely would
+    // silently drop a real one — the failure nobody notices, because the
+    // symptom is a post that simply is not there.
+    await connect("page-1", "Trang một");
+    existingPosts = [
+      {
+        id: "page-1_similar",
+        message: "Bài hôm qua về cùng chủ đề",
+        created_time: new Date().toISOString(),
+      },
+    ];
+
+    await publish.handler({
+      ...context({}, { "content.generate": { body: "Bài hôm nay" } }),
+      attempt: 1,
+    });
+
+    expect(seen.url).toBe("/v21.0/page-1/feed");
+    expect(seen.body?.get("message")).toBe("Bài hôm nay");
+  });
+
+  it("does not read the feed on the first attempt", async () => {
+    // There is by definition nothing to find, and a read before every post
+    // would spend a round trip to learn nothing.
+    await connect("page-1", "Trang một");
+
+    await publish.handler(context({}, { "content.generate": { body: "x" } }));
+
+    expect(feedReads).toBe(0);
   });
 
   it("does not report a post the platform never confirmed", async () => {
