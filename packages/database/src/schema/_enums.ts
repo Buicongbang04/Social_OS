@@ -3,6 +3,7 @@ import {
   AUTH_PROVIDERS,
   DOCUMENT_STATUSES,
   MEMORY_SOURCES,
+  SECRET_SCOPES,
   MESSAGE_ROLES,
   ENTITY_STATUSES,
   MEMBERSHIP_STATUSES,
@@ -41,6 +42,7 @@ export const authProviderEnum = pgEnum("auth_provider", AUTH_PROVIDERS);
 export const documentStatusEnum = pgEnum("document_status", DOCUMENT_STATUSES);
 export const messageRoleEnum = pgEnum("message_role", MESSAGE_ROLES);
 export const memorySourceEnum = pgEnum("memory_source", MEMORY_SOURCES);
+export const secretScopeEnum = pgEnum("secret_scope", SECRET_SCOPES);
 export const permissionScopeEnum = pgEnum(
   "permission_scope",
   PERMISSION_SCOPES,

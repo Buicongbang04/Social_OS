@@ -57,6 +57,13 @@
       "when": 1785210751342,
       "tag": "0007_mighty_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785213282746,
+      "tag": "0008_purple_argent",
+      "breakpoints": true
     }
   ]
 }

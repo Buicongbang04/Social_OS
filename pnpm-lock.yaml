@@ -428,6 +428,28 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)(terser@5.49.0)
 
+  packages/secrets:
+    dependencies:
+      '@repo/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      '@repo/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.5(jiti@1.21.7)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(terser@5.49.0)
+
   packages/shared:
     devDependencies:
       '@repo/config':
