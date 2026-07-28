@@ -9,6 +9,7 @@ import { ConnectionsPanel } from "./connections-panel";
 import { InboxPanel } from "./inbox-panel";
 import { KeysPanel } from "./keys-panel";
 import { MemoryPanel } from "./memory-panel";
+import { SpendPanel } from "./spend-panel";
 import { StatsPanel } from "./stats-panel";
 import { ExecutionView } from "./execution-view";
 import { RunList } from "./run-list";
@@ -202,6 +203,10 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
       {/* Below the documents, because the obvious thing to ask about is what
           was just uploaded. */}
       <ChatPanel />
+
+      {/* Above the run history: what the runs below have cost, before
+          somebody scrolls through them wondering. */}
+      <SpendPanel />
 
       <RunList
         selectedId={executionId}

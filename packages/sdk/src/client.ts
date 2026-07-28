@@ -20,6 +20,7 @@ import type {
   UploadedDocument,
   ConnectorSummary,
   Inbox,
+  SpendReport,
   PostStatsReport,
   ProviderKeyStatus,
   SocialConnection,
@@ -378,6 +379,18 @@ export class ApiClient {
 
   async deleteSecret(id: string): Promise<void> {
     await this.request<void>("DELETE", `/secrets/${id}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  /**
+   * What this workspace has spent on AI, and on which models.
+   *
+   * The ledger has been written since Phase 2 and had no way out until now — a
+   * record nobody can read is a record nobody trusts.
+   */
+  async spend(days = 30): Promise<SpendReport> {
+    return this.request<SpendReport>("GET", `/usage?days=${days}`, {
       workspaceScoped: true,
     });
   }
