@@ -20,6 +20,7 @@ import type {
   UploadedDocument,
   ConnectorSummary,
   Inbox,
+  PostStatsReport,
   ProviderKeyStatus,
   SocialConnection,
   StoredSecret,
@@ -439,6 +440,13 @@ export class ApiClient {
    */
   async inbox(): Promise<Inbox> {
     return this.request<Inbox>("GET", "/connections/inbox", {
+      workspaceScoped: true,
+    });
+  }
+
+  /** How recent posts have done on each connected channel. */
+  async postStats(): Promise<PostStatsReport> {
+    return this.request<PostStatsReport>("GET", "/connections/stats", {
       workspaceScoped: true,
     });
   }

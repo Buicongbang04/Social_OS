@@ -57,6 +57,9 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
   /** What the fake Page's inbox holds, and whether it can be read at all. */
   let conversations: unknown[];
   let inboxStatus: number;
+  /** What the fake Page has posted, for the stats read. */
+  let feedPosts: unknown[];
+  let statsStatus: number;
 
   const as = (user: RegisteredUser, workspaceId: string) => ({
     Authorization: `Bearer ${user.accessToken}`,
@@ -106,6 +109,23 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
 
       // The inbox read. Answered separately so a test can put messages on the
       // fake Page without changing how a token check behaves.
+      // The stats read. Recognised by the fields it asks for, since it hits
+      // the same /feed path the duplicate check uses.
+      if (
+        url.pathname.endsWith("/feed") &&
+        url.search.includes("likes.summary")
+      ) {
+        response.writeHead(statsStatus, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify(
+            statsStatus === 200
+              ? { data: feedPosts }
+              : { error: { message: "requires pages_read_engagement" } },
+          ),
+        );
+        return;
+      }
+
       if (url.pathname.endsWith("/conversations")) {
         response.writeHead(inboxStatus, { "content-type": "application/json" });
         response.end(
@@ -165,6 +185,8 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
 
     conversations = [];
     inboxStatus = 200;
+    feedPosts = [];
+    statsStatus = 200;
 
     behaviour = {
       tokenStatus: 200,
@@ -685,6 +707,106 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
       .expect(200);
 
     expect(bobs.body.data.threads).toEqual([]);
+  });
+
+  it("reports how recent posts have done", async () => {
+    behaviour.identityBody = JSON.stringify({ id: "page-777", name: "Trang" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    feedPosts = [
+      {
+        id: "page-777_1",
+        created_time: "2026-07-20T00:00:00+0000",
+        message: "Bài cũ",
+        likes: { summary: { total_count: 1 } },
+        comments: { summary: { total_count: 0 } },
+      },
+      {
+        id: "page-777_2",
+        created_time: "2026-07-27T00:00:00+0000",
+        message: "Bài mới",
+        likes: { summary: { total_count: 9 } },
+        comments: { summary: { total_count: 2 } },
+        shares: { count: 1 },
+      },
+    ];
+
+    const stats = await testApp
+      .http()
+      .get("/api/v1/connections/stats")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(stats.body.data.posts).toHaveLength(2);
+    // Newest first, so the post someone is likely asking about is at the top.
+    expect(stats.body.data.posts[0].message).toBe("Bài mới");
+    expect(stats.body.data.posts[0].likes).toBe(9);
+    // A post nobody shared has no `shares` at all in the answer; that is a
+    // real zero, not an unknown.
+    expect(stats.body.data.posts[1].shares).toBe(0);
+    expect(stats.body.data.posts[0].account).toBe("Trang");
+  });
+
+  it("names a channel whose stats could not be read", async () => {
+    behaviour.identityBody = JSON.stringify({ id: "page-777", name: "Trang" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    statsStatus = 403;
+
+    const stats = await testApp
+      .http()
+      .get("/api/v1/connections/stats")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(stats.body.data.posts).toEqual([]);
+    expect(stats.body.data.failed[0].account).toBe("Trang");
+  });
+
+  it("does not show one workspace's numbers to another", async () => {
+    behaviour.identityBody = JSON.stringify({ id: "page-777", name: "Trang" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    feedPosts = [
+      {
+        id: "page-777_1",
+        created_time: "2026-07-27T00:00:00+0000",
+        message: "riêng tư",
+        likes: { summary: { total_count: 5 } },
+      },
+    ];
+
+    const bobs = await testApp
+      .http()
+      .get("/api/v1/connections/stats")
+      .set(as(bob, bobWorkspace))
+      .expect(200);
+
+    expect(bobs.body.data.posts).toEqual([]);
   });
 
   it("says which platforms can actually be connected", async () => {

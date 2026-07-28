@@ -77,6 +77,13 @@ export class ConnectionsController {
     return this.connections.inbox(requireWorkspace(workspaceHeader));
   }
 
+  /** How recent posts have done on each connected channel. */
+  @RequirePermission("workspace.connector.read")
+  @Get("stats")
+  async stats(@Headers(WORKSPACE_ID_HEADER) workspaceHeader: string) {
+    return this.connections.stats(requireWorkspace(workspaceHeader));
+  }
+
   @RequirePermission("workspace.connector.manage")
   @Post(":connectorId/start")
   async start(

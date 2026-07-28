@@ -1027,10 +1027,31 @@ mạnh hơn một test canh chừng.
 chính là thứ khiến việc tóm tắt trở nên khả thi, và cũng là điều một workspace
 nên biết mình đã bật.
 
-**Insights chưa làm.** Thăm dò với token thật cho thấy `page_impressions` và
-`post_impressions` đều bị Graph v21 từ chối là "metric không hợp lệ" — Meta đã
-bỏ nhiều chỉ số. Tôi không đoán tên thay thế; đó là việc phải tra cứu chứ không
-phải suy luận.
+### Số liệu bài đăng (`/connections/stats`)
+
+Tiêu chí "Đồng bộ dữ liệu" của Phase 3, **một nửa**. Nói rõ nửa nào và vì sao.
+
+**Có:** lượt thích, bình luận, chia sẻ của từng bài. Đọc thẳng từ chính đối
+tượng post nên chạy với mọi Page, không phụ thuộc ngưỡng nào. Hỏi bằng
+`likes.summary(true).limit(0)` — không có `.limit(0)` thì Graph trả về **từng
+lượt thích và từng bình luận một**, tức là chuyển một đống dữ liệu của người
+khác đi vòng chỉ để hiện một con số.
+
+**Không có: lượt tiếp cận.** Meta bỏ `page_impressions` và `post_impressions`
+từ 15/6/2026, thay bằng `page_media_view` / `post_media_view`. Thăm dò bằng
+token thật cho thấy tên mới **được chấp nhận** (HTTP 200) nhưng trả về
+`data: []` — vì Page thử nghiệm có 4 người theo dõi, dưới ngưỡng Meta trả số.
+
+Nên phần đọc phản hồi đó **chưa từng được kiểm chứng với một câu trả lời thật
+nào**. Tôi không viết nó. Một hàm âm thầm trả về 0 trông y hệt một bài không ai
+xem, và đó là thứ tệ hơn một khoảng trống được nói thẳng.
+
+| Chi tiết                                             | Vì sao                                                                                                           |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Thiếu `shares` đọc là **0**, không phải "không rõ"   | Graph bỏ hẳn trường này ở bài không ai chia sẻ. Đọc là không-rõ sẽ đặt một dấu gạch vào chỗ đáng lẽ là số 0 thật |
+| Xếp mới nhất trước, xuyên kênh                       | Bài người ta đang hỏi tới nằm ở trên cùng                                                                        |
+| Kênh hỏng thì **gọi tên**, không làm hỏng cả lời gọi | Một token hết hạn không được che số liệu của các kênh còn lại                                                    |
+| Gộp khoảng trắng trong đoạn trích                    | Bài viết đầy dòng trống và khoảng cách emoji; để nguyên thì đoạn trích là ba chữ và một mảng trắng               |
 
 **Nối Page bằng token dán tay** nằm **cạnh** OAuth chứ không thay thế. Lý do
 thực dụng: đưa một ứng dụng Meta qua vòng xét duyệt mất hàng tuần, và người đã

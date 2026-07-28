@@ -3,6 +3,7 @@ import {
   CONNECTORS,
   canPublish,
   fetchInbox,
+  fetchPostStats,
   credentialsFor,
   exchangeCode,
   fetchIdentity,
@@ -20,7 +21,7 @@ import {
   type WorkspaceId,
 } from "@repo/core";
 import type { SocialAccount, SocialAccountRepository } from "@repo/domain";
-import type { InboxThread } from "@repo/connectors";
+import type { InboxThread, PostStats } from "@repo/connectors";
 import { RuntimeError } from "@repo/runtime";
 import { SOCIAL_ACCOUNT_REPOSITORY } from "../../infra/database/database.module";
 import { SecretsService } from "../secrets/secrets.service";
@@ -262,29 +263,21 @@ export class ConnectionsService {
     threads: (InboxThread & { account: string; accountId: string })[];
     failed: { account: string; reason: string }[];
   }> {
-    const accounts = (await this.accounts.list(workspaceId)).filter(
-      (account) => {
-        if (account.status !== "ACTIVE") return false;
-        const connector = findConnector(account.connectorId);
-        return connector !== null && canPublish(connector);
-      },
-    );
+    const accounts = await this.publishableAccounts(workspaceId);
 
     const threads: (InboxThread & { account: string; accountId: string })[] =
       [];
     const failed: { account: string; reason: string }[] = [];
 
     for (const account of accounts) {
-      const token = await this.secrets.resolve(workspaceId, account.secretName);
-      if (!token) {
+      const accessToken = await this.tokenFor(workspaceId, account);
+      if (!accessToken) {
         failed.push({
           account: account.displayName,
           reason: "Không còn credential. Hãy kết nối lại kênh này.",
         });
         continue;
       }
-
-      const { accessToken } = JSON.parse(token) as { accessToken: string };
 
       try {
         const inbox = await fetchInbox(
@@ -311,6 +304,82 @@ export class ConnectionsService {
     threads.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
     return { threads, failed };
+  }
+
+  /**
+   * How recent posts have done, across every connected channel.
+   *
+   * Engagement counts only. Reach is absent because Meta removed the
+   * impressions metrics in June 2026 and withholds the replacements below a
+   * follower threshold — so the code to read them could not be checked against
+   * a single real answer, and a reader that quietly returns zeros looks exactly
+   * like a Page nobody saw.
+   */
+  async stats(
+    workspaceId: WorkspaceId,
+    limit = 10,
+  ): Promise<{
+    posts: (PostStats & { account: string })[];
+    failed: { account: string; reason: string }[];
+  }> {
+    const posts: (PostStats & { account: string })[] = [];
+    const failed: { account: string; reason: string }[] = [];
+
+    for (const account of await this.publishableAccounts(workspaceId)) {
+      const accessToken = await this.tokenFor(workspaceId, account);
+      if (!accessToken) {
+        failed.push({
+          account: account.displayName,
+          reason: "Không còn credential. Hãy kết nối lại kênh này.",
+        });
+        continue;
+      }
+
+      try {
+        const read = await fetchPostStats(
+          { externalId: account.externalId, accessToken },
+          { limit },
+        );
+        for (const post of read) {
+          posts.push({ ...post, account: account.displayName });
+        }
+      } catch (caught: unknown) {
+        failed.push({
+          account: account.displayName,
+          reason: caught instanceof Error ? caught.message : String(caught),
+        });
+      }
+    }
+
+    posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return { posts, failed };
+  }
+
+  /**
+   * The connected channels this build can actually talk to.
+   *
+   * Shared by everything that reads from a platform, so a channel that is
+   * revoked or on an unsupported platform is excluded once rather than in each
+   * caller — the sort of check that goes missing from exactly one of them.
+   */
+  private async publishableAccounts(
+    workspaceId: WorkspaceId,
+  ): Promise<SocialAccount[]> {
+    return (await this.accounts.list(workspaceId)).filter((account) => {
+      if (account.status !== "ACTIVE") return false;
+      const connector = findConnector(account.connectorId);
+      return connector !== null && canPublish(connector);
+    });
+  }
+
+  /** The access token for a connection, or null when it is gone. */
+  private async tokenFor(
+    workspaceId: WorkspaceId,
+    account: SocialAccount,
+  ): Promise<string | null> {
+    const stored = await this.secrets.resolve(workspaceId, account.secretName);
+    if (!stored) return null;
+    return (JSON.parse(stored) as { accessToken: string }).accessToken;
   }
 
   /**
