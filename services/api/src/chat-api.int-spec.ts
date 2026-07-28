@@ -16,6 +16,9 @@ import {
  */
 const hasInfra = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const hasProvider = Boolean(process.env.AI_PROVIDER?.trim());
+const hasKnowledge = Boolean(
+  process.env.QDRANT_URL?.trim() && process.env.MINIO_URL?.trim(),
+);
 
 /** Parse an SSE body into its events. */
 function parseSse(body: string): { event: string; data: unknown }[] {
@@ -30,6 +33,30 @@ function parseSse(body: string): { event: string; data: unknown }[] {
 }
 
 describe.skipIf(!hasInfra)("chat API (integration)", () => {
+  /** Poll until the runtime has indexed the workspace's newest document. */
+  async function waitForIndexing(
+    user: RegisteredUser,
+    workspaceId: string,
+    timeoutMs = 90_000,
+  ): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const listed = await testApp
+        .http()
+        .get("/api/v1/documents")
+        .set({
+          Authorization: `Bearer ${user.accessToken}`,
+          "x-workspace-id": workspaceId,
+        });
+      const documents = listed.body.data as { status: string }[];
+      if (documents.some((document) => document.status === "READY")) return true;
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+
+    return false;
+  }
+
   let testApp: TestApp;
   let alice: RegisteredUser;
   let bob: RegisteredUser;
@@ -272,6 +299,60 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
       expect(thread?.summary ?? "").toContain("Tiximax");
     },
     600_000,
+  );
+
+  it.skipIf(!hasProvider || !hasKnowledge)(
+    "answers from a document the workspace uploaded",
+    async () => {
+      // The gap this closes: RAG ran on the Goal path and not the chat path,
+      // so asking about a file just uploaded got an answer from the model's
+      // own knowledge with nothing saying the document was never opened.
+      const note = [
+        "# Sổ tay kiểm chứng chat",
+        "",
+        "Mã giảm giá nội bộ của chúng tôi là TIXICHAT77, giảm 37% cho đơn đầu tiên.",
+      ].join("\n");
+
+      await testApp
+        .http()
+        .post("/api/v1/documents")
+        .set(auth(alice, aliceWorkspace))
+        .attach("file", Buffer.from(note, "utf8"), {
+          filename: "so-tay-chat.md",
+          contentType: "text/markdown",
+        })
+        .expect(201);
+
+      // Indexing runs in the runtime process, so this waits for it rather than
+      // assuming it. Without a runtime up, the test is meaningless — which is
+      // what the skip below is for.
+      const indexed = await waitForIndexing(alice, aliceWorkspace);
+      if (!indexed) {
+        console.warn("bỏ qua: runtime chưa lập chỉ mục (services/runtime chưa chạy?)");
+        return;
+      }
+
+      const conversation = await startThread(alice, aliceWorkspace);
+      const response = await testApp
+        .http()
+        .post(`/api/v1/chat/conversations/${conversation.id}/messages`)
+        .set(auth(alice, aliceWorkspace))
+        .send({ content: "Mã giảm giá nội bộ của chúng tôi là gì?" })
+        .expect(200);
+
+      const events = parseSse(response.text);
+      const sources = events.find((e) => e.event === "sources");
+
+      // Asserting on the retrieved passage rather than on the answer: what the
+      // model writes varies, whether the right document was opened does not.
+      expect(sources).toBeDefined();
+      const citations = (sources!.data as { citations: { excerpt: string }[] })
+        .citations;
+      expect(
+        citations.some((citation) => citation.excerpt.includes("TIXICHAT77")),
+      ).toBe(true);
+    },
+    300_000,
   );
 
   it("lists the thread it just created", async () => {

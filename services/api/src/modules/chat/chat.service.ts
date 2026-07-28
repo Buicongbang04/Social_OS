@@ -15,6 +15,7 @@ import {
   type UserId,
   type WorkspaceId,
 } from "@repo/core";
+import type { KnowledgeService } from "@repo/knowledge";
 import type {
   Conversation,
   ConversationRepository,
@@ -23,6 +24,7 @@ import type {
 import { AI_USAGE_REPOSITORY } from "../../infra/database/database.module";
 import { CONVERSATION_REPOSITORY } from "../../infra/database/database.module";
 import { AI_GATEWAY } from "../../infra/ai/ai.module";
+import { KNOWLEDGE_SERVICE } from "../../infra/knowledge/knowledge.module";
 
 /**
  * How many past turns go into the prompt.
@@ -66,8 +68,25 @@ Trả lời ngắn gọn, đúng trọng tâm, bằng ngôn ngữ người dùng
 
 Nếu không biết thì nói là không biết. Đừng bịa số liệu, đừng bịa nguồn.`;
 
+/**
+ * A passage the answer was allowed to draw on, and where it came from.
+ *
+ * Sent to the client so an answer can be checked against its source. An
+ * assistant that cites nothing is indistinguishable from one that invented the
+ * whole thing, and the difference matters most exactly when the answer sounds
+ * right.
+ */
+export type Citation = {
+  documentId: string;
+  title: string;
+  /** Cosine similarity. Higher is closer. */
+  score: number;
+  excerpt: string;
+};
+
 export type StreamEvent =
   | { type: "delta"; text: string }
+  | { type: "sources"; citations: Citation[] }
   | { type: "done"; message: Message }
   | { type: "error"; message: string; partial: Message | null };
 
@@ -78,6 +97,8 @@ export class ChatService {
     private readonly conversations: ConversationRepository,
     @Inject(AI_GATEWAY) private readonly gateway: ProviderGateway | null,
     @Inject(AI_USAGE_REPOSITORY) private readonly usage: AiUsageRecorder,
+    @Inject(KNOWLEDGE_SERVICE)
+    private readonly knowledge: KnowledgeService | null,
   ) {}
 
   async createConversation(
@@ -165,11 +186,19 @@ export class ChatService {
       input.conversationId,
     );
 
+    // Searched on every turn rather than only when the question "looks like"
+    // it needs a document. Deciding that would take a model call, which costs
+    // more than the embedding the search itself needs; and a wrong decision is
+    // invisible, because the answer still sounds fine. The score floor is what
+    // keeps irrelevant passages out.
+    const citations = await this.lookUp(input.workspaceId, content);
+    if (citations.length > 0) yield { type: "sources", citations };
+
     let text = "";
 
     try {
       for await (const chunk of gateway.stream(
-        { messages: toPrompt(history, conversation.summary) },
+        { messages: toPrompt(history, conversation.summary, citations) },
         input.signal,
       )) {
         if (chunk.type === "text") {
@@ -177,7 +206,12 @@ export class ChatService {
           yield { type: "delta", text: chunk.delta };
         }
         if (chunk.type === "done") {
-          const message = await this.recordAnswer(input, chunk.response, false);
+          const message = await this.recordAnswer(
+            input,
+            chunk.response,
+            false,
+            citations,
+          );
           yield { type: "done", message };
 
           // After the answer, never before it. Summarising is another model
@@ -277,6 +311,37 @@ export class ChatService {
     }
   }
 
+  /**
+   * The workspace's own documents, for this question.
+   *
+   * Returns nothing rather than failing when search is unavailable or errors:
+   * an answer without sources is worse than one with them, and a chat that
+   * refuses to reply because Qdrant is down is worse than both.
+   */
+  private async lookUp(
+    workspaceId: WorkspaceId,
+    question: string,
+  ): Promise<Citation[]> {
+    if (!this.knowledge) return [];
+
+    try {
+      const hits = await this.knowledge.search({
+        workspaceId,
+        query: question,
+        limit: 4,
+      });
+
+      return hits.map((hit) => ({
+        documentId: hit.documentId,
+        title: hit.title,
+        score: Number(hit.score.toFixed(4)),
+        excerpt: hit.text.slice(0, 400),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   private async recordAnswer(
     input: {
       workspaceId: WorkspaceId;
@@ -286,6 +351,7 @@ export class ChatService {
     },
     response: ProviderResponse,
     truncated: boolean,
+    citations: Citation[] = [],
   ): Promise<Message> {
     const message = await this.conversations.appendMessage({
       conversationId: input.conversationId,
@@ -299,6 +365,9 @@ export class ChatService {
       costUsd: response.cost.totalUsd.toFixed(8),
       finishReason: response.finishReason,
       truncated,
+      // Stored with the turn, so a transcript read months later still shows
+      // what the answer was based on.
+      metadata: citations.length > 0 ? { citations } : {},
     });
 
     // Metered against ai_usage as well as the message, because Billing reads
@@ -361,6 +430,7 @@ export class ChatService {
 function toPrompt(
   history: readonly Message[],
   summary: string | null,
+  citations: readonly Citation[] = [],
 ): ProviderMessage[] {
   const recent = history.slice(-HISTORY_TURNS);
 
@@ -373,6 +443,26 @@ function toPrompt(
           {
             role: "system" as const,
             content: `Tóm tắt phần đầu cuộc trò chuyện (không phải lời người dùng vừa nói):\n${summary}`,
+          },
+        ]
+      : []),
+    // The workspace's own documents, marked as the authoritative source. The
+    // instruction to say when they do not answer matters as much as the
+    // passages: without it a model handed unrelated text will use it anyway.
+    ...(citations.length > 0
+      ? [
+          {
+            role: "system" as const,
+            content: [
+              "TRÍCH ĐOẠN TỪ TÀI LIỆU NỘI BỘ CỦA WORKSPACE (nguồn có thẩm quyền cao nhất):",
+              "",
+              ...citations.map(
+                (citation, index) =>
+                  `[${index + 1}] ${citation.title}: ${citation.excerpt}`,
+              ),
+              "",
+              "Nếu trích đoạn trả lời được câu hỏi, hãy bám sát nó và nói rõ lấy từ tài liệu nào. Nếu KHÔNG, hãy nói thẳng là tài liệu không có thông tin đó thay vì tự suy ra.",
+            ].join("\n"),
           },
         ]
       : []),

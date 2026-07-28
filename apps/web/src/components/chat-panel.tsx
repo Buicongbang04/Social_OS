@@ -1,6 +1,11 @@
 "use client";
 
-import { isApiError, type ChatMessage, type Conversation } from "@repo/sdk";
+import {
+  isApiError,
+  type ChatMessage,
+  type Citation,
+  type Conversation,
+} from "@repo/sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getClient } from "../lib/api";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
@@ -18,6 +23,8 @@ export function ChatPanel() {
   const [draft, setDraft] = useState("");
   /** The answer currently arriving. Not yet a message — it has no id. */
   const [streaming, setStreaming] = useState<string | null>(null);
+  /** What the answer being written is drawing on. */
+  const [sources, setSources] = useState<Citation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -63,6 +70,7 @@ export function ChatPanel() {
     // as the app having lost it.
     setMessages((current) => [...current, localUserMessage(content)]);
     setStreaming("");
+    setSources([]);
 
     const abort = new AbortController();
     abortRef.current = abort;
@@ -74,6 +82,7 @@ export function ChatPanel() {
         content,
         abort.signal,
       )) {
+        if (event.type === "sources") setSources(event.citations);
         if (event.type === "delta") {
           answer += event.text;
           setStreaming(answer);
@@ -163,6 +172,27 @@ export function ChatPanel() {
             meta={metaOf(message)}
           />
         ))}
+
+        {sources.length > 0 ? (
+          <details className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+            <summary className="cursor-pointer">
+              Dựa trên {sources.length} đoạn trong tài liệu của workspace
+            </summary>
+            <ul className="mt-2 flex flex-col gap-2">
+              {sources.map((citation, index) => (
+                <li key={`${citation.documentId}-${index}`}>
+                  <span className="font-medium">{citation.title}</span>{" "}
+                  <span className="text-neutral-400">
+                    ({citation.score.toFixed(2)})
+                  </span>
+                  <p className="mt-0.5 whitespace-pre-wrap text-neutral-500">
+                    {citation.excerpt}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
 
         {streaming !== null ? (
           <Bubble
