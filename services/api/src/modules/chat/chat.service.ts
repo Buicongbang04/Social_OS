@@ -35,6 +35,7 @@ import { AI_USAGE_REPOSITORY } from "../../infra/database/database.module";
 import { CONVERSATION_REPOSITORY } from "../../infra/database/database.module";
 import { WorkspaceGatewayFactory } from "../../infra/ai/workspace-gateway";
 import { KNOWLEDGE_SERVICE } from "../../infra/knowledge/knowledge.module";
+import { ConnectionsService } from "../connections/connections.service";
 import { createChatTools, type ChatTool } from "./chat-tools";
 
 /**
@@ -116,6 +117,7 @@ export class ChatService {
     @Inject(CONVERSATION_REPOSITORY)
     private readonly conversations: ConversationRepository,
     private readonly gateways: WorkspaceGatewayFactory,
+    private readonly connections: ConnectionsService,
     @Inject(AI_USAGE_REPOSITORY) private readonly usage: AiUsageRecorder,
     @Inject(KNOWLEDGE_SERVICE)
     private readonly knowledge: KnowledgeService | null,
@@ -227,6 +229,7 @@ export class ChatService {
       knowledge: this.knowledge,
       documents: this.documents,
       memory: this.memory,
+      connections: this.connections,
     });
     const messages = toPrompt(
       history,

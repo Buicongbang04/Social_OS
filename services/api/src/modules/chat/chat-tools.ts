@@ -1,5 +1,6 @@
 import type { JsonSchema } from "@repo/ai";
 import type { UserId, WorkspaceId } from "@repo/core";
+import type { ConnectionsService } from "../connections/connections.service";
 import type { KnowledgeService } from "@repo/knowledge";
 import type {
   DocumentRepository,
@@ -36,6 +37,13 @@ export type ChatToolDeps = {
   knowledge: KnowledgeService | null;
   documents: DocumentRepository;
   memory: WorkspaceMemoryRepository;
+  /**
+   * Reading the connected channels. Null when the vault is not configured, in
+   * which case the tools are simply absent — an offered tool that fails on
+   * every call teaches the model to stop trying, and it stops trying for the
+   * workspaces where it would have worked too.
+   */
+  connections: ConnectionsService | null;
 };
 
 /**
@@ -53,7 +61,11 @@ export function createChatTools(deps: ChatToolDeps): ChatTool[] {
       description:
         "Liệt kê các tài liệu workspace đã tải lên, kèm trạng thái lập chỉ mục. Dùng khi người dùng hỏi có những tài liệu gì, hoặc muốn biết một file đã tra cứu được chưa.",
       readOnly: true,
-      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
       async run(_input, context) {
         const documents = await deps.documents.list(context.workspaceId, 20);
         return documents.map((document) => ({
@@ -69,13 +81,77 @@ export function createChatTools(deps: ChatToolDeps): ChatTool[] {
       description:
         "Đọc những điều workspace đã dặn ghi nhớ (giọng văn, khách hàng mục tiêu, điều cấm kỵ...). Dùng khi cần biết workspace này muốn được phục vụ thế nào.",
       readOnly: true,
-      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
       async run(_input, context) {
         const facts = await deps.memory.list(context.workspaceId);
         return facts.map((fact) => ({ key: fact.key, value: fact.value }));
       },
     },
   ];
+
+  if (deps.connections) {
+    tools.push(
+      {
+        name: "xem_hop_thu",
+        description:
+          "Xem tin nhắn khách gửi tới các kênh mạng xã hội đã kết nối. Dùng khi người dùng hỏi có ai nhắn gì không, ai đang chờ trả lời, hoặc khách hỏi về chuyện gì.",
+        readOnly: true,
+        inputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
+        async run(_input, context) {
+          const inbox = await deps.connections!.inbox(context.workspaceId);
+          return {
+            // Reported so the model can say "I could not read one channel"
+            // rather than answering as though that channel had no messages.
+            khong_doc_duoc: inbox.failed.map((f) => f.account),
+            luong: inbox.threads.map((thread) => ({
+              nguoi_gui: thread.participant,
+              kenh: thread.account,
+              chua_doc: thread.unread,
+              luc: thread.updatedAt,
+              tin_cuoi: thread.lastMessage,
+            })),
+          };
+        },
+      },
+      {
+        name: "so_lieu_bai_dang",
+        description:
+          "Xem tương tác của các bài đã đăng trên kênh đã kết nối: lượt thích, bình luận, chia sẻ. Dùng khi người dùng hỏi bài nào hiệu quả, hoặc muốn so sánh các bài gần đây.",
+        readOnly: true,
+        inputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
+        async run(_input, context) {
+          const report = await deps.connections!.stats(context.workspaceId);
+          return {
+            khong_doc_duoc: report.failed.map((f) => f.account),
+            // Reach is deliberately absent rather than reported as zero. A
+            // model handed a column of zeros will conclude nobody saw the
+            // posts and say so, which would be a claim the data cannot make.
+            bai: report.posts.map((post) => ({
+              noi_dung: post.message,
+              kenh: post.account,
+              luc: post.createdAt,
+              thich: post.likes,
+              binh_luan: post.comments,
+              chia_se: post.shares,
+              link: post.url,
+            })),
+          };
+        },
+      },
+    );
+  }
 
   if (deps.knowledge) {
     tools.push({

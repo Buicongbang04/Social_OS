@@ -43,6 +43,16 @@ function deps(): ChatToolDeps & { scopedTo: WorkspaceId[] } {
         return [] as WorkspaceMemory[];
       },
     } as unknown as ChatToolDeps["memory"],
+    connections: {
+      inbox: async (workspaceId: WorkspaceId) => {
+        scopedTo.push(workspaceId);
+        return { threads: [], failed: [] };
+      },
+      stats: async (workspaceId: WorkspaceId) => {
+        scopedTo.push(workspaceId);
+        return { posts: [], failed: [] };
+      },
+    } as unknown as ChatToolDeps["connections"],
   };
 }
 
@@ -62,14 +72,31 @@ describe("chat tools", () => {
     const tools = createChatTools(dependencies);
 
     for (const tool of tools) {
-      await tool.run({ cau_hoi: "cà phê" }, {
-        workspaceId: WORKSPACE,
-        userId: USER,
-      });
+      await tool.run(
+        { cau_hoi: "cà phê" },
+        {
+          workspaceId: WORKSPACE,
+          userId: USER,
+        },
+      );
     }
 
-    expect(dependencies.scopedTo).not.toHaveLength(0);
+    // One recorded read per tool, not merely "none of them was wrong". A tool
+    // that scoped to a hardcoded workspace would record the wrong id; a tool
+    // that never touched its dependency at all would record nothing, and an
+    // `every` over an empty list is true.
+    expect(dependencies.scopedTo).toHaveLength(tools.length);
     expect(dependencies.scopedTo.every((id) => id === WORKSPACE)).toBe(true);
+  });
+
+  it("leaves out the channel tools when nothing is connected", async () => {
+    // An offered tool that fails on every call teaches the model to stop
+    // trying — and it stops trying for the workspaces where it would have
+    // worked too.
+    const tools = createChatTools({ ...deps(), connections: null });
+
+    expect(tools.map((tool) => tool.name)).not.toContain("xem_hop_thu");
+    expect(tools.map((tool) => tool.name)).not.toContain("so_lieu_bai_dang");
   });
 
   it("ignores a workspace the model puts in its arguments", async () => {
