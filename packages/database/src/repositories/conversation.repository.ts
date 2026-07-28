@@ -39,6 +39,8 @@ function toConversation(row: ConversationRow): Conversation {
     title: row.title,
     lastMessageAt: row.lastMessageAt,
     messageCount: row.messageCount,
+    summary: row.summary,
+    summarisedCount: row.summarisedCount,
     metadata: row.metadata as Metadata,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -211,6 +213,44 @@ export class DrizzleConversationRepository implements ConversationRepository {
 
       return toMessage(row);
     });
+  }
+
+  /**
+   * Fold the overflow into the summary.
+   *
+   * Compare-and-swap on `summarisedCount` rather than on `version`: version
+   * changes on every message too, so using it would make a summary fail
+   * whenever a turn happened to land at the same moment — and then never
+   * retry, because the next attempt would read the same unchanged summary and
+   * race again. The count only moves when a summary lands, which is exactly
+   * the collision worth refusing.
+   */
+  async updateSummary(
+    workspaceId: WorkspaceId,
+    id: ConversationId,
+    summary: string,
+    summarisedCount: number,
+    expectedSummarisedCount: number,
+  ): Promise<Conversation | null> {
+    const rows = await this.db
+      .update(conversations)
+      .set({
+        summary,
+        summarisedCount,
+        updatedAt: new Date(),
+        version: sql`${conversations.version} + 1`,
+      })
+      .where(
+        and(
+          eq(conversations.id, id),
+          eq(conversations.workspaceId, workspaceId),
+          eq(conversations.summarisedCount, expectedSummarisedCount),
+          isNull(conversations.deletedAt),
+        ),
+      )
+      .returning();
+
+    return rows[0] ? toConversation(rows[0]) : null;
   }
 
   async rename(

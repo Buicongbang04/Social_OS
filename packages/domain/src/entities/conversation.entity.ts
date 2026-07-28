@@ -30,6 +30,16 @@ export type Conversation = SoftDeletableEntity<ConversationId> & {
    */
   lastMessageAt: Date | null;
   messageCount: number;
+  /**
+   * What the turns that fell out of the context window said, or null.
+   *
+   * The alternative to keeping this is silence: the model stops knowing the
+   * beginning of a long thread, contradicts something agreed ten turns ago,
+   * and nothing says why.
+   */
+  summary: string | null;
+  /** How many messages the summary already covers. */
+  summarisedCount: number;
   metadata: Metadata;
 };
 
