@@ -1,8 +1,10 @@
 import {
   canPublish,
   findConnector,
+  findRecentPost,
   publishToFacebook,
   type PostDraft,
+  type PublishedPost,
 } from "@repo/connectors";
 import type { Metadata, WorkspaceId } from "@repo/core";
 import type {
@@ -90,19 +92,28 @@ export function buildSocialPublish(
       // the retry would repost to the ones that succeeded.
       for (const account of targets) {
         const token = await openToken(deps, context.workspaceId, account);
-        const result = await publishToFacebook(
-          { externalId: account.externalId, accessToken: token },
+        const target = {
+          externalId: account.externalId,
+          accessToken: token,
+        };
+
+        const result = await publishOnce(
+          deps,
+          account,
+          target,
           draft,
-        ).catch(async (error: unknown) => {
-          await markIfCredentialDead(deps, account, error);
-          throw error;
-        });
+          context.attempt,
+        );
 
         posted.push({
           account: account.displayName,
           connectorId: account.connectorId,
-          postId: result.externalId,
-          url: result.url,
+          postId: result.post.externalId,
+          url: result.post.url,
+          // Recorded rather than hidden. A run that says it published when it
+          // only found an earlier attempt is telling a different story, and
+          // whoever reads the log later needs the real one.
+          alreadyPosted: result.alreadyPosted,
         });
       }
 
@@ -227,6 +238,49 @@ function text(value: unknown): string | null {
 function joined(title: unknown, body: unknown): string | null {
   const parts = [text(title), text(body)].filter(Boolean);
   return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+/**
+ * Publish, or recognise that a previous attempt already did.
+ *
+ * A dropped connection is retryable because the request may never have arrived
+ * — but it may equally have arrived and been accepted, with only the answer
+ * lost. Retrying blindly is how one post becomes two on somebody's real
+ * audience, and there is no undo for that.
+ *
+ * The check runs only from the second attempt onwards. On the first there is
+ * by definition nothing to find, and a feed read before every post would spend
+ * a round trip to learn nothing.
+ */
+async function publishOnce(
+  deps: SocialPublisherDeps,
+  account: SocialAccount,
+  target: { externalId: string; accessToken: string },
+  draft: PostDraft,
+  attempt: number,
+): Promise<{ post: PublishedPost; alreadyPosted: boolean }> {
+  if (attempt > 0) {
+    const existing = await findRecentPost(target, draft.message).catch(
+      async (error: unknown) => {
+        await markIfCredentialDead(deps, account, error);
+        throw error;
+      },
+    );
+
+    // Found: the earlier attempt did land. Returning it rather than posting
+    // again, and rather than failing — the Goal asked for the post to exist,
+    // and it exists.
+    if (existing) return { post: existing, alreadyPosted: true };
+  }
+
+  const post = await publishToFacebook(target, draft).catch(
+    async (error: unknown) => {
+      await markIfCredentialDead(deps, account, error);
+      throw error;
+    },
+  );
+
+  return { post, alreadyPosted: false };
 }
 
 /**

@@ -196,6 +196,81 @@ export async function publishToFacebook(
 }
 
 /**
+ * How far back to look when checking whether a retry already went out.
+ *
+ * Short on purpose. Long enough to cover a request that timed out and a retry
+ * that follows a backoff; short enough that a campaign legitimately posting the
+ * same sentence tomorrow is not mistaken for a duplicate.
+ */
+const DEDUPE_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * Find a post this Page already has with exactly this message.
+ *
+ * Graph has no idempotency key for a feed post, so the only way to tell a
+ * dropped connection from a rejected request is to go and look. Without this a
+ * timeout after Facebook accepted the post means the retry posts it twice —
+ * on somebody's real audience, with no undo.
+ *
+ * Exact match, not fuzzy: two posts that differ at all are two posts, and
+ * guessing they are the same would suppress a real one.
+ */
+export async function findRecentPost(
+  target: PublishTarget,
+  message: string,
+  deps: {
+    fetch?: typeof globalThis.fetch;
+    env?: NodeJS.ProcessEnv;
+    now?: number;
+  } = {},
+): Promise<PublishedPost | null> {
+  const call = deps.fetch ?? globalThis.fetch;
+  const since = (deps.now ?? Date.now()) - DEDUPE_WINDOW_MS;
+
+  let response: Response;
+  try {
+    response = await call(
+      `${graphBase(deps.env)}/${target.externalId}/feed?fields=id,message,created_time&limit=25`,
+      { headers: { authorization: `Bearer ${target.accessToken}` } },
+    );
+  } catch {
+    // Unreachable while checking. Answering "not found" would be a guess in
+    // the direction of posting twice, so this says nothing and lets the caller
+    // decide — which it does by refusing to publish.
+    throw new RuntimeError(
+      "NETWORK",
+      "Không kiểm tra được bài đã đăng hay chưa.",
+      { retryable: true },
+    );
+  }
+
+  if (!response.ok) {
+    throw new RuntimeError(
+      "PROVIDER",
+      "Không đọc được feed để kiểm tra bài trùng.",
+      { retryable: response.status >= 500 },
+    );
+  }
+
+  const payload = (await response.json()) as {
+    data?: { id: string; message?: string; created_time?: string }[];
+  };
+
+  const found = (payload.data ?? []).find(
+    (post) =>
+      post.message === message &&
+      new Date(post.created_time ?? 0).getTime() >= since,
+  );
+
+  return found
+    ? {
+        externalId: found.id,
+        url: `https://www.facebook.com/${found.id.replace("_", "/posts/")}`,
+      }
+    : null;
+}
+
+/**
  * What a platform's refusal says about the credential itself.
  *
  * `null` when the refusal is about this request — a malformed post, a rate
