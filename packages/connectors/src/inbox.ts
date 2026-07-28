@@ -1,5 +1,6 @@
 import { RuntimeError } from "@repo/runtime";
-import { graphBase, type PublishTarget } from "./publish";
+import type { PublishTarget } from "./publish";
+import { graphBase } from "./version";
 
 /**
  * One thread in a Page's inbox.

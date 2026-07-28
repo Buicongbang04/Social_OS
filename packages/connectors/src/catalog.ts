@@ -1,4 +1,5 @@
 import type { ConnectorDescriptor } from "./oauth";
+import { GRAPH_VERSION } from "./version";
 
 /**
  * The platforms this build can connect to.
@@ -16,8 +17,8 @@ export const CONNECTORS: readonly ConnectorDescriptor[] = [
   {
     id: "facebook",
     name: "Facebook",
-    authorizeUrl: "https://www.facebook.com/v21.0/dialog/oauth",
-    tokenUrl: "https://graph.facebook.com/v21.0/oauth/access_token",
+    authorizeUrl: `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`,
+    tokenUrl: `https://graph.facebook.com/${GRAPH_VERSION}/oauth/access_token`,
     // Only what publishing and reading engagement needs. `pages_manage_posts`
     // is the one that writes; the rest are read.
     scopes: [
@@ -34,7 +35,7 @@ export const CONNECTORS: readonly ConnectorDescriptor[] = [
     // The person, not their pages. Choosing which page to publish from is a
     // second step against `/me/accounts`, which returns a list rather than one
     // account — a genuinely different shape, and not in this build.
-    identityUrl: "https://graph.facebook.com/v21.0/me?fields=id,name,picture",
+    identityUrl: `https://graph.facebook.com/${GRAPH_VERSION}/me?fields=id,name,picture`,
     identityFields: { id: "id", name: "name", avatar: "picture.data.url" },
   },
   {

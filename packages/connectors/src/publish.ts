@@ -1,5 +1,6 @@
 import { RuntimeError } from "@repo/runtime";
 import type { ConnectorDescriptor } from "./oauth";
+import { graphBase } from "./version";
 
 /**
  * What a post looks like before a platform gets hold of it.
@@ -36,15 +37,6 @@ export type PublishTarget = {
   externalId: string;
   accessToken: string;
 };
-
-const GRAPH_VERSION = "v21.0";
-
-export function graphBase(env: NodeJS.ProcessEnv = process.env): string {
-  return (
-    env.FACEBOOK_GRAPH_URL?.trim() ||
-    `https://graph.facebook.com/${GRAPH_VERSION}`
-  ).replace(/\/+$/, "");
-}
 
 /**
  * Check that a token really works for the account it claims.
