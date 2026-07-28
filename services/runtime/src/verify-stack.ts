@@ -80,6 +80,7 @@ async function main(): Promise<void> {
   await plainRun(client);
   await approvalRun(client);
   await budgetRun(client);
+  await chatFlow(client);
   await scheduledRun(client);
   // Last, and never earlier. It connects a live Page, and every Goal submitted
   // while that connection exists will publish for real — which is exactly how
@@ -234,6 +235,83 @@ async function documentFlow(client: ApiClient): Promise<void> {
   );
 
   await knowledgeRun(client);
+}
+
+/**
+ * Chat, over the wire it actually uses.
+ *
+ * A gap since Phase 2: chat has integration tests, but nothing here — and this
+ * file exists because integration tests share a process with the thing they
+ * test. Streaming in particular is where that matters, since a broken SSE
+ * frame, a proxy that buffers, or a header the browser refuses are all invisible
+ * to a test that calls the service directly.
+ *
+ * Asserts that tokens arrive and that the turn is stored, not what the model
+ * said. What a model writes varies; whether the stream carried it does not.
+ */
+async function chatFlow(client: ApiClient): Promise<void> {
+  console.log("\n→ Chat");
+
+  let conversation;
+  try {
+    conversation = await client.createConversation("verify-stack chat");
+  } catch (error: unknown) {
+    check(
+      "bỏ qua: chưa cấu hình AI provider",
+      true,
+      isApiError(error) ? error.message : String(error),
+    );
+    return;
+  }
+
+  const deltas: string[] = [];
+  let done = false;
+  let failure: string | null = null;
+
+  try {
+    for await (const event of client.streamMessage(
+      conversation.id,
+      "Trả lời đúng một câu ngắn: 1 + 1 bằng mấy?",
+    )) {
+      if (event.type === "delta") deltas.push(event.text);
+      if (event.type === "done") done = true;
+      if (event.type === "error") failure = event.message;
+    }
+  } catch (error: unknown) {
+    failure = isApiError(error) ? error.message : String(error);
+  }
+
+  if (failure !== null) {
+    check("bỏ qua: chat chưa chạy được", true, failure);
+    return;
+  }
+
+  check(
+    "nhận được token trong lúc trả lời",
+    deltas.length > 0,
+    `${deltas.length} mảnh`,
+  );
+  // The `done` frame is what tells a client the answer is complete rather than
+  // cut off. A stream that ends without it looks identical to a dropped
+  // connection.
+  check("stream kết thúc bằng khung done", done);
+
+  const stored = await client.listChatMessages(conversation.id);
+  const answer = stored.find((message) => message.role === "assistant");
+
+  check(
+    "câu trả lời được lưu lại",
+    answer !== undefined && answer.content.trim() !== "",
+    `${stored.length} tin nhắn`,
+  );
+  // The stream and the row must agree. If they can differ, one of them is
+  // lying to somebody — and the row is what the next turn is built from.
+  check(
+    "nội dung đã lưu khớp với thứ đã truyền đi",
+    (answer?.content ?? "") === deltas.join(""),
+  );
+
+  await client.deleteConversation(conversation.id);
 }
 
 /**
