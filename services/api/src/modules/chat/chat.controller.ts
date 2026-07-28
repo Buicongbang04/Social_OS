@@ -19,6 +19,7 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import { parseRouteId } from "../../common/parse-id";
@@ -39,6 +40,7 @@ export class ChatController {
   constructor(private readonly chat: ChatService) {}
 
   @RequirePermission("workspace.workflow.create")
+  @ApiZodBody(createConversationSchema)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -102,6 +104,7 @@ export class ChatController {
    * needs.
    */
   @RequirePermission("workspace.workflow.execute")
+  @ApiZodBody(sendMessageSchema)
   @Post(":id/messages")
   async send(
     @Param("id") id: string,

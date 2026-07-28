@@ -16,6 +16,7 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { parseRouteId } from "../../common/parse-id";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -56,6 +57,7 @@ export class WorkspacesController {
    * guard resolves ids from route params or headers only.
    */
   @AuthenticatedOnly()
+  @ApiZodBody(createWorkspaceSchema)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -76,6 +78,7 @@ export class WorkspacesController {
   }
 
   @RequirePermission("workspace.workspace.update")
+  @ApiZodBody(updateWorkspaceSchema)
   @Patch(":id")
   async update(
     @Param("id") id: string,
@@ -123,6 +126,7 @@ export class WorkspacesController {
   }
 
   @RequirePermission("workspace.member.create")
+  @ApiZodBody(addMemberSchema)
   @Post(":workspaceId/members")
   @HttpCode(HttpStatus.CREATED)
   async addMember(

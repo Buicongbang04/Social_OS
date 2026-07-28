@@ -7,6 +7,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import type { Request } from "express";
 import type { SessionId } from "@repo/core";
 import {
@@ -32,6 +33,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
+  @ApiZodBody(registerSchema)
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   async register(
@@ -48,6 +50,7 @@ export class AuthController {
    */
   @Public()
   @Throttle({ user: { limit: 5, ttl: 60_000 } })
+  @ApiZodBody(loginSchema)
   @Post("login")
   @HttpCode(HttpStatus.OK)
   async login(
@@ -59,6 +62,7 @@ export class AuthController {
 
   @Public()
   @Throttle({ user: { limit: 10, ttl: 60_000 } })
+  @ApiZodBody(refreshSchema)
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   async refresh(

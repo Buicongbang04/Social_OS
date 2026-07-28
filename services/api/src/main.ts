@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { createLogger } from "@repo/logger";
+import { SwaggerModule } from "@nestjs/swagger";
+import { buildOpenApiDocument } from "./common/openapi/document";
 import { AppModule } from "./app.module";
 import { AppConfig } from "./config/app.config";
 
@@ -15,6 +17,16 @@ async function bootstrap(): Promise<void> {
   // Both sit outside the versioned API on purpose: a load balancer and a
   // metrics scraper are configured once and must not move when the API is.
   app.setGlobalPrefix(config.apiPrefix, { exclude: ["health", "metrics"] });
+
+  // Served in development only. The document describes every route and every
+  // body the platform accepts, which is a map worth having and not one to hand
+  // out — and an installation that has not thought about it should not be
+  // publishing one.
+  if (process.env.NODE_ENV !== "production") {
+    SwaggerModule.setup("docs", app, buildOpenApiDocument(app), {
+      jsonDocumentUrl: "docs/json",
+    });
+  }
 
   // An explicit allowlist, never `*`. The browser sends the access token in an
   // Authorization header, so a wildcard origin would let any site on the

@@ -15,6 +15,7 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import { parseRouteId } from "../../common/parse-id";
@@ -74,6 +75,7 @@ export class ExecutionsController {
    * of authorising the side effect the run was paused before performing.
    */
   @RequirePermission("workspace.workflow.execute")
+  @ApiZodBody(approvalSchema)
   @Post(":id/approval")
   @HttpCode(HttpStatus.OK)
   async approval(
