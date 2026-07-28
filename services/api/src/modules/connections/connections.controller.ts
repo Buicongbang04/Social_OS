@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Logger,
   Delete,
@@ -22,6 +23,8 @@ import {
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import { parseRouteId } from "../../common/parse-id";
+import { z } from "zod";
+import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { ConnectionsService, returnUrl } from "./connections.service";
 
 /**
@@ -31,6 +34,17 @@ import { ConnectionsService, returnUrl } from "./connections.service";
  * flow produces go straight into the vault, and the connection rows carry only
  * a reference — same rule as the secrets controller, for the same reason.
  */
+const attachSchema = z.object({
+  /** The Page's own id, as Facebook shows it. Digits, and long. */
+  externalId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .regex(/^[A-Za-z0-9_.-]+$/, "Chỉ chữ, số, . _ -"),
+  accessToken: z.string().trim().min(20).max(8_000),
+});
+
 @Controller("connections")
 export class ConnectionsController {
   private readonly logger = new Logger(ConnectionsController.name);
@@ -61,6 +75,29 @@ export class ConnectionsController {
       requireWorkspace(workspaceHeader),
       user.userId,
       connectorId,
+    );
+  }
+
+  /**
+   * Attach a Page with a token the operator already holds.
+   *
+   * `manage`, not `read`: this decides what the platform may post to somebody's
+   * audience, which is the same authority as completing an OAuth flow.
+   */
+  @RequirePermission("workspace.connector.manage")
+  @Post(":connectorId/token")
+  async attach(
+    @Param("connectorId") connectorId: string,
+    @Body(new ZodValidationPipe(attachSchema))
+    body: z.infer<typeof attachSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
+  ) {
+    return this.connections.attachToken(
+      requireWorkspace(workspaceHeader),
+      user.userId,
+      connectorId,
+      body,
     );
   }
 

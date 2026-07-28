@@ -3,6 +3,8 @@ import { InMemoryEventBus } from "@repo/event";
 import { createLogger } from "@repo/logger";
 import {
   DrizzleAiUsageRepository,
+  DrizzleSecretRepository,
+  DrizzleSocialAccountRepository,
   DrizzleDocumentRepository,
   DrizzleExecutionRepository,
   DrizzleGoalRepository,
@@ -17,7 +19,9 @@ import {
   ExecutionEngine,
   InMemoryCapabilityRegistry,
 } from "@repo/runtime";
+import { Keyring } from "@repo/secrets";
 import { buildAiEngines } from "./ai-engines";
+import { buildSocialPublish } from "./capabilities/social";
 import { buildKnowledgeStack } from "./knowledge";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
 import { Scheduler } from "./scheduler";
@@ -70,12 +74,54 @@ async function main(): Promise<void> {
     },
   });
 
+  /**
+   * Publishing for real, and only when the operator has said so.
+   *
+   * Opt-in rather than automatic, because switching it on changes what every
+   * existing Goal already in the system does the next time it runs — including
+   * scheduled ones nobody is watching. A capability that starts reaching real
+   * audiences as a side effect of a deploy is not a change anyone consented to.
+   *
+   * When it is off, the rehearsal in `builtin.ts` runs instead and says plainly
+   * that it published nothing.
+   */
+  const keyring = Keyring.fromEnv();
+  const publishLive = process.env.SOCIAL_PUBLISH_LIVE?.trim() === "true";
+  const social =
+    publishLive && keyring
+      ? buildSocialPublish({
+          accounts: new DrizzleSocialAccountRepository(db),
+          secrets: new DrizzleSecretRepository(db),
+          keyring,
+        })
+      : null;
+
+  if (publishLive && !keyring) {
+    // Said out loud rather than silently falling back. An operator who set the
+    // flag believes posts are going out, and the gap between that belief and a
+    // rehearsal is exactly where a campaign disappears.
+    logger.error(
+      "SOCIAL_PUBLISH_LIVE=true nhưng chưa có SECRET_KEYS — không mở được credential, nên vẫn chỉ chạy thử.",
+    );
+  }
+
+  logger.info(
+    { live: Boolean(social) },
+    social
+      ? "social.publish sẽ đăng thật"
+      : "social.publish chỉ chạy thử, không gửi đi đâu",
+  );
+
   // The AI implementations win, and the deterministic builtins fill the rest.
   // Filtered rather than registered over the top, because the registry
   // deliberately refuses a duplicate id — a plugin must not be able to shadow
   // a core capability by registering later. Choosing here keeps that guard
   // intact and makes the substitution visible.
-  const provided = [...ai.capabilities, ...(knowledge?.capabilities ?? [])];
+  const provided = [
+    ...ai.capabilities,
+    ...(knowledge?.capabilities ?? []),
+    ...(social ? [social] : []),
+  ];
   const providedIds = new Set(provided.map((c) => c.descriptor.id));
   const capabilities = [
     ...provided,

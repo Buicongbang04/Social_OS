@@ -7,6 +7,7 @@ import {
   findConnector,
   startAuthorization,
   tokenSecretName,
+  verifyPageToken,
   type ConnectorDescriptor,
 } from "@repo/connectors";
 import {
@@ -17,6 +18,7 @@ import {
   type WorkspaceId,
 } from "@repo/core";
 import type { SocialAccount, SocialAccountRepository } from "@repo/domain";
+import { RuntimeError } from "@repo/runtime";
 import { SOCIAL_ACCOUNT_REPOSITORY } from "../../infra/database/database.module";
 import { SecretsService } from "../secrets/secrets.service";
 import { PendingAuthorizations } from "./pending-authorizations";
@@ -161,6 +163,82 @@ export class ConnectionsService {
     );
 
     return { connectorId: connector.id, account };
+  }
+
+  /**
+   * Attach a Page directly, with a token the operator already holds.
+   *
+   * Beside the OAuth flow rather than instead of it. OAuth is what a tenant
+   * should use — they never hand over a credential and can revoke from the
+   * platform's own settings. This exists because getting an app through review
+   * takes weeks, and until then someone with a Page token should not be blocked
+   * from using the product on their own Page.
+   *
+   * The token is checked against the Page **before** anything is stored. Saving
+   * it unasked would produce a connection that looks healthy on screen and
+   * fails at publish time, by which point whoever pasted it has moved on and
+   * the failure reads as a bug in the platform.
+   */
+  async attachToken(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    connectorId: string,
+    input: { externalId: string; accessToken: string },
+  ): Promise<SocialAccount> {
+    const connector = this.requireConnector(connectorId);
+    if (connector.id !== "facebook") {
+      throw new ValidationError(
+        `${connector.name} chưa hỗ trợ nối bằng token dán tay.`,
+      );
+    }
+
+    // Translated rather than allowed to propagate. A RuntimeError carries no
+    // HTTP status, so a mistyped token would surface as a 500 and page whoever
+    // is on call for what is a wrong value in a form. A dropped connection is
+    // genuinely our problem and is left alone.
+    const identity = await verifyPageToken(
+      input.externalId,
+      input.accessToken,
+    ).catch((error: unknown) => {
+      if (error instanceof RuntimeError && error.errorClass === "PROVIDER") {
+        throw new ValidationError(error.message);
+      }
+      throw error;
+    });
+    const secretName = tokenSecretName(connector.id, identity.externalId);
+
+    await this.secrets.put(workspaceId, userId, {
+      name: secretName,
+      // The same shape the OAuth path writes, so everything downstream reads
+      // one thing. A second shape would mean every reader has to know which
+      // way the connection was made.
+      value: JSON.stringify({
+        accessToken: input.accessToken,
+        refreshToken: null,
+      }),
+      description: `${connector.name} — ${identity.displayName}`,
+    });
+
+    return this.accounts.connect(
+      {
+        workspaceId,
+        connectorId: connector.id,
+        externalId: identity.externalId,
+        displayName: identity.displayName,
+        avatarUrl: null,
+        // Not asked for and not granted through any flow this server ran, so
+        // claiming a scope list would be inventing one. What the token can
+        // actually do is whatever Facebook decided when it was minted.
+        scopes: [],
+        secretName,
+        // A Page token from a long-lived user token does not expire, and the
+        // ones that do give no hint here. Guessing a date would disconnect a
+        // working Page on a schedule.
+        expiresAt: null,
+        metadata: { source: "manual" },
+      },
+      userId,
+    );
   }
 
   /**

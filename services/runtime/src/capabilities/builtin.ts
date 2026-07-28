@@ -72,8 +72,7 @@ export const mediaGenerateImage: CapabilityImplementation = {
   descriptor: {
     id: "media.generate-image",
     name: "Generate Image",
-    description:
-      "Tạo ảnh minh hoạ cho bài đăng.",
+    description: "Tạo ảnh minh hoạ cho bài đăng.",
     version: "0.1.0",
     category: "Media",
     supportedWorkers: ["FUNCTION"],
@@ -116,12 +115,21 @@ export const approvalRequest: CapabilityImplementation = {
   },
 };
 
+/**
+ * The rehearsal, used when live publishing is off.
+ *
+ * It says `published: false` and says so in its own description, because the
+ * one thing this must never do is look like it posted. A step that reports
+ * success while reaching nobody is the platform appearing to honour a request
+ * it did not honour — the same failure the approval gate exists to prevent, and
+ * the worst one available to a tool that posts to somebody's audience.
+ */
 export const socialPublish: CapabilityImplementation = {
   descriptor: {
     id: "social.publish",
-    name: "Publish to Social",
+    name: "Publish to Social (chạy thử)",
     description:
-      "Đăng nội dung đã có lên nền tảng mạng xã hội. Luôn phụ thuộc vào bước tạo nội dung.",
+      "Chuẩn bị bài đăng nhưng KHÔNG đăng thật — chế độ đăng thật đang tắt. Luôn phụ thuộc vào bước tạo nội dung.",
     version: "0.1.0",
     category: "Social",
     supportedWorkers: ["FUNCTION"],
@@ -130,7 +138,10 @@ export const socialPublish: CapabilityImplementation = {
   handler: async (context) => {
     const content = context.previous["content.generate"];
     return {
-      published: true,
+      published: false,
+      simulated: true,
+      reason:
+        "SOCIAL_PUBLISH_LIVE chưa bật, nên bài chỉ được chuẩn bị chứ không gửi đi đâu.",
       platform: context.inputs.platforms ?? ["stub"],
       title: content?.title ?? null,
     };
@@ -141,8 +152,7 @@ export const notificationSend: CapabilityImplementation = {
   descriptor: {
     id: "notification.send",
     name: "Send Notification",
-    description:
-      "Gửi thông báo cho người dùng. Chỉ dùng khi được yêu cầu rõ.",
+    description: "Gửi thông báo cho người dùng. Chỉ dùng khi được yêu cầu rõ.",
     version: "0.1.0",
     category: "Notification",
     supportedWorkers: ["FUNCTION"],
