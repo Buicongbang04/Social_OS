@@ -27,7 +27,7 @@ export async function createTestApp(): Promise<TestApp> {
 
   const app = moduleRef.createNestApplication();
   app.setGlobalPrefix(process.env.API_PREFIX ?? "api/v1", {
-    exclude: ["health"],
+    exclude: ["health", "metrics"],
   });
   await app.init();
 

@@ -23,11 +23,13 @@
     "@nestjs/throttler": "^6.3.0",
     "@repo/ai": "workspace:^",
     "@repo/auth": "workspace:*",
+    "@repo/connectors": "workspace:*",
     "@repo/core": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/domain": "workspace:*",
     "@repo/knowledge": "workspace:^",
     "@repo/logger": "workspace:*",
+    "@repo/observability": "workspace:*",
     "@repo/queue": "workspace:*",
     "@repo/runtime": "workspace:*",
     "@repo/secrets": "workspace:^",
@@ -37,8 +39,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "zod": "^3.24.1",
-    "@repo/connectors": "workspace:*"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
