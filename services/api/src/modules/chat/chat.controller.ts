@@ -150,6 +150,9 @@ export class ChatController {
         if (event.type === "sources") {
           send("sources", { citations: event.citations });
         }
+        // Sent as it happens, so the reader sees what the assistant did rather
+        // than only what it concluded.
+        if (event.type === "tool") send("tool", event.run);
         if (event.type === "done") send("done", event.message);
         if (event.type === "error") {
           send("error", { message: event.message, partial: event.partial });

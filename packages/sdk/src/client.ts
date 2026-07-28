@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   ChatStreamEvent,
   Citation,
+  ToolRun,
   Conversation,
   CreateGoalInput,
   DocumentSummary,
@@ -612,6 +613,9 @@ function parseSseBlock(block: string): ChatStreamEvent | null {
 
   if (name === "delta") {
     return { type: "delta", text: String((data as { text?: string }).text ?? "") };
+  }
+  if (name === "tool") {
+    return { type: "tool", run: data as ToolRun };
   }
   if (name === "sources") {
     const body = data as { citations?: Citation[] };

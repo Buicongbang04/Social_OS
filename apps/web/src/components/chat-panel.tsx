@@ -5,6 +5,7 @@ import {
   type ChatMessage,
   type Citation,
   type Conversation,
+  type ToolRun,
 } from "@repo/sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getClient } from "../lib/api";
@@ -25,6 +26,8 @@ export function ChatPanel() {
   const [streaming, setStreaming] = useState<string | null>(null);
   /** What the answer being written is drawing on. */
   const [sources, setSources] = useState<Citation[]>([]);
+  /** What the assistant did on the way to this answer. */
+  const [tools, setTools] = useState<ToolRun[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -71,6 +74,7 @@ export function ChatPanel() {
     setMessages((current) => [...current, localUserMessage(content)]);
     setStreaming("");
     setSources([]);
+    setTools([]);
 
     const abort = new AbortController();
     abortRef.current = abort;
@@ -83,6 +87,9 @@ export function ChatPanel() {
         abort.signal,
       )) {
         if (event.type === "sources") setSources(event.citations);
+        if (event.type === "tool") {
+          setTools((current) => [...current, event.run]);
+        }
         if (event.type === "delta") {
           answer += event.text;
           setStreaming(answer);
@@ -188,6 +195,24 @@ export function ChatPanel() {
                   <p className="mt-0.5 whitespace-pre-wrap text-neutral-500">
                     {citation.excerpt}
                   </p>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+
+        {tools.length > 0 ? (
+          <details className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+            <summary className="cursor-pointer">
+              Đã dùng {tools.length} công cụ để trả lời
+            </summary>
+            <ul className="mt-2 flex flex-col gap-1">
+              {tools.map((run, index) => (
+                <li key={`${run.name}-${index}`}>
+                  <span className="font-mono">{run.name}</span>
+                  <span className="ml-2 text-neutral-400">
+                    {summarise(run.result)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -314,6 +339,20 @@ function localUserMessage(content: string): ChatMessage {
     truncated: false,
     createdAt: new Date().toISOString(),
   };
+}
+
+/**
+ * One line about what a tool returned.
+ *
+ * Enough to see that something was looked up and roughly how much came back —
+ * the full result would bury the conversation it was meant to support.
+ */
+function summarise(result: unknown): string {
+  if (Array.isArray(result)) return `${result.length} kết quả`;
+  if (result && typeof result === "object" && "error" in result) {
+    return `lỗi: ${String((result as { error: unknown }).error)}`;
+  }
+  return "xong";
 }
 
 function describe(error: unknown): string {

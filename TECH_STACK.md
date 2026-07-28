@@ -511,6 +511,25 @@ sẽ đệm cả câu trả lời rồi mới đưa ra một lượt, đúng th�
 tránh. Và khi byte đầu tiên đã đi rồi thì lỗi không thể thành 500 được nữa — status
 line đã gửi — nên lỗi đi dưới dạng sự kiện `error`.
 
+**Chat chỉ được gọi tool CHỈ-ĐỌC, và điều đó cưỡng chế bằng code.** Đây là chỗ
+đầu tiên model được phép **làm** thay vì **nói**, và hai kiểu sai không so sánh
+được: câu trả lời sai thì sai và nhìn thấy được, còn hành động sai thì **đã xảy
+ra rồi** lúc người ta đọc tới. Đường Goal có planner xem lại được, có kiểm tra
+ngân sách, có cổng duyệt và có nhật ký; đường chat **không có cái nào**. Một tool
+đăng bài đặt ở đây là đi vòng qua cả bốn. Cờ `readOnly` vừa là kiểu vừa là kiểm
+tra lúc chạy — kiểu chỉ giữ được khi mọi thứ còn viết bằng TypeScript và có
+người review.
+
+**Vòng lặp tool phải có giới hạn cứng.** Model gọi tool, đọc kết quả, rồi gọi
+lại chính tool đó là kiểu hỏng **thường gặp**, không hiếm. Mỗi vòng là một
+request trả tiền, nên con số giới hạn chính là thứ đứng giữa một model bối rối
+và một hoá đơn không đáy.
+
+**Workspace lấy từ ngữ cảnh request, không bao giờ từ tham số của model.** Model
+tự viết tham số; một id nó gọi được là một id nó đổi được. Schema của tool để
+`additionalProperties: false` cũng vì lý do đó — schema mở là lời mời model bịa
+thêm tham số, và thứ nó bịa dễ nhất là id.
+
 **Ghi nhớ mà không xem được là loại đáng sợ.** Một sự kiện được nhớ sai sẽ định
 hình **mọi** câu trả lời, và triệu chứng duy nhất là đầu ra âm thầm sai trong
 một thời gian — không có chỗ nào để nhìn. Nên có màn hình xem và sửa, và cột
