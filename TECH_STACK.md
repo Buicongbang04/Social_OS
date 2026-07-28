@@ -996,6 +996,24 @@ mà chạy lại **không sửa được sai lầm**. Nên nó từ chối nhi�
 Đăng lần lượt từng kênh chứ không song song: hỏng giữa chừng mà chạy song song
 thì không biết kênh nào đã đăng, và lần thử lại sẽ đăng trùng.
 
+### Phiên bản Graph API
+
+Ghim ở **một chỗ duy nhất** (`packages/connectors/src/version.ts`), vì nó xuất
+hiện trong năm URL và một lần nâng bỏ sót một URL sẽ để lại đúng endpoint đó
+trên phiên bản Meta ngừng phục vụ — kiểu hỏng đến sau vài tháng, ở đúng lời gọi
+bị quên. Có test canh chuyện đó, và kiểm chứng ngược bằng cách nâng thiếu một URL.
+
+Meta bảo đảm mỗi phiên bản khoảng hai năm rồi ngừng. **v21.0 ra tháng 10/2024,
+dự kiến hết hạn tháng 10/2026** — ghim tiếp là hẹn trước một sự cố. Thăm dò
+ngày 28/7/2026 với Page thật: v21 tới v25 đều trả lời đủ các lời gọi package
+này dùng, v26 chưa tồn tại. Đã chuyển sang **v25.0**, và kiểm chứng lại trọn
+vòng trên phiên bản mới: danh tính, hộp thư, số liệu, đăng bài, xoá bài.
+
+Nâng phiên bản **là thay đổi mã nguồn có chủ ý**, không phải biến môi trường:
+phiên bản mới có thể đổi hình dạng phản hồi, và phát hiện điều đó từ một biến
+môi trường trên production là cách sai. Biến `FACEBOOK_GRAPH_URL` vẫn có, nhưng
+để trỏ sang sandbox chứ không phải để nhảy phiên bản.
+
 ### Đọc tin nhắn (`social.inbox`)
 
 Tiêu chí "Nhận tin nhắn" của Phase 3. **Hỏi định kỳ, không phải webhook** — và
