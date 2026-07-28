@@ -11,6 +11,7 @@ const API_KEY_ENV: Readonly<Record<ProviderName, string>> = Object.freeze({
   google: "GOOGLE_API_KEY",
   // Local, unauthenticated.
   ollama: "",
+  openrouter: "OPENROUTER_API_KEY",
 });
 
 export type GatewayFromEnv = {

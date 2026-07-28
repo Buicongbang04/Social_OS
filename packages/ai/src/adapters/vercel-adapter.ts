@@ -294,9 +294,11 @@ function buildEmbeddingResolver(
       });
       return (model) => provider.textEmbeddingModel(model);
     }
-    // Anthropic has no embedding API. Returning null is what lets the Gateway
-    // skip it instead of failing the whole chain.
+    // Neither of these offers embeddings — OpenRouter's catalogue has no
+    // embedding model in it at all. Returning null is what lets the Gateway
+    // skip them instead of failing the whole chain.
     case "anthropic":
+    case "openrouter":
       return null;
   }
 }
@@ -346,6 +348,28 @@ function buildResolver(
         // measured here, generate() reported 38/25 tokens for the same model
         // that stream() reported 0/0 for.
         includeUsage: true,
+        ...withKey,
+        ...withFetch,
+      });
+      return (model) => provider(model);
+    }
+    case "openrouter": {
+      // Also OpenAI-compatible, so the same client. What differs is the model
+      // id, which carries its vendor: `anthropic/claude-sonnet-5`.
+      const provider = createOpenAICompatible({
+        name: "openrouter",
+        baseURL: baseUrl ?? "https://openrouter.ai/api/v1",
+        supportsStructuredOutputs: true,
+        // Same reason as Ollama: without it a streamed call reports no tokens
+        // and prices to zero.
+        includeUsage: true,
+        // OpenRouter attributes traffic by these and shows them on its
+        // rankings. Sent so the platform is identifiable rather than anonymous
+        // in someone else's dashboard.
+        headers: {
+          "HTTP-Referer": "https://github.com/Buicongbang04/Social_OS",
+          "X-Title": "AI Social OS",
+        },
         ...withKey,
         ...withFetch,
       });

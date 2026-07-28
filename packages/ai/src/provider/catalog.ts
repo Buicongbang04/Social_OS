@@ -45,6 +45,15 @@ export const PROVIDER_CATALOG: Readonly<
     // depends on the local model rather than on the server.
     tools: false,
   },
+  openrouter: {
+    // Left open, like Ollama, and for a stronger reason: OpenRouter fronts
+    // several hundred models from every vendor, and a list here would be
+    // stale within a week. Model ids are `vendor/model`.
+    models: [],
+    streaming: true,
+    vision: true,
+    tools: true,
+  },
 });
 
 /**
@@ -60,13 +69,19 @@ export const DEFAULT_MODELS: Readonly<Record<ProviderName, string>> =
     openai: "gpt-5.4",
     google: "gemini-2.5-flash",
     ollama: "llama3.1",
+    // Named in full because OpenRouter ids carry their vendor, and because a
+    // default that silently meant something else would be worse here than
+    // anywhere — the whole point of this provider is that the model is a
+    // parameter.
+    openrouter: "anthropic/claude-sonnet-5",
   });
 
 /**
  * Default embedding model per provider.
  *
- * Anthropic is absent on purpose: it has no embedding API at all. A provider
- * with no entry here simply cannot embed, and the Gateway skips it rather than
+ * Anthropic and OpenRouter are absent on purpose: neither offers embeddings —
+ * OpenRouter's catalogue has no embedding model in it at all. A provider with
+ * no entry here simply cannot embed, and the Gateway skips it rather than
  * failing the chain.
  */
 export const DEFAULT_EMBEDDING_MODELS: Readonly<

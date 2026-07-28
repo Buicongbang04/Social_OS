@@ -24,15 +24,16 @@ export type StructuredSchema<T> = {
 /**
  * Providers with an adapter today.
  *
- * docs/runtime/05_PROVIDER_GATEWAY.md lists fifteen candidates. These four are
- * the ones ROADMAP Phase 2 actually commits to, and adding a fifth is a new
- * adapter file — no change to anything below.
+ * docs/runtime/05_PROVIDER_GATEWAY.md lists fifteen candidates. These five are
+ * the ones ROADMAP Phase 2 commits to, and adding a sixth is a new case in one
+ * switch — no change to anything below.
  */
 export const PROVIDER_NAMES = [
   "anthropic",
   "openai",
   "google",
   "ollama",
+  "openrouter",
 ] as const;
 export type ProviderName = (typeof PROVIDER_NAMES)[number];
 

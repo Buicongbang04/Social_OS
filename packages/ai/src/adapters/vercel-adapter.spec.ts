@@ -224,6 +224,66 @@ describe("what actually goes on the wire", () => {
     expect(finalCalls[0]?.input).toEqual({ q: "cà phê" });
   });
 
+  it("sends an OpenRouter call to OpenRouter, with attribution", async () => {
+    const { fetch, requests } = recordingFetch(
+      JSON.stringify({
+        id: "1",
+        choices: [
+          { message: { role: "assistant", content: "xin chào" }, index: 0, finish_reason: "stop" },
+        ],
+        usage: { prompt_tokens: 5, completion_tokens: 2 },
+      }),
+    );
+
+    const adapter = new VercelProviderAdapter({
+      provider: "openrouter",
+      defaultModel: "anthropic/claude-sonnet-5",
+      apiKey: "sk-or-test",
+      fetch,
+    });
+
+    await adapter.generate({ messages: [{ role: "user", content: "chào" }] });
+
+    const sent = requests[0]!;
+    expect(sent.url).toContain("openrouter.ai/api/v1");
+    // The model id keeps its vendor prefix: that is how OpenRouter routes.
+    expect((sent.body as { model: string }).model).toBe(
+      "anthropic/claude-sonnet-5",
+    );
+  });
+
+  it("asks OpenRouter to report usage on a streamed response too", async () => {
+    // Same protocol, same trap: without stream_options the tokens come back
+    // as zero and the call prices to nothing.
+    const sse = [
+      'data: {"id":"1","choices":[{"delta":{"content":"xin"},"index":0}]}',
+      "",
+      'data: {"id":"1","choices":[{"delta":{},"finish_reason":"stop","index":0}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
+      "",
+      "data: [DONE]",
+      "",
+    ].join("\n");
+    const { fetch, requests } = recordingFetch(sse, "text/event-stream");
+
+    const adapter = new VercelProviderAdapter({
+      provider: "openrouter",
+      defaultModel: "anthropic/claude-sonnet-5",
+      apiKey: "sk-or-test",
+      fetch,
+    });
+
+    for await (const _ of adapter.stream!({
+      messages: [{ role: "user", content: "chào" }],
+    })) {
+      // drained
+    }
+
+    const sent = requests[0]?.body as {
+      stream_options?: { include_usage?: boolean };
+    };
+    expect(sent.stream_options?.include_usage).toBe(true);
+  });
+
   it("reports the usage the vendor sent, not an estimate", async () => {
     const sse = [
       'data: {"id":"1","choices":[{"delta":{"content":"xin chào"},"index":0}]}',
