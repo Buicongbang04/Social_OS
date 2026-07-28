@@ -3,6 +3,9 @@ import type {
   ApiErrorBody,
   AuthResult,
   AuthTokens,
+  ChatMessage,
+  ChatStreamEvent,
+  Conversation,
   CreateGoalInput,
   DocumentSummary,
   Envelope,
@@ -299,6 +302,104 @@ export class ApiClient {
     return result.url;
   }
 
+  // --- Chat -----------------------------------------------------------------
+
+  async createConversation(title?: string): Promise<Conversation> {
+    return this.request<Conversation>("POST", "/chat/conversations", {
+      body: title === undefined ? {} : { title },
+      workspaceScoped: true,
+    });
+  }
+
+  async listConversations(): Promise<Conversation[]> {
+    return this.request<Conversation[]>("GET", "/chat/conversations", {
+      workspaceScoped: true,
+    });
+  }
+
+  async listChatMessages(conversationId: string): Promise<ChatMessage[]> {
+    return this.request<ChatMessage[]>(
+      "GET",
+      `/chat/conversations/${conversationId}/messages`,
+      { workspaceScoped: true },
+    );
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    await this.request<void>(
+      "DELETE",
+      `/chat/conversations/${conversationId}`,
+      { workspaceScoped: true },
+    );
+  }
+
+  /**
+   * Send a turn and yield the answer as it arrives.
+   *
+   * `fetch` rather than `EventSource`, which cannot send a POST body, cannot
+   * set the Authorization or workspace headers, and cannot be aborted. What is
+   * lost is EventSource's automatic reconnection — deliberately: reconnecting
+   * mid-answer would replay the request and charge for a second answer, which
+   * is the same reason the Gateway refuses to fall back mid-stream.
+   */
+  async *streamMessage(
+    conversationId: string,
+    content: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<ChatStreamEvent, void, undefined> {
+    const headers: Record<string, string> = {
+      accept: "text/event-stream",
+      "content-type": "application/json",
+    };
+    const token = this.tokens.read()?.accessToken;
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (this.workspaceId) headers[WORKSPACE_HEADER] = this.workspaceId;
+
+    const response = await this.doFetch(
+      `${this.baseUrl}/chat/conversations/${conversationId}/messages`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ content }),
+        ...(signal ? { signal } : {}),
+      },
+    );
+
+    if (!response.ok || !response.body) {
+      // Before the first byte the server can still answer normally, so an
+      // error here is a status code and is surfaced as one.
+      throw new ApiError(response.status, await this.readErrorBody(response));
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // A network read is not an event. One read can carry half an event, or
+        // three and a half — so everything up to the last blank line is
+        // complete and the remainder stays buffered. Parsing per read instead
+        // drops whatever straddles the boundary, which shows up as text going
+        // missing from the middle of long answers.
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() ?? "";
+
+        for (const block of blocks) {
+          const event = parseSseBlock(block);
+          if (event) yield event;
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   // --- Transport ------------------------------------------------------------
 
   private async request<T>(
@@ -464,4 +565,40 @@ export class ApiClient {
       };
     }
   }
+}
+
+/**
+ * One SSE block into an event.
+ *
+ * Returns null for anything unrecognised rather than throwing: a server that
+ * adds an event type this client does not know must not break a conversation
+ * that is otherwise working.
+ */
+function parseSseBlock(block: string): ChatStreamEvent | null {
+  const name = /^event: (.*)$/m.exec(block)?.[1]?.trim();
+  const raw = /^data: (.*)$/m.exec(block)?.[1];
+  if (!name || raw === undefined) return null;
+
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (name === "delta") {
+    return { type: "delta", text: String((data as { text?: string }).text ?? "") };
+  }
+  if (name === "done") {
+    return { type: "done", message: data as ChatMessage };
+  }
+  if (name === "error") {
+    const body = data as { message?: string; partial?: ChatMessage | null };
+    return {
+      type: "error",
+      message: body.message ?? "Lỗi không rõ.",
+      partial: body.partial ?? null,
+    };
+  }
+  return null;
 }

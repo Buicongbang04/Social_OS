@@ -457,6 +457,28 @@ bắt buộc cho mô hình AI.
 - Kiểu suy ra rất phức tạp, làm chậm trình biên dịch trên schema lớn.
 - Đang có sự chia rẽ giữa zod 3 và zod 4 trong hệ sinh thái.
 
+**SSE, không phải WebSocket, cho chat.** Luồng dữ liệu một chiều; SSE tự kết
+nối lại, đi qua proxy được, và không cần nâng cấp giao thức. Nhưng client ở đây
+dùng `fetch` chứ không dùng `EventSource`: `EventSource` không gửi được POST
+body, không đặt được header `Authorization` hay workspace, và không huỷ được.
+Đổi lại là mất tính năng tự kết nối lại của `EventSource` — **cố ý**: kết nối
+lại giữa chừng nghĩa là gửi lại request và trả tiền cho câu trả lời thứ hai,
+đúng lý do Gateway từ chối fallback giữa stream.
+
+**Một lần đọc mạng KHÔNG phải là một sự kiện.** Một lần `reader.read()` có thể
+mang nửa sự kiện, hoặc ba sự kiện rưỡi. Phải đệm phần dư và chỉ parse tới dấu
+ngắt dòng trống cuối cùng; parse theo từng lần đọc sẽ **mất** phần nằm vắt qua
+ranh giới — triệu chứng là chữ biến mất ở giữa những câu trả lời dài.
+
+**`x-accel-buffering: no`.** Nginx mặc định đệm response nó proxy, giữ lại từng
+chunk cho tới khi response kết thúc — làm câu trả lời streaming trông y hệt câu
+trả lời không streaming.
+
+**Không trả về từ handler, mà ghi thẳng vào response.** Interceptor bọc envelope
+sẽ đệm cả câu trả lời rồi mới đưa ra một lượt, đúng thứ streaming sinh ra để
+tránh. Và khi byte đầu tiên đã đi rồi thì lỗi không thể thành 500 được nữa — status
+line đã gửi — nên lỗi đi dưới dạng sự kiện `error`.
+
 **Streaming: fallback dừng ngay khi chunk đầu tiên rời khỏi Gateway.** Trước đó
 chưa ai thấy gì nên đổi provider là vô hình và an toàn. Sau đó, thử lại nghĩa là
 phát lại câu trả lời từ đầu **đè lên** phần người đọc đã thấy — hai nửa câu trả

@@ -388,3 +388,142 @@ describe("ApiClient — documents", () => {
     );
   });
 });
+
+describe("ApiClient — chat streaming", () => {
+  /** A response whose body arrives in the given pieces. */
+  function sseResponse(pieces: string[]) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const piece of pieces) controller.enqueue(encoder.encode(piece));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+    });
+  }
+
+  const client = (fetch: typeof globalThis.fetch) => {
+    const api = new ApiClient({
+      baseUrl: "http://api.test",
+      fetch,
+      tokens: inMemoryTokenStore(TOKENS),
+    });
+    api.setWorkspace("wsp_1");
+    return api;
+  };
+
+  const drain = async (api: ApiClient) => {
+    const events = [];
+    for await (const event of api.streamMessage("cnv_1", "xin chào")) {
+      events.push(event);
+    }
+    return events;
+  };
+
+  it("yields each delta and the final message", async () => {
+    const { fetch } = fakeFetch([
+      () =>
+        sseResponse([
+          'event: delta\ndata: {"text":"Cà "}\n\n',
+          'event: delta\ndata: {"text":"phê"}\n\n',
+          'event: done\ndata: {"id":"msg_1","role":"assistant","content":"Cà phê"}\n\n',
+        ]),
+    ]);
+
+    const events = await drain(client(fetch));
+
+    expect(events.map((e) => e.type)).toEqual(["delta", "delta", "done"]);
+    expect(
+      events
+        .filter((e): e is { type: "delta"; text: string } => e.type === "delta")
+        .map((e) => e.text)
+        .join(""),
+    ).toBe("Cà phê");
+  });
+
+  it("keeps an event that straddles two network reads", async () => {
+    // A read is not an event. One read can carry half of one, and parsing per
+    // read drops whatever crosses the boundary — which shows up as text going
+    // missing from the middle of long answers.
+    const { fetch } = fakeFetch([
+      () =>
+        sseResponse([
+          'event: delta\ndata: {"te',
+          'xt":"nguyên vẹn"}\n\nevent: done\ndata: {"id":"msg_1"}\n\n',
+        ]),
+    ]);
+
+    const events = await drain(client(fetch));
+
+    expect(events[0]).toEqual({ type: "delta", text: "nguyên vẹn" });
+    expect(events[1]?.type).toBe("done");
+  });
+
+  it("carries the partial answer on an error event", async () => {
+    const { fetch } = fakeFetch([
+      () =>
+        sseResponse([
+          'event: delta\ndata: {"text":"một nửa"}\n\n',
+          'event: error\ndata: {"message":"provider dropped","partial":{"id":"msg_2","content":"một nửa","truncated":true}}\n\n',
+        ]),
+    ]);
+
+    const events = await drain(client(fetch));
+
+    const failure = events.at(-1) as {
+      type: "error";
+      message: string;
+      partial: { content: string } | null;
+    };
+    expect(failure.type).toBe("error");
+    expect(failure.partial?.content).toBe("một nửa");
+  });
+
+  it("ignores an event type it does not know", async () => {
+    // A server that adds an event must not break a conversation that works.
+    const { fetch } = fakeFetch([
+      () =>
+        sseResponse([
+          'event: heartbeat\ndata: {}\n\n',
+          'event: delta\ndata: {"text":"vẫn chạy"}\n\n',
+        ]),
+    ]);
+
+    const events = await drain(client(fetch));
+
+    expect(events).toEqual([{ type: "delta", text: "vẫn chạy" }]);
+  });
+
+  it("sends the workspace header and the message body", async () => {
+    const { fetch, calls } = fakeFetch([
+      () => sseResponse(['event: done\ndata: {"id":"msg_1"}\n\n']),
+    ]);
+
+    await drain(client(fetch));
+
+    const headers = calls[0]!.init.headers as Record<string, string>;
+    expect(headers["x-workspace-id"]).toBe("wsp_1");
+    expect(headers.authorization).toBe("Bearer access-1");
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({
+      content: "xin chào",
+    });
+  });
+
+  it("throws rather than streaming when the request is refused outright", async () => {
+    // Before the first byte the server can still answer normally, so this is
+    // a status code and is surfaced as one.
+    const { fetch } = fakeFetch([
+      () =>
+        fail(404, {
+          code: "NOT_FOUND",
+          message: "Không tìm thấy hội thoại.",
+          requestId: "req_1",
+        }),
+    ]);
+
+    await expect(drain(client(fetch))).rejects.toThrow(ApiError);
+  });
+});
