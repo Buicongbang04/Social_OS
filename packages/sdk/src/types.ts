@@ -239,3 +239,41 @@ export type DocumentSummary = {
 
 /** True when the same bytes were already uploaded, and nothing new was stored. */
 export type UploadedDocument = DocumentSummary & { duplicate: boolean };
+
+export type Conversation = {
+  id: string;
+  workspaceId: string;
+  title: string;
+  lastMessageAt: string | null;
+  messageCount: number;
+  createdAt: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  provider: string | null;
+  model: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  /** Money as a decimal string, never a float. */
+  costUsd: string;
+  finishReason: string | null;
+  /** The stream died partway and this is what arrived. */
+  truncated: boolean;
+  createdAt: string;
+};
+
+/**
+ * What `streamMessage` yields.
+ *
+ * `error` carries `partial` because the answer can fail after the reader has
+ * already seen part of it — dropping that would leave the screen showing text
+ * the transcript denies exists.
+ */
+export type ChatStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; message: ChatMessage }
+  | { type: "error"; message: string; partial: ChatMessage | null };

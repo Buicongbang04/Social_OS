@@ -1,5 +1,6 @@
 export * from "./client";
 export * from "./repositories/ai-usage.repository";
+export * from "./repositories/conversation.repository";
 export * from "./repositories/document.repository";
 export * from "./repositories/execution.repository";
 export * from "./repositories/goal.repository";

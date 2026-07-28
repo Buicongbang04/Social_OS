@@ -2,6 +2,7 @@ import { Global, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
 import {
   DrizzleAiUsageRepository,
+  DrizzleConversationRepository,
   DrizzleDocumentRepository,
   DrizzleExecutionRepository,
   DrizzleGoalRepository,
@@ -40,6 +41,7 @@ export const EXECUTION_REPOSITORY = Symbol("EXECUTION_REPOSITORY");
 export const TASK_REPOSITORY = Symbol("TASK_REPOSITORY");
 export const AI_USAGE_REPOSITORY = Symbol("AI_USAGE_REPOSITORY");
 export const DOCUMENT_REPOSITORY = Symbol("DOCUMENT_REPOSITORY");
+export const CONVERSATION_REPOSITORY = Symbol("CONVERSATION_REPOSITORY");
 
 @Global()
 @Module({
@@ -110,6 +112,11 @@ export const DOCUMENT_REPOSITORY = Symbol("DOCUMENT_REPOSITORY");
       inject: [DATABASE_CLIENT],
       useFactory: (db: DatabaseClient) => new DrizzleDocumentRepository(db),
     },
+    {
+      provide: CONVERSATION_REPOSITORY,
+      inject: [DATABASE_CLIENT],
+      useFactory: (db: DatabaseClient) => new DrizzleConversationRepository(db),
+    },
   ],
   exports: [
     DATABASE_CLIENT,
@@ -124,6 +131,7 @@ export const DOCUMENT_REPOSITORY = Symbol("DOCUMENT_REPOSITORY");
     TASK_REPOSITORY,
     AI_USAGE_REPOSITORY,
     DOCUMENT_REPOSITORY,
+    CONVERSATION_REPOSITORY,
   ],
 })
 export class DatabaseModule implements OnApplicationShutdown {

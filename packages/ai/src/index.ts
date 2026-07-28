@@ -13,6 +13,7 @@ export * from "./provider/catalog";
 export * from "./errors/format";
 export * from "./provider/errors";
 export * from "./provider/gateway";
+export * from "./provider/from-env";
 export * from "./adapters/vercel-adapter";
 export * from "./adapters/stub-adapter";
 export * from "./usage/recorder";
