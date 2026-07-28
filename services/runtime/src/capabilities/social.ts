@@ -93,7 +93,10 @@ export function buildSocialPublish(
         const result = await publishToFacebook(
           { externalId: account.externalId, accessToken: token },
           draft,
-        );
+        ).catch(async (error: unknown) => {
+          await markIfCredentialDead(deps, account, error);
+          throw error;
+        });
 
         posted.push({
           account: account.displayName,
@@ -224,6 +227,36 @@ function text(value: unknown): string | null {
 function joined(title: unknown, body: unknown): string | null {
   const parts = [text(title), text(body)].filter(Boolean);
   return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+/**
+ * Record that a credential has stopped working, when that is what happened.
+ *
+ * Without this the connection sits at ACTIVE while every publish fails, and the
+ * only way to find out is to read a task's error text. The status column and
+ * its EXPIRED value existed before this and nothing ever wrote them — an enum
+ * value that is never set reads like a boundary the system enforces, which is
+ * worse than not having it.
+ *
+ * The marking is best-effort on purpose: it must not turn a publish failure the
+ * caller can act on into a different failure about bookkeeping.
+ */
+async function markIfCredentialDead(
+  deps: SocialPublisherDeps,
+  account: SocialAccount,
+  error: unknown,
+): Promise<void> {
+  if (!(error instanceof RuntimeError)) return;
+
+  const verdict = error.context?.credential;
+  if (verdict !== "EXPIRED" && verdict !== "REVOKED") return;
+
+  try {
+    await deps.accounts.updateStatus(account.id, verdict, null);
+  } catch {
+    // Swallowed deliberately. The publish already failed with a message that
+    // says what to do; failing again over a status write would replace it.
+  }
 }
 
 /**

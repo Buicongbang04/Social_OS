@@ -1,6 +1,10 @@
 import { RuntimeError } from "@repo/runtime";
 import { describe, expect, it } from "vitest";
-import { publishToFacebook, verifyPageToken } from "./publish";
+import {
+  credentialVerdict,
+  publishToFacebook,
+  verifyPageToken,
+} from "./publish";
 
 const ENV = {
   FACEBOOK_GRAPH_URL: "https://graph.test/v21.0",
@@ -87,6 +91,38 @@ describe("verifyPageToken", () => {
 
     expect(failure.retryable).toBe(false);
     expect(failure.message).toContain("Invalid OAuth access token");
+  });
+});
+
+describe("credentialVerdict", () => {
+  const graph = (code: number, subcode?: number) =>
+    JSON.stringify({
+      error: {
+        code,
+        message: "x",
+        ...(subcode ? { error_subcode: subcode } : {}),
+      },
+    });
+
+  it("says nothing about the credential for an ordinary refusal", () => {
+    // A malformed post or a rate limit says nothing about the token, and
+    // marking the connection dead over one would disconnect a working Page.
+    expect(credentialVerdict(graph(100))).toBeNull();
+    expect(credentialVerdict(graph(4))).toBeNull();
+    expect(credentialVerdict("not json at all")).toBeNull();
+    expect(credentialVerdict("{}")).toBeNull();
+  });
+
+  it("calls a plain token error expired", () => {
+    expect(credentialVerdict(graph(190))).toBe("EXPIRED");
+    expect(credentialVerdict(graph(190, 463))).toBe("EXPIRED");
+  });
+
+  it("calls a withdrawn permission revoked", () => {
+    // Different remedy: reconnecting will fail again until the person restores
+    // the permission on the platform itself.
+    expect(credentialVerdict(graph(190, 458))).toBe("REVOKED");
+    expect(credentialVerdict(graph(190, 460))).toBe("REVOKED");
   });
 });
 
@@ -214,6 +250,46 @@ describe("publishToFacebook", () => {
       ),
     );
     expect(unwell.retryable).toBe(true);
+  });
+
+  it("carries the credential verdict on the error it throws", async () => {
+    // So the caller can mark the connection without parsing the vendor's body
+    // again, and without this module knowing connections exist.
+    const failure = await caught(
+      publishToFacebook(
+        target,
+        { message: "m" },
+        {
+          fetch: answering(
+            400,
+            JSON.stringify({
+              error: { code: 190, error_subcode: 463, message: "expired" },
+            }),
+          ),
+          env: ENV,
+        },
+      ),
+    );
+
+    expect(failure.context?.credential).toBe("EXPIRED");
+  });
+
+  it("says nothing about the credential when the post itself was wrong", async () => {
+    const failure = await caught(
+      publishToFacebook(
+        target,
+        { message: "m" },
+        {
+          fetch: answering(
+            400,
+            JSON.stringify({ error: { code: 100, message: "bad param" } }),
+          ),
+          env: ENV,
+        },
+      ),
+    );
+
+    expect(failure.context?.credential).toBeUndefined();
   });
 
   it("does not echo the token back in an error", async () => {

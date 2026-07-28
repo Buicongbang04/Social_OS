@@ -163,7 +163,15 @@ export async function publishToFacebook(
         // A rejected permission or a malformed post fails identically however
         // many times it is sent.
         retryable: response.status >= 500 || response.status === 429,
-        context: { status: response.status },
+        context: {
+          status: response.status,
+          // Carried on the error so the caller can mark the connection without
+          // having to parse the vendor's body a second time — and without this
+          // module needing to know that connections exist.
+          ...(credentialVerdict(text) === null
+            ? {}
+            : { credential: credentialVerdict(text) }),
+        },
       },
     );
   }
@@ -185,6 +193,44 @@ export async function publishToFacebook(
     // Graph returns `{page-id}_{post-id}`; the permalink is built from it.
     url: `https://www.facebook.com/${payload.id.replace("_", "/posts/")}`,
   };
+}
+
+/**
+ * What a platform's refusal says about the credential itself.
+ *
+ * `null` when the refusal is about this request — a malformed post, a rate
+ * limit, an outage. The other two mean the connection is finished and no amount
+ * of retrying will change it, which is worth knowing because the remedies
+ * differ: an expired token is fixed by reconnecting, while a revoked one will
+ * refuse the reconnection too until the permission is put back on the
+ * platform's own settings page.
+ */
+export type CredentialVerdict = "EXPIRED" | "REVOKED" | null;
+
+/**
+ * Read a Graph error for what it says about the token.
+ *
+ * Meta signals every credential problem as code 190 and then narrows it with a
+ * subcode. The subcodes below are the ones that mean somebody took the
+ * permission away rather than the clock running out; anything else under 190 is
+ * treated as expired, because reconnecting is the cheaper thing to try first
+ * and it is the honest default when the platform has not said which it is.
+ */
+export function credentialVerdict(body: string): CredentialVerdict {
+  let error: { code?: number; error_subcode?: number } | undefined;
+  try {
+    error = (JSON.parse(body) as { error?: typeof error }).error;
+  } catch {
+    return null;
+  }
+
+  if (error?.code !== 190) return null;
+
+  // 458 the app was removed, 459 the account is checkpointed, 460 the password
+  // changed, 464 the account is unconfirmed. All of them need the person to go
+  // and do something on the platform before a reconnection can work.
+  const revoked = new Set([458, 459, 460, 464]);
+  return revoked.has(error.error_subcode ?? 0) ? "REVOKED" : "EXPIRED";
 }
 
 /**

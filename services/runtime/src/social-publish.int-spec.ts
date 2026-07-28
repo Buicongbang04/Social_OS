@@ -381,6 +381,64 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     expect(seen.url).toBeUndefined();
   });
 
+  it("marks the connection expired when the platform rejects the token", async () => {
+    // Otherwise the connection sits at ACTIVE while every publish fails, and
+    // the only way to find out is to read a task's error text.
+    const account = await connect("page-1", "Trang một");
+    behaviour = {
+      status: 400,
+      body: JSON.stringify({
+        error: { code: 190, error_subcode: 463, message: "expired" },
+      }),
+    };
+
+    await publish
+      .handler(context({}, { "content.generate": { body: "x" } }))
+      .catch(() => undefined);
+
+    expect((await accounts.find(workspaceId, account.id))?.status).toBe(
+      "EXPIRED",
+    );
+  });
+
+  it("marks it revoked when the permission was taken away", async () => {
+    // A different remedy: reconnecting fails again until the person restores
+    // the permission on Facebook itself.
+    const account = await connect("page-1", "Trang một");
+    behaviour = {
+      status: 400,
+      body: JSON.stringify({
+        error: { code: 190, error_subcode: 458, message: "app removed" },
+      }),
+    };
+
+    await publish
+      .handler(context({}, { "content.generate": { body: "x" } }))
+      .catch(() => undefined);
+
+    expect((await accounts.find(workspaceId, account.id))?.status).toBe(
+      "REVOKED",
+    );
+  });
+
+  it("leaves the connection alone when the post itself was wrong", async () => {
+    // Disconnecting a working Page over one malformed post would be a far
+    // worse failure than the one being reported.
+    const account = await connect("page-1", "Trang một");
+    behaviour = {
+      status: 400,
+      body: JSON.stringify({ error: { code: 100, message: "bad param" } }),
+    };
+
+    await publish
+      .handler(context({}, { "content.generate": { body: "x" } }))
+      .catch(() => undefined);
+
+    expect((await accounts.find(workspaceId, account.id))?.status).toBe(
+      "ACTIVE",
+    );
+  });
+
   it("does not report a post the platform never confirmed", async () => {
     // A 200 with no id leaves nothing that can be edited, deleted or linked to.
     await connect("page-1", "Trang một");
