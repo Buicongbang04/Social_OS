@@ -119,3 +119,33 @@ describe("blank environment variables", () => {
     expect(build({}).gateway).toBeNull();
   });
 });
+
+describe("OpenRouter", () => {
+  it("joins the chain when its key is present", () => {
+    const engines = build({
+      AI_PROVIDER: "openrouter",
+      OPENROUTER_API_KEY: "sk-or-test",
+    });
+
+    expect(engines.mode).toBe("llm");
+    expect(engines.providers).toEqual(["openrouter"]);
+    // Named in full, because an OpenRouter id carries its vendor.
+    expect(engines.models.openrouter).toBe("anthropic/claude-sonnet-5");
+  });
+
+  it("is dropped without its key, like every other hosted provider", () => {
+    expect(build({ AI_PROVIDER: "openrouter" }).mode).toBe("keyword");
+  });
+
+  it("can sit behind a first-party provider as the fallback", () => {
+    // The point of having it: one key that reaches every vendor, useful
+    // exactly when the preferred one is rate limited.
+    const engines = build({
+      AI_PROVIDER: "anthropic,openrouter",
+      ANTHROPIC_API_KEY: "sk-test",
+      OPENROUTER_API_KEY: "sk-or-test",
+    });
+
+    expect(engines.providers).toEqual(["anthropic", "openrouter"]);
+  });
+});

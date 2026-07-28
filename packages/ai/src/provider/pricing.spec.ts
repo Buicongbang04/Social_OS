@@ -81,3 +81,41 @@ describe("model pricing", () => {
     }
   });
 });
+
+describe("OpenRouter pricing", () => {
+  it("prices a model through the vendor its id names", () => {
+    // Listing several hundred OpenRouter ids by hand would be stale in a week;
+    // the id already carries the vendor whose price this table holds.
+    expect(priceOf("openrouter", "anthropic/claude-sonnet-5")).toEqual(
+      priceOf("anthropic", "claude-sonnet-5"),
+    );
+    expect(priceOf("openrouter", "openai/gpt-5.4")).toEqual(
+      priceOf("openai", "gpt-5.4"),
+    );
+  });
+
+  it("reports a model it has no price for as unpriced, not as free", () => {
+    // The distinction `priced` exists for: an unknown price and a genuine zero
+    // must not be summed into the same report.
+    expect(priceOf("openrouter", "someone-else/unknown-model")).toBeNull();
+    expect(priceOf("openrouter", "no-slash-at-all")).toBeNull();
+  });
+
+  it("does not treat an OpenRouter model as locally free", () => {
+    // Ollama's zero is real. Routing a hosted model through OpenRouter is not
+    // free, and inheriting that branch would bill every call at nothing.
+    const cost = costOf(
+      {
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+        totalTokens: 1_000_000,
+        cachedInputTokens: 0,
+        reasoningTokens: 0,
+      },
+      priceOf("openrouter", "anthropic/claude-sonnet-5"),
+    );
+
+    expect(cost.priced).toBe(true);
+    expect(cost.totalUsd).toBeCloseTo(3, 10);
+  });
+});

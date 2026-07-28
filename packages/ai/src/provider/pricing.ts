@@ -107,10 +107,33 @@ export function priceOf(
 ): ModelPrice | null {
   const listed = table[priceKey(provider, model)];
   if (listed) return listed;
+
   // Local inference has no per-token charge; that is a known zero, not a gap.
   if (provider === "ollama") {
     return { inputUsdPerMillion: 0, outputUsdPerMillion: 0 };
   }
+
+  /**
+   * OpenRouter ids carry their vendor — `anthropic/claude-sonnet-5` — so the
+   * price of the underlying model is already in this table under that vendor.
+   * Listing several hundred OpenRouter ids by hand would be stale in a week.
+   *
+   * This is the vendor's list price, not necessarily what OpenRouter charges:
+   * it routes to whichever host is available and takes its margin on credits
+   * rather than per token. Spot-checked against OpenRouter's own published
+   * per-token figures on 2026-07-28, where claude-opus-5 matched exactly. An
+   * id whose vendor prefix is not one we know still comes back unpriced, which
+   * is the honest answer.
+   */
+  if (provider === "openrouter") {
+    const slash = model.indexOf("/");
+    if (slash > 0) {
+      const vendor = model.slice(0, slash);
+      const bare = model.slice(slash + 1);
+      return table[priceKey(vendor as ProviderName, bare)] ?? null;
+    }
+  }
+
   return null;
 }
 

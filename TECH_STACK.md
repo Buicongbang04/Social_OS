@@ -511,6 +511,22 @@ sẽ đệm cả câu trả lời rồi mới đưa ra một lượt, đúng th�
 tránh. Và khi byte đầu tiên đã đi rồi thì lỗi không thể thành 500 được nữa — status
 line đã gửi — nên lỗi đi dưới dạng sự kiện `error`.
 
+**OpenRouter: một key, vài trăm model, id mang tên vendor.** `anthropic/claude-sonnet-5`.
+Nó nói giao thức OpenAI nên dùng chung client với Ollama — khác biệt nằm ở base
+URL và ở chỗ id model có tiền tố. Không liệt kê model vào catalog: vài trăm cái,
+và danh sách viết tay sẽ cũ trong một tuần.
+
+**Giá OpenRouter tra ngược về vendor gốc bằng cách bỏ tiền tố.** Bảng giá đã có
+`anthropic:claude-sonnet-5`, nên `anthropic/claude-sonnet-5` dùng lại chính nó.
+Nói cho sòng phẳng: đó là **giá niêm yết của vendor**, không nhất thiết là số
+OpenRouter thu — nó định tuyến tới host nào rảnh và lấy phần chênh trên credit
+chứ không theo token. Đối chiếu với bảng giá OpenRouter công bố ngày 2026-07-28
+thì `claude-opus-5` khớp chính xác. Id có tiền tố lạ vẫn trả về **chưa có giá**,
+chứ không đoán bừa.
+
+**OpenRouter KHÔNG có API nhúng** — catalog của nó không có model nhúng nào. Nên
+nó nằm ngoài `DEFAULT_EMBEDDING_MODELS`, y như Anthropic, và Gateway tự bỏ qua.
+
 **Streaming: fallback dừng ngay khi chunk đầu tiên rời khỏi Gateway.** Trước đó
 chưa ai thấy gì nên đổi provider là vô hình và an toàn. Sau đó, thử lại nghĩa là
 phát lại câu trả lời từ đầu **đè lên** phần người đọc đã thấy — hai nửa câu trả
