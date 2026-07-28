@@ -29,6 +29,10 @@ export const ID_PREFIXES = {
   // uploaded, a Chunk is one retrievable piece of it.
   document: "doc",
   chunk: "chk",
+  // Chat (docs/ai/06_AGENT_MEMORY.md): a Conversation is one thread, a
+  // Message is one turn in it.
+  conversation: "cnv",
+  message: "msg",
 } as const;
 
 export type IdPrefixName = keyof typeof ID_PREFIXES;
@@ -63,6 +67,8 @@ export type WorkerId = Branded<"worker">;
 export type AiUsageId = Branded<"aiUsage">;
 export type DocumentId = Branded<"document">;
 export type ChunkId = Branded<"chunk">;
+export type ConversationId = Branded<"conversation">;
+export type MessageId = Branded<"message">;
 
 export type IdOf<TName extends IdPrefixName> = Branded<TName>;
 
