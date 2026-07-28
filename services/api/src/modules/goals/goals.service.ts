@@ -175,6 +175,37 @@ export class GoalsService {
   }
 
   /**
+   * What this workspace has spent, and on what.
+   *
+   * Read from `ai_usage`, which has been written since Phase 2 and until now
+   * had no way out — a ledger nobody can read is a ledger nobody trusts.
+   *
+   * `unpricedCalls` is carried all the way to the caller rather than folded
+   * away. A model with no price in the table contributes nothing to the total,
+   * so a number presented without that count is quietly understated, and the
+   * person reading it has no way to know by how much.
+   */
+  async spend(
+    workspaceId: WorkspaceId,
+    days: number,
+  ): Promise<{
+    from: string;
+    to: string;
+    total: Awaited<ReturnType<DrizzleAiUsageRepository["summarise"]>>;
+    byModel: Awaited<ReturnType<DrizzleAiUsageRepository["summariseByModel"]>>;
+  }> {
+    const to = new Date();
+    const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+
+    const [total, byModel] = await Promise.all([
+      this.aiUsage.summarise(workspaceId, from, to),
+      this.aiUsage.summariseByModel(workspaceId, from, to),
+    ]);
+
+    return { from: from.toISOString(), to: to.toISOString(), total, byModel };
+  }
+
+  /**
    * Record a person's approval decision on a waiting Execution.
    *
    * Membership-scoped through getExecution first, so someone outside the

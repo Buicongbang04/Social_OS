@@ -996,6 +996,24 @@ mà chạy lại **không sửa được sai lầm**. Nên nó từ chối nhi�
 Đăng lần lượt từng kênh chứ không song song: hỏng giữa chừng mà chạy song song
 thì không biết kênh nào đã đăng, và lần thử lại sẽ đăng trùng.
 
+### Chi phí AI trên màn hình
+
+Bảng `ai_usage` được ghi từ Phase 2 và **chưa có đường nào đọc ra** cho tới giờ.
+Một sổ kế toán không ai đọc được là sổ không ai tin — và chính nó quyết định
+ràng buộc ngân sách trên một Goal có nghĩa lý gì hay không.
+
+| Quyết định                                            | Vì sao                                                                                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quyền `workspace.execution.read`, không đặt quyền mới | Đây là tổng của thứ vốn xem được từng cái một. Đặt quyền riêng cho phép tính tổng sẽ cho một vai trò xem từng chi phí nhưng bị từ chối tổng — chẳng bảo vệ gì |
+| Chia theo model, đắt trước                            | Tổng trả lời "bao nhiêu"; cái này trả lời "vào đâu", câu người ta hỏi thứ hai và là câu duy nhất hành động được                                               |
+| `unpricedCalls` đưa thẳng lên giao diện               | Model chưa có bảng giá đóng góp 0 vào tổng, nên con số hiện ra **thấp hơn thực tế** và người đọc không có cách nào biết thấp bao nhiêu                        |
+| Số nhỏ giữ 6 chữ số thập phân                         | Làm tròn 2 số sẽ hiện `$0.00` cho mọi thứ và làm cả khung trông như hỏng                                                                                      |
+| `?days` quá lớn thì **chặn lại**, không báo lỗi       | Người gõ `99999` muốn xem tất cả; trả về một năm hữu ích hơn một lỗi về con số họ không nghĩ tới                                                              |
+
+Có test riêng cho việc **con số thuộc đúng workspace được hỏi**, tách khỏi việc
+guard chặn người ngoài. Thiếu nó, một service đọc nhầm workspace sẽ đưa cho
+Alice chi phí của chính workspace kia của cô ấy, mà mọi test phân quyền vẫn xanh.
+
 ### Phiên bản Graph API
 
 Ghim ở **một chỗ duy nhất** (`packages/connectors/src/version.ts`), vì nó xuất

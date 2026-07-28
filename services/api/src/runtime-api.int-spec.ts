@@ -1,4 +1,7 @@
+import { newId, type WorkspaceId } from "@repo/core";
+import type { DrizzleAiUsageRepository } from "@repo/database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { AI_USAGE_REPOSITORY } from "./infra/database/database.module";
 import {
   createTenant,
   createTestApp,
@@ -320,6 +323,128 @@ describe.skipIf(!hasInfra)("runtime API (integration)", () => {
     expect(usage.body.data.calls).toEqual([]);
     expect(Number(usage.body.data.totalUsd)).toBe(0);
     expect(usage.body.data.unpricedCalls).toBe(0);
+  });
+
+  it("reports what the workspace has spent, and on what", async () => {
+    // The ledger has been written since Phase 2 with no way out. No runtime is
+    // attached here, so the honest answer is zeros — but zeros with the right
+    // shape, since a blank where a number belongs is what the UI would render.
+    const spend = await testApp
+      .http()
+      .get("/api/v1/usage")
+      .set(auth(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(Number(spend.body.data.total.costUsd)).toBe(0);
+    expect(spend.body.data.total.calls).toBe(0);
+    expect(spend.body.data.byModel).toEqual([]);
+    expect(new Date(spend.body.data.from).getTime()).toBeLessThan(
+      new Date(spend.body.data.to).getTime(),
+    );
+  });
+
+  it("takes a window, and clamps one nobody thought about", async () => {
+    // Somebody typing ?days=99999 wants everything. A year is more useful than
+    // an error about a number they did not consider.
+    const wide = await testApp
+      .http()
+      .get("/api/v1/usage?days=99999")
+      .set(auth(alice, aliceWorkspace))
+      .expect(200);
+
+    const span =
+      new Date(wide.body.data.to).getTime() -
+      new Date(wide.body.data.from).getTime();
+    expect(span).toBeLessThanOrEqual(366 * 24 * 60 * 60 * 1000);
+
+    const narrow = await testApp
+      .http()
+      .get("/api/v1/usage?days=7")
+      .set(auth(alice, aliceWorkspace))
+      .expect(200);
+
+    const week =
+      new Date(narrow.body.data.to).getTime() -
+      new Date(narrow.body.data.from).getTime();
+    expect(Math.round(week / (24 * 60 * 60 * 1000))).toBe(7);
+  });
+
+  it("falls back to a sensible window rather than failing on nonsense", async () => {
+    const nonsense = await testApp
+      .http()
+      .get("/api/v1/usage?days=không-phải-số")
+      .set(auth(alice, aliceWorkspace))
+      .expect(200);
+
+    const span =
+      new Date(nonsense.body.data.to).getTime() -
+      new Date(nonsense.body.data.from).getTime();
+    expect(Math.round(span / (24 * 60 * 60 * 1000))).toBe(30);
+  });
+
+  it("counts only the workspace the header names", async () => {
+    // The guard stops another *person* reading this, and that is tested below.
+    // This is the other half: that the figure returned belongs to the
+    // workspace asked for. Without it, a service reading the wrong workspace
+    // would hand one of Alice's own workspaces the other's costs, and every
+    // authorisation test would still pass.
+    const usage =
+      testApp.app.get<DrizzleAiUsageRepository>(AI_USAGE_REPOSITORY);
+
+    await usage.record({
+      id: newId("aiUsage"),
+      workspaceId: aliceWorkspace as WorkspaceId,
+      userId: null,
+      executionId: null,
+      taskId: null,
+      correlationId: null,
+      provider: "anthropic",
+      model: "claude-test",
+      operation: "test.spend",
+      usage: {
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        cachedInputTokens: 0,
+        reasoningTokens: 0,
+      },
+      cost: { inputUsd: 0.01, outputUsd: 0.02, totalUsd: 0.03, priced: true },
+      latencyMs: 120,
+      finishReason: "stop",
+      metadata: {},
+      timestamp: new Date(),
+    });
+
+    const mine = await testApp
+      .http()
+      .get("/api/v1/usage")
+      .set(auth(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(Number(mine.body.data.total.costUsd)).toBeCloseTo(0.03, 8);
+    expect(mine.body.data.byModel[0].model).toBe("claude-test");
+
+    // A second workspace of the same person: same guard, different figure.
+    const second = (await createTenant(testApp, alice, "alice-second"))
+      .workspaceId;
+    const other = await testApp
+      .http()
+      .get("/api/v1/usage")
+      .set(auth(alice, second))
+      .expect(200);
+
+    expect(Number(other.body.data.total.costUsd)).toBe(0);
+    expect(other.body.data.byModel).toEqual([]);
+  });
+
+  it("does not show one workspace's spend to another", async () => {
+    // Cost is commercially sensitive: what a competitor spends on AI is a
+    // signal about their volume.
+    await testApp
+      .http()
+      .get("/api/v1/usage")
+      .set(auth(bob, aliceWorkspace))
+      .expect(404);
   });
 
   it("hides another tenant's spend behind 404", async () => {

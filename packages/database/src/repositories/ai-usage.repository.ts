@@ -153,4 +153,53 @@ export class DrizzleAiUsageRepository implements AiUsageRecorder, SpendReader {
       }
     );
   }
+
+  /**
+   * The same period, split by which model was called.
+   *
+   * A total answers "how much"; this answers "on what", which is the question
+   * anyone asks second and the only one they can act on. A workspace paying
+   * mostly for a model it did not know it was using cannot tell from a single
+   * number.
+   */
+  async summariseByModel(
+    workspaceId: WorkspaceId,
+    from: Date,
+    to: Date,
+  ): Promise<
+    {
+      provider: string;
+      model: string;
+      calls: number;
+      inputTokens: number;
+      outputTokens: number;
+      costUsd: string;
+      unpricedCalls: number;
+    }[]
+  > {
+    return (
+      this.db
+        .select({
+          provider: aiUsage.provider,
+          model: aiUsage.model,
+          calls: sql<number>`count(*)::int`,
+          inputTokens: sql<number>`coalesce(sum(${aiUsage.inputTokens}), 0)::int`,
+          outputTokens: sql<number>`coalesce(sum(${aiUsage.outputTokens}), 0)::int`,
+          costUsd: sql<string>`coalesce(sum(${aiUsage.costUsd}), 0)::text`,
+          unpricedCalls: sql<number>`count(*) filter (where not ${aiUsage.costPriced})::int`,
+        })
+        .from(aiUsage)
+        .where(
+          and(
+            eq(aiUsage.workspaceId, workspaceId),
+            gte(aiUsage.timestamp, from),
+            lte(aiUsage.timestamp, to),
+          ),
+        )
+        .groupBy(aiUsage.provider, aiUsage.model)
+        // Dearest first. A list ordered by name makes somebody read all of it to
+        // find the line that matters.
+        .orderBy(sql`sum(${aiUsage.costUsd}) desc nulls last`)
+    );
+  }
 }

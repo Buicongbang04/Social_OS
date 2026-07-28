@@ -348,6 +348,29 @@ export type SocialConnection = {
 };
 
 /**
+ * What a workspace has spent on AI over a period.
+ *
+ * `unpricedCalls` is not decoration. A model with no price in the table
+ * contributes nothing to the total, so a figure shown without that count is
+ * quietly understated and the reader has no way to know by how much.
+ */
+export type SpendSummary = {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: string;
+  unpricedCalls: number;
+};
+
+export type SpendReport = {
+  from: string;
+  to: string;
+  total: SpendSummary;
+  /** Dearest first, so the line that matters is not buried in an alphabet. */
+  byModel: (SpendSummary & { provider: string; model: string })[];
+};
+
+/**
  * One waiting conversation, as the inbox shows it.
  *
  * `lastMessage` is a trimmed snippet, not the whole thing. A customer's full
