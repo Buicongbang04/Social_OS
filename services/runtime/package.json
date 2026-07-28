@@ -13,21 +13,24 @@
     "test": "vitest run --passWithNoTests",
     "test:int": "vitest run --config vitest.int.config.ts",
     "verify:llm": "tsx src/verify-llm.ts",
-    "verify:stack": "tsx src/verify-stack.ts"
+    "verify:stack": "tsx src/verify-stack.ts",
+    "verify:page": "tsx src/verify-page.ts"
   },
   "dependencies": {
     "@repo/ai": "workspace:*",
+    "@repo/connectors": "workspace:*",
     "@repo/core": "workspace:*",
     "@repo/database": "workspace:*",
+    "@repo/domain": "workspace:*",
     "@repo/event": "workspace:*",
+    "@repo/knowledge": "workspace:*",
     "@repo/logger": "workspace:*",
     "@repo/queue": "workspace:*",
     "@repo/runtime": "workspace:*",
     "@repo/sdk": "workspace:*",
-    "ioredis": "^5.4.2",
-    "@repo/knowledge": "workspace:*",
+    "@repo/secrets": "workspace:*",
     "@repo/storage": "workspace:*",
-    "@repo/domain": "workspace:*"
+    "ioredis": "^5.4.2"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",

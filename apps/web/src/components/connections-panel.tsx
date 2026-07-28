@@ -27,6 +27,9 @@ export function ConnectionsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [pageId, setPageId] = useState("");
+  const [pageToken, setPageToken] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -83,6 +86,28 @@ export function ConnectionsPanel() {
     }
   };
 
+  const attach = async () => {
+    if (pageId.trim() === "" || pageToken.trim() === "") return;
+    setBusy("manual");
+    try {
+      const connection = await getClient().attachConnection("facebook", {
+        externalId: pageId.trim(),
+        accessToken: pageToken.trim(),
+      });
+      // Cleared straight away. A live token sitting in an input is one
+      // screenshot or shared screen away from being someone else's.
+      setPageId("");
+      setPageToken("");
+      setManualOpen(false);
+      setNotice(`Đã nối ${connection.displayName}.`);
+      await load();
+    } catch (caught) {
+      setError(describe(caught));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const remove = async (connection: SocialConnection) => {
     try {
       await getClient().disconnect(connection.id);
@@ -119,6 +144,52 @@ export function ConnectionsPanel() {
               : `${platform.name} (chưa cấu hình)`}
           </PrimaryButton>
         ))}
+      </div>
+
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={() => setManualOpen((open) => !open)}
+          className="text-xs text-neutral-500 underline hover:text-neutral-900"
+        >
+          {manualOpen ? "Ẩn" : "Đã có Page ID và access token? Nhập tay"}
+        </button>
+
+        {manualOpen ? (
+          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-neutral-200 p-3">
+            {/* Here because getting a Meta app through review takes weeks.
+                Beside the OAuth button, never replacing it: OAuth is what a
+                tenant should use, since they never hand a credential over. */}
+            <input
+              value={pageId}
+              onChange={(event) => setPageId(event.target.value)}
+              placeholder="Page ID"
+              className="w-48 rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+            />
+            <input
+              type="password"
+              autoComplete="off"
+              value={pageToken}
+              onChange={(event) => setPageToken(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void attach();
+              }}
+              placeholder="Page access token"
+              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+            />
+            <PrimaryButton
+              busy={busy === "manual"}
+              onClick={() => void attach()}
+              disabled={pageId.trim() === "" || pageToken.trim() === ""}
+            >
+              Nối Page
+            </PrimaryButton>
+            <p className="w-full text-xs text-neutral-500">
+              Token được kiểm tra với Facebook trước khi lưu, và mã hoá khi lưu.
+              Không có đường nào đọc ngược ra.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {connections === null ? (

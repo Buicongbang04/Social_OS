@@ -410,6 +410,25 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Attach a Page with a token you already hold.
+   *
+   * Beside `startConnection`, not instead of it. OAuth is what a tenant should
+   * use — they never hand a credential over. This exists because getting an app
+   * approved takes weeks, and someone with a Page token should not be blocked
+   * from using their own Page until then.
+   */
+  async attachConnection(
+    connectorId: string,
+    input: { externalId: string; accessToken: string },
+  ): Promise<SocialConnection> {
+    return this.request<SocialConnection>(
+      "POST",
+      `/connections/${connectorId}/token`,
+      { body: input, workspaceScoped: true },
+    );
+  }
+
   /** Disconnect. The stored credential goes with it. */
   async disconnect(id: string): Promise<void> {
     await this.request<void>("DELETE", `/connections/${id}`, {

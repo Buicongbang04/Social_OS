@@ -101,6 +101,17 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
         return;
       }
 
+      // `/{page-id}` — how a pasted token is checked before anything is
+      // stored.
+      if (url.pathname.startsWith("/graph/")) {
+        seen.identityAuth = request.headers.authorization ?? null;
+        response.writeHead(behaviour.identityStatus, {
+          "content-type": "application/json",
+        });
+        response.end(behaviour.identityBody);
+        return;
+      }
+
       if (url.pathname === "/me") {
         seen.identityAuth = request.headers.authorization ?? null;
         response.writeHead(behaviour.identityStatus, {
@@ -119,6 +130,7 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
     process.env.FACEBOOK_TOKEN_URL = `http://127.0.0.1:${port}/oauth/token`;
     process.env.FACEBOOK_IDENTITY_URL = `http://127.0.0.1:${port}/me`;
     process.env.FACEBOOK_AUTHORIZE_URL = `http://127.0.0.1:${port}/authorize`;
+    process.env.FACEBOOK_GRAPH_URL = `http://127.0.0.1:${port}/graph`;
 
     testApp = await createTestApp();
   });
@@ -393,6 +405,115 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
       after.body.data.some(
         (secret: { name: string }) =>
           secret.name === "connections/facebook/page-9001",
+      ),
+    ).toBe(false);
+  });
+
+  it("attaches a Page from a token the operator already holds", async () => {
+    // The path that exists because getting an app through review takes weeks.
+    // Beside OAuth, not instead of it.
+    behaviour.identityBody = JSON.stringify({
+      id: "page-777",
+      name: "Trang dán tay",
+    });
+
+    const attached = await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    expect(attached.body.data.displayName).toBe("Trang dán tay");
+    expect(seen.identityAuth).toBe("Bearer a-real-looking-page-token");
+    // Checked against the platform, not taken on trust.
+    expect(JSON.stringify(attached.body)).not.toContain(
+      "a-real-looking-page-token",
+    );
+  });
+
+  it("stores nothing when the token is not for that Page", async () => {
+    // A user token answers happily and will not post to a page. Storing it
+    // would give a connection that looks healthy and fails at publish time.
+    behaviour.identityBody = JSON.stringify({ id: "usr-1", name: "Ai Đó" });
+
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      // 400, not 500: a mistyped token is a wrong value in a form, and
+      // paging whoever is on call for that is how alerts stop being read.
+      .send({ externalId: "page-777", accessToken: "a-user-token-not-a-page" })
+      .expect(400);
+
+    expect(
+      (
+        await testApp
+          .http()
+          .get("/api/v1/connections")
+          .set(as(alice, aliceWorkspace))
+          .expect(200)
+      ).body.data,
+    ).toEqual([]);
+  });
+
+  it("stores nothing when the platform refuses the token", async () => {
+    behaviour.identityStatus = 401;
+    behaviour.identityBody = JSON.stringify({
+      error: { message: "Invalid OAuth access token" },
+    });
+
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({ externalId: "page-777", accessToken: "expired-token-here-ok" })
+      .expect(400);
+
+    expect(
+      (
+        await testApp
+          .http()
+          .get("/api/v1/connections")
+          .set(as(alice, aliceWorkspace))
+          .expect(200)
+      ).body.data,
+    ).toEqual([]);
+  });
+
+  it("lets a pasted Page be disconnected like any other", async () => {
+    behaviour.identityBody = JSON.stringify({ id: "page-777", name: "Trang" });
+
+    const attached = await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    await testApp
+      .http()
+      .delete(`/api/v1/connections/${attached.body.data.id}`)
+      .set(as(alice, aliceWorkspace))
+      .expect(204);
+
+    // The credential goes with it, exactly as on the OAuth path.
+    expect(
+      (
+        await testApp
+          .http()
+          .get("/api/v1/secrets")
+          .set(as(alice, aliceWorkspace))
+          .expect(200)
+      ).body.data.some(
+        (secret: { name: string }) =>
+          secret.name === "connections/facebook/page-777",
       ),
     ).toBe(false);
   });

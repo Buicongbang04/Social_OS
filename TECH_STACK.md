@@ -974,12 +974,39 @@ Facebook, TikTok, Threads đã có; bảy cái còn lại **vắng mặt chứ k
 stub** — một nền tảng hiện trong danh sách mà không kết nối được là thứ tệ hơn
 danh sách ngắn, vì người dùng chỉ phát hiện ra sau khi đã cấp quyền.
 
+### Đăng bài
+
+Đây là thứ đầu tiên trong hệ thống chạm tới khán giả thật, và là thứ duy nhất
+mà chạy lại **không sửa được sai lầm**. Nên nó từ chối nhiều hơn là chấp nhận.
+
+| Tình huống                             | Làm gì                                          | Vì sao                                                                                                                                                               |
+| -------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chưa bật `SOCIAL_PUBLISH_LIVE`         | Chạy bản diễn tập, nói thẳng `published: false` | Bật lên là mọi Goal đã có sẵn — kể cả lịch tự chạy không ai ngồi xem — bắt đầu đăng ra ngoài từ lần chạy kế tiếp. Đó không phải thay đổi ai đó đồng ý khi bấm deploy |
+| Nối một kênh, không nói kênh nào       | Đăng lên kênh đó                                | Không có gì mơ hồ                                                                                                                                                    |
+| Nối nhiều kênh, không nói kênh nào     | **Dừng**, liệt kê các kênh đang nối             | "Đăng bài đi" là câu thiếu tân ngữ. Tự chọn là nền tảng chọn khán giả thay người dùng, và không có nút hoàn tác                                                      |
+| Gọi tên kênh không có                  | **Dừng**                                        | Kế hoạch dựa trên giả định sai; đăng sang chỗ khác không phải cách sửa                                                                                               |
+| Nền tảng trả 200 nhưng không có id bài | **Coi là thất bại**                             | Không sửa, không xoá, không dẫn link được. Báo thành công là khẳng định code này không chứng minh nổi                                                                |
+| Token đã bị gỡ                         | Dừng ở lần đăng kế tiếp                         | Token đọc lại mỗi lần đăng, không giữ trong bộ nhớ — đó là khác biệt giữa _thu hồi_ và _xin phép lịch sự_                                                            |
+
+Đăng lần lượt từng kênh chứ không song song: hỏng giữa chừng mà chạy song song
+thì không biết kênh nào đã đăng, và lần thử lại sẽ đăng trùng.
+
+**Nối Page bằng token dán tay** nằm **cạnh** OAuth chứ không thay thế. Lý do
+thực dụng: đưa một ứng dụng Meta qua vòng xét duyệt mất hàng tuần, và người đã
+có sẵn token cho Page của chính mình không nên bị chặn tới lúc đó. Token được
+**hỏi Facebook trước khi lưu** — lưu mà không hỏi sẽ tạo ra một kết nối trông
+khoẻ mạnh trên màn hình và chỉ hỏng lúc đăng, khi người dán nó đã đi làm việc
+khác. Dán nhầm token trả về 400 chứ không phải 500: đó là giá trị sai trong một
+ô nhập, và gọi người trực dậy vì chuyện đó là cách làm cho cảnh báo bị bỏ qua.
+
 **Giới hạn nói rõ:** kết nối là _tài khoản người dùng_, chưa phải _trang_.
 Chọn trang nào để đăng là bước thứ hai, gọi vào `/me/accounts` — thứ trả về một
 danh sách chứ không phải một tài khoản, tức là hình dạng khác hẳn, và không có
-trong bản này. Và toàn bộ luồng mới được kiểm chứng với **một máy chủ OAuth
-thật do test dựng lên**, chưa phải với Facebook thật — cái đó cần khoá ứng dụng
-của người vận hành.
+trong bản này. Luồng OAuth mới được kiểm chứng với **một máy chủ OAuth thật do test dựng
+lên**, chưa phải với Facebook thật — cái đó cần khoá ứng dụng của người vận
+hành. Đường đăng bài thì **đã kiểm chứng với Facebook thật**: nối Page bằng
+token, đăng một bài lên Page, rồi xoá lại — qua đúng đường code chạy trong sản
+phẩm.
 
 ---
 
@@ -1212,15 +1239,15 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 
 `docs/05_TECH_STACK.md` mô tả stack đầy đủ của sản phẩm. Những phần **chưa làm**:
 
-| Dự kiến                     | Trạng thái hiện tại                                                                                                                                                                                                              |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NATS JetStream              | Chưa. Đang dùng Redis + `InMemoryEventBus`. Quyết định có chủ đích: dùng Redis trước, nâng cấp sau                                                                                                                               |
-| Meilisearch                 | Chưa                                                                                                                                                                                                                             |
-| Social Connectors           | Có luồng OAuth cho Facebook / TikTok / Threads, token nằm trong kho bí mật. Chưa có: chọn trang, đăng bài thật, webhook, inbox, và 7 nền tảng còn lại của Phase 3                                                                |
-| Prometheus / Grafana / Loki | Chưa. Mới có log dạng JSON, sẵn sàng để cắm vào                                                                                                                                                                                  |
-| OpenTelemetry / Jaeger      | Chưa. Mới có `correlationId` xuyên suốt một lần chạy                                                                                                                                                                             |
-| Swagger                     | Chưa sinh tài liệu API                                                                                                                                                                                                           |
-| Secret Manager              | **Xong phần cốt lõi.** AES-256-GCM có keyring xoay khoá, bảng `secrets` + `secret_versions`, và Gateway đọc key riêng của từng workspace (FR-031). Còn thiếu: HashiCorp Vault, scope ngoài PLATFORM/WORKSPACE, xoay khoá tự động |
+| Dự kiến                     | Trạng thái hiện tại                                                                                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NATS JetStream              | Chưa. Đang dùng Redis + `InMemoryEventBus`. Quyết định có chủ đích: dùng Redis trước, nâng cấp sau                                                                                                                                    |
+| Meilisearch                 | Chưa                                                                                                                                                                                                                                  |
+| Social Connectors           | OAuth cho Facebook / TikTok / Threads, nối Page bằng token dán tay, và **đăng bài thật lên Facebook Page** (đã kiểm chứng với Facebook thật). Chưa có: chọn Page từ `/me/accounts`, làm mới token, webhook, inbox, 7 nền tảng còn lại |
+| Prometheus / Grafana / Loki | Chưa. Mới có log dạng JSON, sẵn sàng để cắm vào                                                                                                                                                                                       |
+| OpenTelemetry / Jaeger      | Chưa. Mới có `correlationId` xuyên suốt một lần chạy                                                                                                                                                                                  |
+| Swagger                     | Chưa sinh tài liệu API                                                                                                                                                                                                                |
+| Secret Manager              | **Xong phần cốt lõi.** AES-256-GCM có keyring xoay khoá, bảng `secrets` + `secret_versions`, và Gateway đọc key riêng của từng workspace (FR-031). Còn thiếu: HashiCorp Vault, scope ngoài PLATFORM/WORKSPACE, xoay khoá tự động      |
 
 ---
 

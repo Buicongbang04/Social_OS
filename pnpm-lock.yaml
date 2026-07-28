@@ -693,6 +693,9 @@ importers:
       "@repo/ai":
         specifier: workspace:*
         version: link:../../packages/ai
+      "@repo/connectors":
+        specifier: workspace:*
+        version: link:../../packages/connectors
       "@repo/core":
         specifier: workspace:*
         version: link:../../packages/core
@@ -720,6 +723,9 @@ importers:
       "@repo/sdk":
         specifier: workspace:*
         version: link:../../packages/sdk
+      "@repo/secrets":
+        specifier: workspace:*
+        version: link:../../packages/secrets
       "@repo/storage":
         specifier: workspace:*
         version: link:../../packages/storage
