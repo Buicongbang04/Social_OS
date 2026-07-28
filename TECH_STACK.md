@@ -1054,6 +1054,26 @@ lần, không được đổi chỗ khi API lên phiên bản.
 | Ghi cả nhánh lỗi                                          | Chỉ đo request thành công sẽ bỏ ngoài histogram đúng những request chậm nhất, và đồ thị trông khoẻ nhất lúc dịch vụ tệ nhất                                                                                    |
 | Registry riêng, không dùng registry toàn cục của thư viện | Registry mặc định là singleton sống qua nhiều test; hai suite dùng chung khiến mọi khẳng định về số đếm phụ thuộc vào thứ chạy trước                                                                           |
 
+**Cả runtime cũng có `/metrics`**, ở cổng `RUNTIME_METRICS_PORT` (mặc định
+3101), cùng cách gác token. Trước đó chỉ API quan sát được, còn tiến trình làm
+việc thật — lập kế hoạch, gọi provider, đăng lên khán giả thật — thì không nhìn
+thấy gì, tức là ngược hẳn.
+
+Lời gọi provider được đếm **sau khi** dòng sổ đã ghi. Thứ tự ngược lại sẽ khiến
+một lần scrape hiện lời gọi mà sổ không có, và hai bên lệch nhau theo đúng chiều
+trông như thất thu.
+
+Số bài đăng đếm cả **lần hỏng**, và tách riêng `duplicate` với `ok`: một lần thử
+lại nhận ra bài cũ không phải thêm một thứ nữa tới tay khán giả, đếm nó như vậy
+là thổi phồng những gì đã ra ngoài.
+
+**Một lỗi nữa của chính tôi.** Ba trong bốn chỉ số — lời gọi provider, thời gian,
+số bài đăng — được định nghĩa, xuất ra, có test riêng, mà **không nơi nào tăng
+chúng**. Ba cái đồng hồ không bao giờ nhúc nhích, đúng loại hỏng tôi vừa phê
+phán ở cột `status` một commit trước đó. Và test đầu tiên cho chúng cũng sai:
+một `Metrics` dùng chung cho cả file khiến mọi khẳng định về số đếm phụ thuộc
+vào thứ chạy trước — cái bẫy mà chính docstring của package này cảnh báo.
+
 **Một lỗi thật, do test kiểm sai chỗ.** Bản đầu bọc exposition trong
 `{"data": "..."}` của response envelope — Prometheus từ chối thẳng. Test vẫn
 xanh vì nó dùng `toContain`, và chuỗi đó vẫn nằm trong JSON. Giờ test khẳng định

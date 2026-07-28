@@ -25,6 +25,7 @@
     "@repo/event": "workspace:*",
     "@repo/knowledge": "workspace:*",
     "@repo/logger": "workspace:*",
+    "@repo/observability": "workspace:*",
     "@repo/queue": "workspace:*",
     "@repo/runtime": "workspace:*",
     "@repo/sdk": "workspace:*",

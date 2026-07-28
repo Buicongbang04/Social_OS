@@ -748,6 +748,9 @@ importers:
       "@repo/logger":
         specifier: workspace:*
         version: link:../../packages/logger
+      "@repo/observability":
+        specifier: workspace:*
+        version: link:../../packages/observability
       "@repo/queue":
         specifier: workspace:*
         version: link:../../packages/queue

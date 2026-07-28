@@ -17,6 +17,7 @@ import {
   truncateTenantData,
   type DatabaseClient,
 } from "@repo/database";
+import { Metrics } from "@repo/observability";
 import { Keyring } from "@repo/secrets";
 import { RuntimeError, type CapabilityContext } from "@repo/runtime";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -42,6 +43,7 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
   let publish: ReturnType<typeof buildSocialPublish>;
   let unattendedPublish: ReturnType<typeof buildSocialPublish>;
   let inbox: ReturnType<typeof buildSocialInbox>;
+  let metrics: Metrics;
   let workspaceId: WorkspaceId;
   let userId: UserId;
 
@@ -150,12 +152,6 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     db = createDbClient(DATABASE_URL!, { maxConnections: 3 });
     accounts = new DrizzleSocialAccountRepository(db);
     secrets = new DrizzleSecretRepository(db);
-    publish = buildSocialPublish({
-      accounts,
-      secrets,
-      keyring,
-      allowUnattended: false,
-    });
     inbox = buildSocialInbox({ accounts, secrets, keyring });
     unattendedPublish = buildSocialPublish({
       accounts,
@@ -179,6 +175,19 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     existingPosts = [];
     feedReads = 0;
     conversations = [];
+
+    // A fresh registry per test. Counters are cumulative, so one shared across
+    // the file makes every assertion about a count depend on what ran before —
+    // the exact trap this package's own documentation warns about, and which
+    // this file fell into on the first attempt.
+    metrics = new Metrics({ defaultMetrics: false });
+    publish = buildSocialPublish({
+      accounts,
+      secrets,
+      keyring,
+      allowUnattended: false,
+      metrics,
+    });
 
     const organizationId = newId("organization");
     userId = newId("user");
@@ -629,6 +638,53 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
       .catch((error: unknown) => error)) as RuntimeError;
 
     expect(failure).toBeInstanceOf(RuntimeError);
+  });
+
+  it("counts a post that went out, and one that did not", async () => {
+    // A counter nobody increments is a dial that never moves — which is what
+    // shipped one commit before this, and the same failure as a status column
+    // whose values are never written.
+    await connect("page-1", "Trang một");
+
+    await publish.handler(context({}, { "content.generate": { body: "x" } }));
+
+    behaviour = {
+      status: 403,
+      body: JSON.stringify({ error: { code: 200, message: "no permission" } }),
+    };
+    await publish
+      .handler(context({}, { "content.generate": { body: "y" } }))
+      .catch(() => undefined);
+
+    const text = await metrics.scrape();
+    expect(text).toContain(
+      'social_publishes_total{connector="facebook",outcome="ok"} 1',
+    );
+    expect(text).toContain(
+      'social_publishes_total{connector="facebook",outcome="failed"} 1',
+    );
+  });
+
+  it("does not count a recognised retry as another post", async () => {
+    // A retry that finds the earlier attempt is not another thing reaching an
+    // audience, and counting it as one overstates what went out.
+    await connect("page-1", "Trang một");
+    existingPosts = [
+      {
+        id: "page-1_555",
+        message: "x",
+        created_time: new Date().toISOString(),
+      },
+    ];
+
+    await publish.handler({
+      ...context({}, { "content.generate": { body: "x" } }),
+      attempt: 1,
+    });
+
+    const text = await metrics.scrape();
+    expect(text).toContain('outcome="duplicate"} 1');
+    expect(text).not.toContain('outcome="ok"}');
   });
 
   it("does not report a post the platform never confirmed", async () => {
