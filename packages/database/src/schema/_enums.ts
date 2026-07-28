@@ -2,6 +2,7 @@ import { pgEnum } from "drizzle-orm/pg-core";
 import {
   AUTH_PROVIDERS,
   DOCUMENT_STATUSES,
+  MEMORY_SOURCES,
   MESSAGE_ROLES,
   ENTITY_STATUSES,
   MEMBERSHIP_STATUSES,
@@ -39,6 +40,7 @@ export const organizationRoleEnum = pgEnum(
 export const authProviderEnum = pgEnum("auth_provider", AUTH_PROVIDERS);
 export const documentStatusEnum = pgEnum("document_status", DOCUMENT_STATUSES);
 export const messageRoleEnum = pgEnum("message_role", MESSAGE_ROLES);
+export const memorySourceEnum = pgEnum("memory_source", MEMORY_SOURCES);
 export const permissionScopeEnum = pgEnum(
   "permission_scope",
   PERMISSION_SCOPES,

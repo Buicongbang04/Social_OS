@@ -22,6 +22,7 @@ import { KnowledgeModule } from "./infra/knowledge/knowledge.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AuthorizationModule } from "./modules/authorization/authorization.module";
 import { ChatModule } from "./modules/chat/chat.module";
+import { MemoryModule } from "./modules/memory/memory.module";
 import { DocumentsModule } from "./modules/documents/documents.module";
 import { GoalsModule } from "./modules/goals/goals.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
@@ -63,6 +64,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     GoalsModule,
     DocumentsModule,
     ChatModule,
+    MemoryModule,
   ],
   controllers: [HealthController],
   providers: [

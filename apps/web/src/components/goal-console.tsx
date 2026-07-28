@@ -5,6 +5,7 @@ import { useState } from "react";
 import { getClient } from "../lib/api";
 import { ChatPanel } from "./chat-panel";
 import { DocumentList } from "./document-list";
+import { MemoryPanel } from "./memory-panel";
 import { ExecutionView } from "./execution-view";
 import { RunList } from "./run-list";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
@@ -172,6 +173,10 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
       {/* Above the run list: what a Goal can read has to be visible before
           someone writes a Goal that assumes it. */}
       <DocumentList />
+
+      {/* Above the chat, because what the platform remembers changes every
+          answer below it. */}
+      <MemoryPanel />
 
       {/* Below the documents, because the obvious thing to ask about is what
           was just uploaded. */}

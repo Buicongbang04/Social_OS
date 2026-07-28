@@ -14,6 +14,7 @@ import type { DatabaseClient } from "../client";
 export async function truncateTenantData(db: DatabaseClient): Promise<void> {
   await db.execute(sql`
     truncate table
+      workspace_memory,
       messages,
       conversations,
       documents,

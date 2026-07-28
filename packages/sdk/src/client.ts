@@ -17,6 +17,7 @@ import type {
   PublicUser,
   Task,
   UploadedDocument,
+  WorkspaceMemory,
   Workspace,
 } from "./types";
 
@@ -301,6 +302,28 @@ export class ApiClient {
       { workspaceScoped: true },
     );
     return result.url;
+  }
+
+  // --- Workspace memory -----------------------------------------------------
+
+  async listMemory(): Promise<WorkspaceMemory[]> {
+    return this.request<WorkspaceMemory[]>("GET", "/memory", {
+      workspaceScoped: true,
+    });
+  }
+
+  /** Idempotent: the key is the identity, so saying it twice replaces it. */
+  async rememberFact(key: string, value: string): Promise<WorkspaceMemory> {
+    return this.request<WorkspaceMemory>("PUT", "/memory", {
+      body: { key, value },
+      workspaceScoped: true,
+    });
+  }
+
+  async forgetFact(id: string): Promise<void> {
+    await this.request<void>("DELETE", `/memory/${id}`, {
+      workspaceScoped: true,
+    });
   }
 
   // --- Chat -----------------------------------------------------------------

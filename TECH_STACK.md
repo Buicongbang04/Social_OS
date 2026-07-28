@@ -511,6 +511,25 @@ sẽ đệm cả câu trả lời rồi mới đưa ra một lượt, đúng th�
 tránh. Và khi byte đầu tiên đã đi rồi thì lỗi không thể thành 500 được nữa — status
 line đã gửi — nên lỗi đi dưới dạng sự kiện `error`.
 
+**Ghi nhớ mà không xem được là loại đáng sợ.** Một sự kiện được nhớ sai sẽ định
+hình **mọi** câu trả lời, và triệu chứng duy nhất là đầu ra âm thầm sai trong
+một thời gian — không có chỗ nào để nhìn. Nên có màn hình xem và sửa, và cột
+`source` phân biệt `MANUAL` với `LEARNED` ngay từ đầu dù hiện chỉ ghi `MANUAL`:
+một sự kiện do model tự quyết định nhớ, không ai duyệt, là điều workspace chưa
+bao giờ đồng ý mà lại chi phối mọi câu trả lời sau đó.
+
+**Ghi nhớ là upsert theo khoá, không phải insert.** Hai câu trả lời cho một câu
+hỏi ("giọng thương hiệu của chúng ta là gì") thì model sẽ chọn một, im lặng.
+Và phải xoá `deletedAt` khi ghi đè: hàng đã xoá mềm vẫn giữ khoá unique, nên
+không xoá cờ đó thì việc lưu **báo thành công mà không thay đổi gì** — loại
+no-op tệ nhất.
+
+**Ghi nhớ của workspace khác Semantic Memory.** Tài liệu nằm ở Qdrant và được
+**tra theo từng câu hỏi**; ghi nhớ workspace đi kèm **mọi** request. Vì thế nó
+phải có giới hạn số lượng — một workspace nhớ năm trăm điều sẽ tiêu hết cửa sổ
+ngữ cảnh vào đó và không còn chỗ cho câu hỏi, mà triệu chứng lại trông như model
+phớt lờ thứ được hỏi.
+
 **Một chuỗi version chung cho mọi prompt là nói dối.** Sửa câu chữ của planner
 mà đóng dấu version mới lên **cả** bản ghi intent thì ai so sánh chất lượng theo
 version sẽ thấy một mốc chia nơi chẳng có gì thay đổi — và chỗ mốc đó quan trọng
