@@ -29,6 +29,7 @@ Tình trạng tính đến 2026-07-28 (commit `37262ff`). Đây là bản kiểm
 12. [Log và tiện ích vận hành](#12-log-và-tiện-ích-vận-hành)
 13. [Đã cài nhưng chưa dùng](#13-đã-cài-nhưng-chưa-dùng)
 14. [Khoảng cách so với stack dự kiến](#14-khoảng-cách-so-với-stack-dự-kiến)
+15. [Phase 2 — những gì còn thiếu](#15-phase-2--những-gì-còn-thiếu)
 
 ---
 
@@ -1081,6 +1082,27 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 | OpenTelemetry / Jaeger      | Chưa. Mới có `correlationId` xuyên suốt một lần chạy                                                                  |
 | Swagger                     | Chưa sinh tài liệu API                                                                                                |
 | Secret Manager              | **Chưa — khoảng cách đáng kể nhất.** API key đang đọc từ biến môi trường, chưa theo từng workspace như FR-031 yêu cầu |
+
+---
+
+## 15. Phase 2 — những gì còn thiếu
+
+Bốn tiêu chí thoát của `docs/ROADMAP.md` Phase 2 đều đã chạy được và có kiểm
+chứng thật: Multi Provider, Streaming Chat, RAG, Memory. Nhưng phần deliverables
+thì chưa hết. Ghi ra để khỏi nhầm "tiêu chí thoát đạt" với "phase xong":
+
+| Deliverable                  | Trạng thái                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| OpenRouter                   | Chưa. Dùng chung giao thức OpenAI nên thêm adapter rất rẻ                            |
+| Prompt Versioning / Registry | Chưa. Prompt hiện là hằng số có gắn `PROMPT_VERSION`; chưa có kho lưu, chưa A/B được |
+| Tool Calling trong chat      | Gateway đã truyền tool call qua stream, nhưng endpoint chat chưa khai báo tool nào   |
+| Multi Conversation           | Có nhiều hội thoại rồi, nhưng UI mới hiện một luồng tại một thời điểm                |
+| Workspace / Brand Memory     | Chưa. Mới có Conversation Memory; ghi nhớ lâu dài xuyên hội thoại là kho riêng       |
+| Trích dẫn nguồn trong chat   | Chưa. `knowledge.search` có trả về nguồn, nhưng chat chưa gọi nó                     |
+
+Điểm cuối là đáng chú ý nhất: **chat chưa đọc tài liệu của workspace.** RAG chạy
+trong đường Goal, không chạy trong đường chat. Hỏi khung chat về một file vừa
+tải lên thì model trả lời bằng kiến thức sẵn có của nó chứ không mở tài liệu ra.
 
 ---
 

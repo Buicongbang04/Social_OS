@@ -51,6 +51,18 @@ PDF và Word chưa nhận: chúng cần một bước bóc tách chữ chưa là
 bây giờ sẽ tạo ra tài liệu kẹt ở `PENDING` vĩnh viễn — trông như lỗi chứ không
 phải như tính năng còn thiếu.
 
+## Trò chuyện
+
+Khung chat nằm dưới phần tài liệu. Câu trả lời hiện dần **từng chữ** — đó là
+điểm khác duy nhất nhìn thấy được của streaming, và cũng là cách duy nhất biết
+đường SSE có thật sự chạy hay không.
+
+Cần một AI provider. Không có thì gửi tin nhắn sẽ nhận về một sự kiện `error`
+nói rõ là chưa cấu hình, chứ không treo im lặng.
+
+Hội thoại dài hơn cửa sổ ngữ cảnh sẽ được **tóm tắt** phần đầu, và khung chat
+nói rõ điều đó thay vì để model có vẻ như đãng trí không lý do.
+
 ## Vì sao cổng 3200
 
 Cùng lý do Postgres ở 5433 và API ở 3100: stack này phải sống chung với những
