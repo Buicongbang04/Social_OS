@@ -19,11 +19,13 @@ import {
   ExecutionEngine,
   InMemoryCapabilityRegistry,
 } from "@repo/runtime";
+import { Metrics, withMetrics } from "@repo/observability";
 import { Keyring } from "@repo/secrets";
 import { buildAiEngines } from "./ai-engines";
 import { buildSocialInbox, buildSocialPublish } from "./capabilities/social";
 import { buildKnowledgeStack } from "./knowledge";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
+import { startMetricsServer } from "./metrics-server";
 import { Scheduler } from "./scheduler";
 
 const logger = createLogger("runtime");
@@ -50,11 +52,16 @@ async function main(): Promise<void> {
   const goals = new DrizzleGoalRepository(db);
   const executionRepository = new DrizzleExecutionRepository(db);
 
+  const metrics = new Metrics();
   const usage = new DrizzleAiUsageRepository(db);
+  // Wrapped only where it is used as a recorder. The budget policy reads the
+  // same repository for spend, and a decorator that narrowed it to `record`
+  // would take that away — metrics must not cost the platform a feature.
+  const meteredUsage = withMetrics(usage, metrics);
 
   const ai = buildAiEngines({
     capabilities: registry,
-    recorder: usage,
+    recorder: meteredUsage,
     // A metering write that fails must not fail work already paid for, but it
     // must not vanish either — it is unbilled revenue.
     onUsageError: (error, record) => {
@@ -113,6 +120,7 @@ async function main(): Promise<void> {
           // is how a scheduled Goal posts to a real audience at 3am.
           allowUnattended:
             process.env.SOCIAL_PUBLISH_UNATTENDED?.trim() === "true",
+          metrics,
         })
       : null;
 
@@ -171,6 +179,14 @@ async function main(): Promise<void> {
     // is worse than no budget, because someone will rely on it.
     policy: new BudgetPolicy({ spend: usage }),
   });
+
+  const metricsServer = startMetricsServer(metrics);
+  logger.info(
+    { scraping: Boolean(metricsServer) },
+    metricsServer
+      ? `metrics ở :${process.env.RUNTIME_METRICS_PORT ?? 3101}/metrics`
+      : "metrics tắt — chưa đặt METRICS_TOKEN",
+  );
 
   const scheduler = new Scheduler(
     engine,

@@ -13,6 +13,7 @@ import type {
   SocialAccountRepository,
   SecretRepository,
 } from "@repo/domain";
+import type { Metrics } from "@repo/observability";
 import { RuntimeError, type CapabilityImplementation } from "@repo/runtime";
 import type { Keyring } from "@repo/secrets";
 
@@ -39,6 +40,11 @@ export type SocialPublisherDeps = {
    * Page minutes after the verification finished.
    */
   allowUnattended: boolean;
+  /**
+   * Where publishes are counted. Optional: the capability must work without
+   * it, because a missing counter is not a reason to stop posting.
+   */
+  metrics?: Metrics;
 };
 
 /**
@@ -116,7 +122,24 @@ export function buildSocialPublish(
           target,
           draft,
           context.attempt,
-        );
+        ).catch((error: unknown) => {
+          // Counted before rethrowing. A failed publish is the event somebody
+          // watching most wants to see, and only counting the successes makes
+          // the graph look best when the platform is worst.
+          deps.metrics?.publishes.inc({
+            connector: account.connectorId,
+            outcome: "failed",
+          });
+          throw error;
+        });
+
+        deps.metrics?.publishes.inc({
+          connector: account.connectorId,
+          // Apart from a fresh post, because a retry recognising an earlier
+          // attempt is not another thing reaching an audience — counting it as
+          // one would overstate what went out.
+          outcome: result.alreadyPosted ? "duplicate" : "ok",
+        });
 
         posted.push({
           account: account.displayName,
