@@ -20,6 +20,8 @@ import { ErrorNote, Panel, PrimaryButton } from "./ui";
  */
 export function ChatPanel() {
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  /** Every thread this workspace has, newest activity first. */
+  const [threads, setThreads] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   /** The answer currently arriving. Not yet a message — it has no id. */
@@ -39,16 +41,72 @@ export function ChatPanel() {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages, streaming]);
 
+  /** Re-read the list. Cheap, and the titles change as threads are used. */
+  const loadThreads = useCallback(async () => {
+    try {
+      setThreads(await getClient().listConversations());
+    } catch (caught) {
+      // A missing list is not worth an error banner over the chat itself.
+      void caught;
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadThreads();
+  }, [loadThreads]);
+
   const start = useCallback(async () => {
     setError(null);
     try {
       const created = await getClient().createConversation("Hội thoại");
       setConversation(created);
       setMessages([]);
+      setSources([]);
+      setTools([]);
+      await loadThreads();
+    } catch (caught) {
+      setError(describe(caught));
+    }
+  }, [loadThreads]);
+
+  /**
+   * Switch to another thread, and read its history back.
+   *
+   * The messages are fetched rather than kept per thread in memory: a thread
+   * open in another tab, or continued from the phone, would otherwise show
+   * whatever this tab last saw — which looks like lost messages.
+   */
+  const open = useCallback(async (thread: Conversation) => {
+    setError(null);
+    // Cleared first. Leaving the previous thread's citations and tool runs on
+    // screen would attach them to an answer they had nothing to do with.
+    setSources([]);
+    setTools([]);
+    setStreaming(null);
+    setConversation(thread);
+
+    try {
+      setMessages(await getClient().listChatMessages(thread.id));
     } catch (caught) {
       setError(describe(caught));
     }
   }, []);
+
+  const remove = useCallback(
+    async (thread: Conversation) => {
+      try {
+        await getClient().deleteConversation(thread.id);
+        if (conversation?.id === thread.id) {
+          setConversation(null);
+          setMessages([]);
+        }
+        await loadThreads();
+      } catch (caught) {
+        setError(describe(caught));
+      }
+    },
+    [conversation, loadThreads],
+  );
 
   const send = async () => {
     const content = draft.trim();
@@ -108,6 +166,9 @@ export function ChatPanel() {
             .catch(() => {
               // A stale summary banner is not worth an error message.
             });
+          // The list too: a thread created by sending the first message is not
+          // in it yet, and its title changes as it is used.
+          void loadThreads();
         }
         if (event.type === "error") {
           // The partial answer is kept on screen: the reader saw it, and the
@@ -137,18 +198,38 @@ export function ChatPanel() {
       title="Trò chuyện"
       subtitle="Câu trả lời hiện dần từng chữ — đó là điểm khác của streaming."
     >
-      {conversation ? (
-        <p className="mb-3 flex items-center gap-3 text-xs text-neutral-400">
-          <span className="font-mono">{conversation.id}</span>
-          <button
-            type="button"
-            onClick={() => void start()}
-            className="underline hover:text-neutral-700"
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void start()}
+          className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-600 hover:border-neutral-500"
+        >
+          + Hội thoại mới
+        </button>
+
+        {threads.map((thread) => (
+          <span
+            key={thread.id}
+            className={`group flex items-center gap-1 rounded border px-2 py-1 text-xs ${
+              thread.id === conversation?.id
+                ? "border-neutral-900 bg-neutral-900 text-white"
+                : "border-neutral-300 text-neutral-600 hover:border-neutral-500"
+            }`}
           >
-            Hội thoại mới
-          </button>
-        </p>
-      ) : null}
+            <button type="button" onClick={() => void open(thread)}>
+              {thread.title || "Hội thoại"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void remove(thread)}
+              title="Xoá hội thoại"
+              className="opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
 
       {/* Said out loud rather than left to be inferred. Past the window the
           model reads a summary instead of the original turns, and a reader who
@@ -256,7 +337,10 @@ export function ChatPanel() {
             Dừng
           </button>
         ) : (
-          <PrimaryButton onClick={() => void send()} disabled={draft.trim() === ""}>
+          <PrimaryButton
+            onClick={() => void send()}
+            disabled={draft.trim() === ""}
+          >
             Gửi
           </PrimaryButton>
         )}
