@@ -952,6 +952,35 @@ nên khi chạy nhiều instance API thì key bị thu hồi ở instance này v
 instance kia — **hạn dùng 60 giây mới là thứ chặn cửa sổ đó**, không phải việc
 xoá cache.
 
+### Kết nối mạng xã hội (`@repo/connectors`)
+
+| Thành phần      | Chọn gì                                                      | Vì sao                                                                                                                                  |
+| --------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Luồng           | OAuth2 authorization code, PKCE khi nền tảng hỗ trợ          | Người dùng gõ mật khẩu vào đúng trang sở hữu nó, thấy rõ đang cấp gì, và thu hồi được từ cài đặt của nền tảng mà không cần quay lại đây |
+| `state`         | Sinh ngẫu nhiên, lưu ở Redis, **dùng một lần** bằng `GETDEL` | `state` đọc được hai lần là mã đổi token replay được. `GETDEL` chứ không get-rồi-delete vì hai callback về cùng lúc sẽ cùng tìm thấy nó |
+| Workspace       | **Không bao giờ nằm trong URL**                              | Ai cũng gọi được callback. Nếu workspace đi trong redirect thì ai cũng gắn được tài khoản vào workspace mình chọn                       |
+| So sánh `state` | `timingSafeEqual`, kiểm tra độ dài trước                     | `state` là giá trị do người gọi callback nộp lên, tức là do bất kỳ ai                                                                   |
+| Token           | Niêm vào kho bí mật, bảng chỉ giữ tham chiếu                 | Cùng lý do với `Secret`: một dòng log serialize kết nối không được phép mang theo credential cho khán giả của ai đó                     |
+| Scope           | Ghi lại **cái được cấp**, không phải cái đã xin              | Nền tảng có thể cấp ít hơn, và chênh lệch đó chính là thứ workspace thật sự làm được                                                    |
+| Endpoint        | Cho phép ghi đè bằng biến môi trường; **scope thì không**    | Nhà cung cấp đánh phiên bản API và có host sandbox. Nhưng nới quyền tác động lên khán giả phải là thay đổi mã nguồn có người xem        |
+
+**Callback chạy không xác thực, và buộc phải thế.** Trình duyệt quay về từ
+Facebook không mang theo token nào của mình. Toàn bộ thẩm quyền nằm ở chỗ
+`state` tra ra được một bản ghi do chính server này viết — nên bản ghi đó chỉ
+dùng một lần, và `state` lạ bị từ chối thẳng chứ không được coi là luồng mới.
+
+**Ba nền tảng, không phải mười.** `docs/ROADMAP.md` Phase 3 liệt kê mười.
+Facebook, TikTok, Threads đã có; bảy cái còn lại **vắng mặt chứ không phải
+stub** — một nền tảng hiện trong danh sách mà không kết nối được là thứ tệ hơn
+danh sách ngắn, vì người dùng chỉ phát hiện ra sau khi đã cấp quyền.
+
+**Giới hạn nói rõ:** kết nối là _tài khoản người dùng_, chưa phải _trang_.
+Chọn trang nào để đăng là bước thứ hai, gọi vào `/me/accounts` — thứ trả về một
+danh sách chứ không phải một tài khoản, tức là hình dạng khác hẳn, và không có
+trong bản này. Và toàn bộ luồng mới được kiểm chứng với **một máy chủ OAuth
+thật do test dựng lên**, chưa phải với Facebook thật — cái đó cần khoá ứng dụng
+của người vận hành.
+
 ---
 
 ## 10. Frontend
@@ -1187,6 +1216,7 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | NATS JetStream              | Chưa. Đang dùng Redis + `InMemoryEventBus`. Quyết định có chủ đích: dùng Redis trước, nâng cấp sau                                                                                                                               |
 | Meilisearch                 | Chưa                                                                                                                                                                                                                             |
+| Social Connectors           | Có luồng OAuth cho Facebook / TikTok / Threads, token nằm trong kho bí mật. Chưa có: chọn trang, đăng bài thật, webhook, inbox, và 7 nền tảng còn lại của Phase 3                                                                |
 | Prometheus / Grafana / Loki | Chưa. Mới có log dạng JSON, sẵn sàng để cắm vào                                                                                                                                                                                  |
 | OpenTelemetry / Jaeger      | Chưa. Mới có `correlationId` xuyên suốt một lần chạy                                                                                                                                                                             |
 | Swagger                     | Chưa sinh tài liệu API                                                                                                                                                                                                           |

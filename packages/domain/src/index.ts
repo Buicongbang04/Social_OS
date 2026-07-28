@@ -3,6 +3,7 @@ export * from "./entities/document.entity";
 export * from "./entities/membership.entity";
 export * from "./entities/organization.entity";
 export * from "./entities/secret.entity";
+export * from "./entities/social-account.entity";
 export * from "./entities/session.entity";
 export * from "./entities/user.entity";
 export * from "./entities/workspace-memory.entity";

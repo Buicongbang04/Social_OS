@@ -1,0 +1,153 @@
+import {
+  Controller,
+  Logger,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Res,
+} from "@nestjs/common";
+import { ValidationError, isId } from "@repo/core";
+import type { WorkspaceId } from "@repo/core";
+import type { Response } from "express";
+import {
+  CurrentUser,
+  Public,
+  type AuthenticatedUser,
+} from "../../common/decorators/public.decorator";
+import { RequirePermission } from "../../common/decorators/require-permission.decorator";
+import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
+import { parseRouteId } from "../../common/parse-id";
+import { ConnectionsService, returnUrl } from "./connections.service";
+
+/**
+ * Connecting a workspace to a social platform.
+ *
+ * Note what is not here: any route that returns a token. The credentials this
+ * flow produces go straight into the vault, and the connection rows carry only
+ * a reference — same rule as the secrets controller, for the same reason.
+ */
+@Controller("connections")
+export class ConnectionsController {
+  private readonly logger = new Logger(ConnectionsController.name);
+
+  constructor(private readonly connections: ConnectionsService) {}
+
+  @RequirePermission("workspace.connector.read")
+  @Get()
+  async list(@Headers(WORKSPACE_ID_HEADER) workspaceHeader: string) {
+    return this.connections.list(requireWorkspace(workspaceHeader));
+  }
+
+  /** The platforms on offer, and whether the operator has configured each. */
+  @RequirePermission("workspace.connector.read")
+  @Get("catalog")
+  catalog() {
+    return this.connections.catalog();
+  }
+
+  @RequirePermission("workspace.connector.manage")
+  @Post(":connectorId/start")
+  async start(
+    @Param("connectorId") connectorId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
+  ) {
+    return this.connections.start(
+      requireWorkspace(workspaceHeader),
+      user.userId,
+      connectorId,
+    );
+  }
+
+  /**
+   * Where the platform sends the browser back.
+   *
+   * Public, and it has to be: the request arrives straight from Facebook with
+   * none of our headers on it. All authority comes from `state` resolving to a
+   * record this server wrote, which is single use.
+   *
+   * It answers with a redirect rather than JSON because a person is looking at
+   * it — landing on a page of raw JSON after granting permissions reads as
+   * something having gone wrong even when it worked.
+   */
+  @Public()
+  @Get(":connectorId/callback")
+  async callback(
+    @Param("connectorId") connectorId: string,
+    @Query("state") state: string | undefined,
+    @Query("code") code: string | undefined,
+    @Query("error") error: string | undefined,
+    @Res() response: Response,
+  ): Promise<void> {
+    // The user pressed cancel on the platform's own screen. Not an error to
+    // report, just a decision to carry back.
+    if (error) {
+      response.redirect(
+        returnUrl({ connected: "cancelled", connector: connectorId }),
+      );
+      return;
+    }
+
+    if (!state || !code) {
+      response.redirect(
+        returnUrl({ connected: "failed", connector: connectorId }),
+      );
+      return;
+    }
+
+    try {
+      const result = await this.connections.complete({ state, code });
+      response.redirect(
+        returnUrl({
+          connected: "ok",
+          connector: result.connectorId,
+          account: result.account.displayName,
+        }),
+      );
+    } catch (caught: unknown) {
+      // Logged here rather than rethrown. Rethrowing would replace the
+      // redirect with an error page the person cannot act on — but swallowing
+      // it silently would leave the operator with a failed connection and
+      // nothing anywhere to say why, which is worse.
+      this.logger.error(
+        `Kết nối ${connectorId} thất bại: ${
+          caught instanceof Error ? caught.message : String(caught)
+        }`,
+      );
+
+      // The reason stays out of the URL. It can quote the platform's own error
+      // text, which lands in browser history and in every proxy log between
+      // here and the browser.
+      response.redirect(
+        returnUrl({ connected: "failed", connector: connectorId }),
+      );
+    }
+  }
+
+  @RequirePermission("workspace.connector.manage")
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async disconnect(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
+  ): Promise<void> {
+    await this.connections.disconnect(
+      requireWorkspace(workspaceHeader),
+      parseRouteId("socialAccount", id),
+      user.userId,
+    );
+  }
+}
+
+function requireWorkspace(header: string | undefined): WorkspaceId {
+  if (!header || !isId("workspace", header)) {
+    throw new ValidationError(`Thiếu hoặc sai header ${WORKSPACE_ID_HEADER}.`);
+  }
+  return header;
+}
