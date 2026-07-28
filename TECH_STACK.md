@@ -996,6 +996,30 @@ mà chạy lại **không sửa được sai lầm**. Nên nó từ chối nhi�
 Đăng lần lượt từng kênh chứ không song song: hỏng giữa chừng mà chạy song song
 thì không biết kênh nào đã đăng, và lần thử lại sẽ đăng trùng.
 
+### Đọc tin nhắn (`social.inbox`)
+
+Tiêu chí "Nhận tin nhắn" của Phase 3. **Hỏi định kỳ, không phải webhook** — và
+đó là giới hạn thật chứ không phải đường tắt: webhook cần app đã được nền tảng
+duyệt và một URL công khai để nhận, còn cách này chỉ cần token Page đã có. Đổi
+lại tin nhắn tới chậm vài phút thay vì tức thời.
+
+| Quyết định                                              | Vì sao                                                                                                                                                                        |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chỉ đọc**, không trả lời được                         | Trả lời khách hàng thay người ta là quyết định lớn hơn hẳn việc đọc. Gộp chung nghĩa là muốn cái này phải cấp luôn cái kia                                                    |
+| Đọc **mọi kênh** đã nối, khác hẳn lúc đăng              | Đọc nhầm hộp thư chỉ cho ai đó xem thứ họ vốn có quyền xem; đăng nhầm khán giả thì không lấy lại được. Sự bất đối xứng đó là lý do hai capability chọn mục tiêu theo hai cách |
+| Cắt tin nhắn còn 200 ký tự                              | Chuỗi này rơi vào log, vào task output lưu vĩnh viễn, và vào context của model. Cả bức thư của khách không cần có mặt ở chỗ nào trong số đó                                   |
+| Lấy tên người **khác** Page trong danh sách participant | Page cũng là một participant trong chính thread của nó. Lấy tên đầu danh sách sẽ gắn nhãn mọi thread bằng tên Page — vô nghĩa với người đọc                                   |
+| Không phụ thuộc `SOCIAL_PUBLISH_LIVE`                   | Đọc tin khách đã gửi không thay đổi gì ngoài đời; đăng bài thì có. Gộp cờ nghĩa là phải bật cái nguy hiểm để dùng cái vô hại                                                  |
+
+**Nói thẳng:** việc này đưa tin nhắn của khách hàng vào context của model. Đó
+chính là thứ khiến việc tóm tắt trở nên khả thi, và cũng là điều một workspace
+nên biết mình đã bật.
+
+**Insights chưa làm.** Thăm dò với token thật cho thấy `page_impressions` và
+`post_impressions` đều bị Graph v21 từ chối là "metric không hợp lệ" — Meta đã
+bỏ nhiều chỉ số. Tôi không đoán tên thay thế; đó là việc phải tra cứu chứ không
+phải suy luận.
+
 **Nối Page bằng token dán tay** nằm **cạnh** OAuth chứ không thay thế. Lý do
 thực dụng: đưa một ứng dụng Meta qua vòng xét duyệt mất hàng tuần, và người đã
 có sẵn token cho Page của chính mình không nên bị chặn tới lúc đó. Token được

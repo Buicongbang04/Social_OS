@@ -39,7 +39,7 @@ export type PublishTarget = {
 
 const GRAPH_VERSION = "v21.0";
 
-function graphBase(env: NodeJS.ProcessEnv = process.env): string {
+export function graphBase(env: NodeJS.ProcessEnv = process.env): string {
   return (
     env.FACEBOOK_GRAPH_URL?.trim() ||
     `https://graph.facebook.com/${GRAPH_VERSION}`

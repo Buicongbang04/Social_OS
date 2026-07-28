@@ -20,7 +20,7 @@ import {
 import { Keyring } from "@repo/secrets";
 import { RuntimeError, type CapabilityContext } from "@repo/runtime";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { buildSocialPublish } from "./capabilities/social";
+import { buildSocialInbox, buildSocialPublish } from "./capabilities/social";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -41,6 +41,7 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
   let secrets: DrizzleSecretRepository;
   let publish: ReturnType<typeof buildSocialPublish>;
   let unattendedPublish: ReturnType<typeof buildSocialPublish>;
+  let inbox: ReturnType<typeof buildSocialInbox>;
   let workspaceId: WorkspaceId;
   let userId: UserId;
 
@@ -51,6 +52,8 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
   /** What the fake Page already has on it, for the duplicate check to find. */
   let existingPosts: { id: string; message: string; created_time: string }[];
   let feedReads: number;
+  /** What the fake Page's inbox holds. */
+  let conversations: unknown[];
 
   const context = (
     inputs: Record<string, unknown> = {},
@@ -108,6 +111,15 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
         // A feed read is the duplicate check, not a publish. Answered
         // separately so a test can say "this post is already there" without
         // changing how the publish itself behaves.
+        if (
+          request.method === "GET" &&
+          request.url?.includes("/conversations")
+        ) {
+          response.writeHead(200, { "content-type": "application/json" });
+          response.end(JSON.stringify({ data: conversations }));
+          return;
+        }
+
         if (request.method === "GET" && request.url?.includes("/feed?")) {
           feedReads += 1;
           response.writeHead(200, { "content-type": "application/json" });
@@ -144,6 +156,7 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
       keyring,
       allowUnattended: false,
     });
+    inbox = buildSocialInbox({ accounts, secrets, keyring });
     unattendedPublish = buildSocialPublish({
       accounts,
       secrets,
@@ -165,6 +178,7 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     behaviour = { status: 200, body: JSON.stringify({ id: "page-1_777" }) };
     existingPosts = [];
     feedReads = 0;
+    conversations = [];
 
     const organizationId = newId("organization");
     userId = newId("user");
@@ -544,6 +558,77 @@ describe.skipIf(!DATABASE_URL)("social.publish (integration)", () => {
     await publish.handler(context({}, { "content.generate": { body: "x" } }));
 
     expect(feedReads).toBe(0);
+  });
+
+  it("reads the inbox of a connected channel", async () => {
+    await connect("page-1", "Trang một");
+    conversations = [
+      {
+        id: "t_1",
+        updated_time: "2026-07-28T10:00:00+0000",
+        unread_count: 1,
+        participants: {
+          data: [
+            { id: "page-1", name: "Trang một" },
+            { id: "u_9", name: "Khách A" },
+          ],
+        },
+        messages: { data: [{ message: "Ship về Đà Nẵng bao nhiêu?" }] },
+      },
+    ];
+
+    const result = await inbox.handler(context());
+
+    expect(result.total).toBe(1);
+    expect(result.unread).toBe(1);
+    const threads = result.threads as {
+      participant: string;
+      account: string;
+    }[];
+    expect(threads[0]?.participant).toBe("Khách A");
+    expect(threads[0]?.account).toBe("Trang một");
+  });
+
+  it("reads every connected channel, unlike publishing", async () => {
+    // The asymmetry is deliberate. Reading the wrong inbox shows someone what
+    // they already had a right to see; posting to the wrong audience cannot be
+    // taken back.
+    await connect("page-1", "Trang một");
+    await connect("page-2", "Trang hai");
+    conversations = [
+      {
+        id: "t_1",
+        updated_time: "2026-07-28T10:00:00+0000",
+        unread_count: 0,
+        participants: { data: [{ id: "u_9", name: "Khách A" }] },
+        messages: { data: [{ message: "xin chào" }] },
+      },
+    ];
+
+    const result = await inbox.handler(context());
+
+    // One thread per channel, and no refusal to choose between them.
+    expect(result.total).toBe(2);
+  });
+
+  it("says so plainly when there is no channel to read", async () => {
+    const failure = (await inbox
+      .handler(context())
+      .catch((error: unknown) => error)) as RuntimeError;
+
+    expect(failure).toBeInstanceOf(RuntimeError);
+    expect(failure.retryable).toBe(false);
+  });
+
+  it("does not read a revoked connection", async () => {
+    const account = await connect("page-1", "Trang một");
+    await accounts.updateStatus(account.id, "REVOKED", userId);
+
+    const failure = (await inbox
+      .handler(context())
+      .catch((error: unknown) => error)) as RuntimeError;
+
+    expect(failure).toBeInstanceOf(RuntimeError);
   });
 
   it("does not report a post the platform never confirmed", async () => {

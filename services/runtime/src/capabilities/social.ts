@@ -1,5 +1,6 @@
 import {
   canPublish,
+  fetchInbox,
   findConnector,
   findRecentPost,
   publishToFacebook,
@@ -39,6 +40,18 @@ export type SocialPublisherDeps = {
    */
   allowUnattended: boolean;
 };
+
+/**
+ * What is needed to read a connection and open its credential.
+ *
+ * Narrower than `SocialPublisherDeps` because the helpers below only read —
+ * asking for the publish switch as well would let a change to publishing
+ * ripple into code that has nothing to do with it.
+ */
+export type VaultAccess = Pick<
+  SocialPublisherDeps,
+  "accounts" | "secrets" | "keyring"
+>;
 
 /** The shape sealed in the vault by both the OAuth and the paste-a-token path. */
 type StoredTokens = { accessToken: string; refreshToken: string | null };
@@ -123,6 +136,79 @@ export function buildSocialPublish(
         // Named accounts rather than a count, because "3 posts" in a run log
         // does not say which audiences saw it.
         platform: targets.map((account) => account.connectorId),
+      };
+    },
+  };
+}
+
+/**
+ * Read the inbox of every connected channel.
+ *
+ * Read-only, and that is the whole design. It reports who wrote, when, and a
+ * trimmed snippet — enough for a Goal to say "three people are waiting on a
+ * reply about shipping" — and it cannot answer anybody. Replying on somebody's
+ * behalf to their customers is a much larger decision than reading, and
+ * bundling the two would mean granting one to get the other.
+ *
+ * Worth saying plainly: this puts customers' messages into a model's context.
+ * That is what makes summarising them possible, and it is also a thing a
+ * workspace should know it has switched on.
+ */
+export function buildSocialInbox(deps: VaultAccess): CapabilityImplementation {
+  return {
+    descriptor: {
+      id: "social.inbox",
+      name: "Read Social Inbox",
+      description:
+        "Đọc tin nhắn khách gửi tới các kênh đã kết nối. CHỈ ĐỌC — không trả lời được.",
+      version: "1.0.0",
+      category: "Social",
+      supportedWorkers: ["FUNCTION"],
+      permissions: ["workspace.workflow.execute"],
+    },
+    handler: async (context) => {
+      const accounts = (await deps.accounts.list(context.workspaceId)).filter(
+        (account) => {
+          if (account.status !== "ACTIVE") return false;
+          const connector = findConnector(account.connectorId);
+          return connector !== null && canPublish(connector);
+        },
+      );
+
+      if (accounts.length === 0) {
+        throw new RuntimeError(
+          "VALIDATION",
+          "Workspace chưa kết nối kênh nào để đọc tin nhắn.",
+          { retryable: false },
+        );
+      }
+
+      const limit = Number(context.inputs.limit) || 20;
+      const threads: Metadata[] = [];
+
+      // Every channel, unlike publishing. Reading from the wrong inbox tells
+      // someone something they already had a right to see; posting to the
+      // wrong audience cannot be taken back. The asymmetry is the reason these
+      // two capabilities resolve their targets differently.
+      for (const account of accounts) {
+        const token = await openToken(deps, context.workspaceId, account);
+        const inbox = await fetchInbox(
+          { externalId: account.externalId, accessToken: token },
+          { limit },
+        ).catch(async (error: unknown) => {
+          await markIfCredentialDead(deps, account, error);
+          throw error;
+        });
+
+        for (const thread of inbox) {
+          threads.push({ ...thread, account: account.displayName });
+        }
+      }
+
+      return {
+        threads,
+        total: threads.length,
+        unread: threads.filter((thread) => thread.unread === true).length,
       };
     },
   };
@@ -253,7 +339,7 @@ function joined(title: unknown, body: unknown): string | null {
  * a round trip to learn nothing.
  */
 async function publishOnce(
-  deps: SocialPublisherDeps,
+  deps: VaultAccess,
   account: SocialAccount,
   target: { externalId: string; accessToken: string },
   draft: PostDraft,
@@ -296,7 +382,7 @@ async function publishOnce(
  * caller can act on into a different failure about bookkeeping.
  */
 async function markIfCredentialDead(
-  deps: SocialPublisherDeps,
+  deps: VaultAccess,
   account: SocialAccount,
   error: unknown,
 ): Promise<void> {
@@ -321,7 +407,7 @@ async function markIfCredentialDead(
  * between revoking access and asking politely.
  */
 async function openToken(
-  deps: SocialPublisherDeps,
+  deps: VaultAccess,
   workspaceId: WorkspaceId,
   account: SocialAccount,
 ): Promise<string> {
