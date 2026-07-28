@@ -294,3 +294,19 @@ export type ChatStreamEvent =
   | { type: "sources"; citations: Citation[] }
   | { type: "done"; message: ChatMessage }
   | { type: "error"; message: string; partial: ChatMessage | null };
+
+/**
+ * One durable fact the platform remembers about a workspace.
+ *
+ * Exposed so it can be shown and edited. Memory that shapes every answer and
+ * cannot be inspected is the frightening kind: when it is wrong, the only
+ * symptom is that the output has quietly been wrong for a while.
+ */
+export type WorkspaceMemory = {
+  id: string;
+  workspaceId: string;
+  key: string;
+  value: string;
+  source: "MANUAL" | "LEARNED";
+  updatedAt: string;
+};

@@ -17,10 +17,13 @@ import {
   type WorkspaceId,
 } from "@repo/core";
 import type { KnowledgeService } from "@repo/knowledge";
+import { WORKSPACE_MEMORY_REPOSITORY } from "../../infra/database/database.module";
 import type {
   Conversation,
   ConversationRepository,
   Message,
+  WorkspaceMemory,
+  WorkspaceMemoryRepository,
 } from "@repo/domain";
 import { AI_USAGE_REPOSITORY } from "../../infra/database/database.module";
 import { CONVERSATION_REPOSITORY } from "../../infra/database/database.module";
@@ -93,6 +96,8 @@ export class ChatService {
     @Inject(AI_USAGE_REPOSITORY) private readonly usage: AiUsageRecorder,
     @Inject(KNOWLEDGE_SERVICE)
     private readonly knowledge: KnowledgeService | null,
+    @Inject(WORKSPACE_MEMORY_REPOSITORY)
+    private readonly memory: WorkspaceMemoryRepository,
   ) {}
 
   async createConversation(
@@ -188,11 +193,23 @@ export class ChatService {
     const citations = await this.lookUp(input.workspaceId, content);
     if (citations.length > 0) yield { type: "sources", citations };
 
+    // What the workspace has told the platform to remember. Read per turn
+    // rather than cached: someone changing the brand voice expects the next
+    // message to use it, not the next deploy.
+    const remembered = await this.memory.list(input.workspaceId);
+
     let text = "";
 
     try {
       for await (const chunk of gateway.stream(
-        { messages: toPrompt(history, conversation.summary, citations) },
+        {
+          messages: toPrompt(
+            history,
+            conversation.summary,
+            citations,
+            remembered,
+          ),
+        },
         input.signal,
       )) {
         if (chunk.type === "text") {
@@ -425,11 +442,26 @@ function toPrompt(
   history: readonly Message[],
   summary: string | null,
   citations: readonly Citation[] = [],
+  remembered: readonly WorkspaceMemory[] = [],
 ): ProviderMessage[] {
   const recent = history.slice(-HISTORY_TURNS);
 
   return [
     { role: "system", content: CHAT_PROMPT.text },
+    // Standing facts about this workspace, before anything else: they are
+    // meant to shape how every answer is written, not to compete with the
+    // question for attention at the end of the prompt.
+    ...(remembered.length > 0
+      ? [
+          {
+            role: "system" as const,
+            content: [
+              "GHI NHỚ VỀ WORKSPACE NÀY (áp dụng cho mọi câu trả lời):",
+              ...remembered.map((fact) => `- ${fact.key}: ${fact.value}`),
+            ].join("\n"),
+          },
+        ]
+      : []),
     // Labelled as a summary rather than replayed as dialogue, so the model
     // does not quote it back as something the user said in those words.
     ...(summary

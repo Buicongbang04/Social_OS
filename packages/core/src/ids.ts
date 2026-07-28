@@ -33,6 +33,8 @@ export const ID_PREFIXES = {
   // Message is one turn in it.
   conversation: "cnv",
   message: "msg",
+  /** One durable fact about a workspace (docs/ai/06_AGENT_MEMORY.md). */
+  workspaceMemory: "mem",
 } as const;
 
 export type IdPrefixName = keyof typeof ID_PREFIXES;
@@ -69,6 +71,7 @@ export type DocumentId = Branded<"document">;
 export type ChunkId = Branded<"chunk">;
 export type ConversationId = Branded<"conversation">;
 export type MessageId = Branded<"message">;
+export type WorkspaceMemoryId = Branded<"workspaceMemory">;
 
 export type IdOf<TName extends IdPrefixName> = Branded<TName>;
 
