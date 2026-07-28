@@ -1,6 +1,7 @@
 import { APICallError } from "ai";
 import type {
   AdapterResult,
+  AdapterStreamChunk,
   EmbeddingRequest,
   EmbeddingResult,
   ProviderAdapter,
@@ -36,6 +37,19 @@ export type StubAdapterOptions = {
   embeddingDimensions?: number;
   inputTokens?: number;
   outputTokens?: number;
+  /**
+   * Characters per streamed chunk. Omit to make this stub unable to stream,
+   * which is how a provider without streaming support behaves.
+   */
+  streamChunkSize?: number;
+  /**
+   * Fail after this many chunks have been delivered.
+   *
+   * The case the Gateway's whole streaming design turns on: a failure the
+   * caller has already seen part of the answer for, which must not fall back
+   * to another provider.
+   */
+  failAfterChunks?: number;
 };
 
 /**
@@ -69,6 +83,9 @@ export class StubProviderAdapter implements ProviderAdapter {
     // method is there.
     if (options.embeddingDimensions !== undefined) {
       this.embed = (request) => this.fakeEmbed(request);
+    }
+    if (options.streamChunkSize !== undefined) {
+      this.stream = (request) => this.fakeStream(request);
     }
   }
 
@@ -117,6 +134,47 @@ export class StubProviderAdapter implements ProviderAdapter {
   async generate(request: ProviderRequest): Promise<AdapterResult> {
     const reply = this.replyFor(request);
     return this.result(request, "text" in reply ? reply.text : "");
+  }
+
+  stream?: (
+    request: ProviderRequest,
+  ) => AsyncGenerator<AdapterStreamChunk, void, undefined>;
+
+  /**
+   * The canned reply, cut into pieces.
+   *
+   * An instance property assigned in the constructor rather than a method, for
+   * the same reason `embed` is: a method lives on the prototype where `delete`
+   * cannot reach it, and a stub has to be able to model a provider that does
+   * not stream at all.
+   */
+  private async *fakeStream(
+    request: ProviderRequest,
+  ): AsyncGenerator<AdapterStreamChunk, void, undefined> {
+    const reply = this.replyFor(request);
+    const text = "text" in reply ? reply.text : "";
+    const size = Math.max(1, this.options.streamChunkSize ?? 8);
+
+    let delivered = 0;
+    for (let at = 0; at < text.length; at += size) {
+      if (
+        this.options.failAfterChunks !== undefined &&
+        delivered >= this.options.failAfterChunks
+      ) {
+        throw new APICallError({
+          message: `Stub provider ${this.provider} dropped the stream.`,
+          url: `stub://${this.provider}`,
+          requestBodyValues: {},
+          statusCode: 503,
+          isRetryable: true,
+        });
+      }
+
+      delivered += 1;
+      yield { type: "text", delta: text.slice(at, at + size) };
+    }
+
+    yield { type: "done", result: this.result(request, text) };
   }
 
   async generateObject<T>(

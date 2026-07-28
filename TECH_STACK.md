@@ -457,6 +457,27 @@ bắt buộc cho mô hình AI.
 - Kiểu suy ra rất phức tạp, làm chậm trình biên dịch trên schema lớn.
 - Đang có sự chia rẽ giữa zod 3 và zod 4 trong hệ sinh thái.
 
+**Streaming: fallback dừng ngay khi chunk đầu tiên rời khỏi Gateway.** Trước đó
+chưa ai thấy gì nên đổi provider là vô hình và an toàn. Sau đó, thử lại nghĩa là
+phát lại câu trả lời từ đầu **đè lên** phần người đọc đã thấy — hai nửa câu trả
+lời dán vào nhau, và không có gì ở dưới phân biệt được. Nên hỏng giữa chừng là
+hỏng, và lỗi ném ra mang theo phần đã sinh, vì nhà cung cấp **đã tính tiền**
+những token đó dù câu trả lời không dùng được.
+
+**Giao thức OpenAI chỉ báo token khi stream nếu request có
+`stream_options: {include_usage: true}`.** Không có nó, **mọi** lời gọi stream
+trả về usage bằng 0, mà 0 token thì tính ra 0 đồng. Lời gọi không stream không
+bị ảnh hưởng, nên lỗi này vô hình cho tới khi có thứ gì đó thật sự stream: đo
+trên cùng một model, `generate()` báo 38/25 token còn `stream()` báo 0/0.
+
+**Đọc `result.stream`, không phải `result.textStream`.** `textStream` bỏ im
+lặng tool call — người gọi yêu cầu một tool sẽ thấy model không nói gì rồi kết
+thúc.
+
+**Có seam `fetch` để test được thứ thật sự đi trên dây.** Vài lỗi ở tầng adapter
+đều vô hình nếu chỉ nhìn từ trên: một schema bị SDK bỏ rơi, một cờ usage không
+được gửi. Cách trung thực duy nhất để test là nhìn vào chính request body.
+
 ### Lưu ý khi làm nền tảng này
 
 **AI SDK chỉ có ESM còn repo build ra CommonJS.** Chỉ chạy được nhờ

@@ -11,6 +11,7 @@ import {
   ProviderGateway,
   type GatewayConfig,
 } from "./gateway";
+import { ProviderStreamError } from "./errors";
 import { ProviderRegistry } from "./registry";
 import { structured } from "./structured";
 import {
@@ -19,6 +20,7 @@ import {
   type ProviderAdapter,
   type ProviderName,
   type ProviderRequest,
+  type ProviderResponse,
 } from "./types";
 
 const ASK: ProviderRequest = {
@@ -468,5 +470,220 @@ describe("provider gateway — embedding adapters written as classes", () => {
     const result = await gateway.embed({ texts: ["x"] });
 
     expect(result.model).toBe("class-embed");
+  });
+});
+
+describe("provider gateway — streaming", () => {
+  /** Collect a stream into its deltas and its final response. */
+  async function drain(gateway: ProviderGateway, request = ASK) {
+    const deltas: string[] = [];
+    let done: ProviderResponse | undefined;
+
+    for await (const chunk of gateway.stream(request)) {
+      if (chunk.type === "text") deltas.push(chunk.delta);
+      if (chunk.type === "done") done = chunk.response;
+    }
+
+    return { deltas, done, text: deltas.join("") };
+  }
+
+  it("delivers the answer in pieces and finishes with the whole thing", async () => {
+    const { gateway } = build({
+      anthropic: {
+        fallbackReply: { text: "Cà phê Việt Nam chủ yếu là robusta." },
+        streamChunkSize: 8,
+      },
+    });
+
+    const { deltas, text, done } = await drain(gateway);
+
+    expect(deltas.length).toBeGreaterThan(1);
+    expect(text).toBe("Cà phê Việt Nam chủ yếu là robusta.");
+    expect(done?.text).toBe(text);
+  });
+
+  it("prices the call on the final chunk", async () => {
+    // Usage is only knowable when the vendor ends the response, so metering
+    // happens there and nowhere else.
+    const { gateway } = build({
+      anthropic: {
+        // A model the price table knows. With the stub's own default the cost
+        // is legitimately zero and `priced` is false — which is the point of
+        // having both fields, and would make this assertion meaningless.
+        defaultModel: "claude-sonnet-5",
+        fallbackReply: { text: "xin chào" },
+        streamChunkSize: 4,
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+      },
+    });
+
+    const { done } = await drain(gateway);
+
+    expect(done?.usage.inputTokens).toBe(1_000_000);
+    expect(done?.cost.priced).toBe(true);
+    expect(done?.cost.totalUsd).toBeCloseTo(3, 10);
+    expect(done?.latencyMs).toBeGreaterThan(0);
+  });
+
+  it("falls back to the next provider when the first fails before any chunk", async () => {
+    // Nothing has been shown yet, so switching provider is invisible and safe.
+    const { gateway } = build({
+      anthropic: {
+        fallbackReply: { failWith: { statusCode: 503 } },
+        streamChunkSize: 8,
+      },
+      openai: { fallbackReply: { text: "trả lời từ openai" }, streamChunkSize: 8 },
+    });
+
+    const { text, done } = await drain(gateway);
+
+    expect(text).toBe("trả lời từ openai");
+    expect(done?.provider).toBe("openai");
+  });
+
+  it("does NOT fall back once the caller has seen part of the answer", async () => {
+    // The decision the whole design turns on. Retrying here replays the answer
+    // from the beginning on top of text the reader already has, and nothing
+    // downstream can tell the two apart.
+    const { gateway, stubs } = build({
+      anthropic: {
+        fallbackReply: { text: "một câu trả lời khá dài để cắt ra nhiều mảnh" },
+        streamChunkSize: 5,
+        failAfterChunks: 2,
+      },
+      openai: { fallbackReply: { text: "KHÔNG ĐƯỢC DÙNG" }, streamChunkSize: 5 },
+    });
+
+    const seen: string[] = [];
+    await expect(
+      (async () => {
+        for await (const chunk of gateway.stream(ASK)) {
+          if (chunk.type === "text") seen.push(chunk.delta);
+        }
+      })(),
+    ).rejects.toThrow(ProviderStreamError);
+
+    expect(seen).toHaveLength(2);
+    expect(stubs.openai?.calls).toHaveLength(0);
+  });
+
+  it("carries what was already produced on a mid-stream failure", async () => {
+    // The vendor charged for those tokens whether or not the answer is usable.
+    const { gateway } = build({
+      anthropic: {
+        fallbackReply: { text: "abcdefghij" },
+        streamChunkSize: 2,
+        failAfterChunks: 3,
+      },
+    });
+
+    try {
+      for await (const _ of gateway.stream(ASK)) {
+        // drained for the error
+      }
+      expect.unreachable("the stream should have failed");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ProviderStreamError);
+      expect((error as ProviderStreamError).partial.textSoFar).toBe("abcdef");
+    }
+  });
+
+  it("is not retryable once it has failed mid-stream", async () => {
+    const { gateway } = build({
+      anthropic: {
+        fallbackReply: { text: "abcdefghij" },
+        streamChunkSize: 2,
+        failAfterChunks: 1,
+      },
+    });
+
+    try {
+      for await (const _ of gateway.stream(ASK)) {
+        // drained for the error
+      }
+      expect.unreachable("the stream should have failed");
+    } catch (error) {
+      expect((error as RuntimeError).retryable).toBe(false);
+    }
+  });
+
+  it("skips a provider that cannot stream", async () => {
+    const { gateway } = build({
+      anthropic: { fallbackReply: { text: "không stream được" } },
+      openai: { fallbackReply: { text: "stream được" }, streamChunkSize: 4 },
+    });
+
+    const { done } = await drain(gateway);
+
+    expect(done?.provider).toBe("openai");
+  });
+
+  it("treats a stream that ends without finishing as a failure", async () => {
+    // A vendor that closes the connection after some text and never reports
+    // usage. Accepting it would mean billing nothing for tokens that were
+    // charged, and any caller waiting for the final chunk would wait for ever.
+    class TruncatingAdapter implements ProviderAdapter {
+      readonly provider = "openai" as const;
+      readonly defaultModel = "truncating";
+
+      generate(): Promise<never> {
+        throw new Error("not used");
+      }
+      generateObject(): Promise<never> {
+        throw new Error("not used");
+      }
+      async *stream(): AsyncGenerator<
+        { type: "text"; delta: string },
+        void,
+        undefined
+      > {
+        yield { type: "text", delta: "một nửa câu" };
+      }
+    }
+
+    const clock = fakeClock();
+    const registry = new ProviderRegistry(clock.registryNow);
+    registry.register(new TruncatingAdapter(), describeProvider("openai"));
+    const gateway = new ProviderGateway(
+      registry,
+      { ...DEFAULT_GATEWAY_CONFIG, default: "openai" },
+      clock.gateway,
+    );
+
+    await expect(
+      (async () => {
+        for await (const _ of gateway.stream(ASK)) {
+          // drained for the error
+        }
+      })(),
+    ).rejects.toThrow(/without finishing/i);
+  });
+
+  it("says so clearly when nothing registered can stream", async () => {
+    const { gateway } = build({ anthropic: { fallbackReply: { text: "x" } } });
+
+    await expect(
+      (async () => {
+        for await (const _ of gateway.stream(ASK)) {
+          // never reached
+        }
+      })(),
+    ).rejects.toThrow(/no registered provider can stream/i);
+  });
+
+  it("refuses a pinned provider that cannot stream", async () => {
+    const { gateway } = build({
+      anthropic: { fallbackReply: { text: "x" } },
+      openai: { fallbackReply: { text: "y" }, streamChunkSize: 4 },
+    });
+
+    await expect(
+      (async () => {
+        for await (const _ of gateway.stream({ ...ASK, provider: "anthropic" })) {
+          // never reached
+        }
+      })(),
+    ).rejects.toThrow(/cannot stream/i);
   });
 });

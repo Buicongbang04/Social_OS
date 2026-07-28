@@ -1,4 +1,5 @@
 import { RuntimeError } from "@repo/runtime";
+import type { StreamFailure } from "./types";
 import { APICallError } from "ai";
 import type { ProviderName } from "./types";
 import type { ProviderStatus } from "./registry";
@@ -109,4 +110,44 @@ export function toRuntimeError(
       cause,
     },
   );
+}
+
+/**
+ * A stream that failed after the caller had already been given part of it.
+ *
+ * A RuntimeError subclass rather than a plain Error so the Runtime's retry
+ * classification still applies, but retryable is forced to false: retrying
+ * means replaying the answer from the start on top of text the reader already
+ * has, and nothing downstream can splice those together.
+ *
+ * `partial` exists because two things are true at once — the answer is
+ * unusable, and the vendor billed for the tokens behind it. Throwing without
+ * it would make a workspace's bill quietly understate what it spent.
+ */
+export class ProviderStreamError extends RuntimeError {
+  readonly partial: StreamFailure;
+
+  constructor(
+    message: string,
+    partial: StreamFailure,
+    context: {
+      provider: ProviderName;
+      model: string;
+      attempted: readonly ProviderName[];
+    },
+    cause?: unknown,
+  ) {
+    super("PROVIDER", message, {
+      retryable: false,
+      context: {
+        provider: context.provider,
+        model: context.model,
+        attemptedProviders: [...context.attempted],
+        charactersDelivered: partial.textSoFar.length,
+      },
+      cause,
+    });
+    this.name = "ProviderStreamError";
+    this.partial = partial;
+  }
 }

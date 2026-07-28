@@ -7,6 +7,7 @@ import {
   generateObject,
   generateText,
   jsonSchema,
+  streamText,
   tool,
   type EmbeddingModel,
   type JSONSchema7,
@@ -17,6 +18,7 @@ import {
 import { DEFAULT_EMBEDDING_MODELS } from "../provider/catalog";
 import type {
   AdapterResult,
+  AdapterStreamChunk,
   EmbeddingRequest,
   EmbeddingResult,
   FinishReason,
@@ -54,6 +56,15 @@ export type VercelAdapterOptions = {
   baseUrl?: string;
   /** Defaults to `minimal` for Ollama and `full` elsewhere. */
   schemaDialect?: SchemaDialect;
+  /**
+   * Replaces the SDK's HTTP client.
+   *
+   * A seam for tests, and specifically for asserting what actually goes on the
+   * wire. Several of the bugs found in this file were invisible above the
+   * request body — a schema the SDK dropped, a usage flag it did not send —
+   * and the only honest way to test those is to look at the bytes.
+   */
+  fetch?: typeof globalThis.fetch;
 };
 
 /**
@@ -102,6 +113,61 @@ export class VercelProviderAdapter implements ProviderAdapter {
       usage: toTokenUsage(result.usage),
       finishReason: toFinishReason(result.finishReason),
       metadata: { warnings: (result.warnings ?? []).length },
+    };
+  }
+
+  /**
+   * The same call as `generate`, delivered in pieces.
+   *
+   * Reads `result.stream` rather than `result.textStream` because tool calls
+   * have to come through too, and `textStream` drops them silently — a caller
+   * asking for a tool would see the model say nothing and finish.
+   *
+   * The `done` chunk is built from the promises the SDK resolves once the
+   * stream ends, so the usage on it is the vendor's own count rather than
+   * anything estimated here.
+   */
+  async *stream(
+    request: ProviderRequest,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AdapterStreamChunk, void, undefined> {
+    const model = request.model ?? this.defaultModel;
+    const result = streamText({
+      model: this.resolve(model),
+      ...toPrompt(request.messages),
+      ...(request.tools?.length
+        ? { tools: toToolSet(request.tools, this.dialect) }
+        : {}),
+      ...callSettings(request),
+      ...(signal ? { abortSignal: signal } : {}),
+    });
+
+    const toolCalls: ProviderToolCall[] = [];
+
+    for await (const part of result.stream) {
+      if (part.type === "text-delta") {
+        // Empty deltas happen and mean nothing; forwarding them would make a
+        // consumer counting chunks measure the vendor's framing, not the text.
+        if (part.text !== "") yield { type: "text", delta: part.text };
+      } else if (part.type === "tool-call") {
+        const call = toProviderToolCall(part);
+        toolCalls.push(call);
+        yield { type: "tool-call", call };
+      }
+      // Everything else — reasoning traces, sources, raw frames, step
+      // boundaries — is dropped on purpose. See StreamChunk.
+    }
+
+    yield {
+      type: "done",
+      result: {
+        model,
+        text: await result.text,
+        toolCalls,
+        usage: toTokenUsage(await result.usage),
+        finishReason: toFinishReason(await result.finishReason),
+        metadata: { streamed: true },
+      },
     };
   }
 
@@ -203,14 +269,19 @@ function buildEmbeddingResolver(
   const { apiKey, baseUrl } = options;
   const withKey = apiKey ? { apiKey } : {};
   const withUrl = baseUrl ? { baseURL: baseUrl } : {};
+  const withFetch = options.fetch ? { fetch: options.fetch } : {};
 
   switch (options.provider) {
     case "openai": {
-      const provider = createOpenAI({ ...withKey, ...withUrl });
+      const provider = createOpenAI({ ...withKey, ...withUrl, ...withFetch });
       return (model) => provider.textEmbeddingModel(model);
     }
     case "google": {
-      const provider = createGoogleGenerativeAI({ ...withKey, ...withUrl });
+      const provider = createGoogleGenerativeAI({
+        ...withKey,
+        ...withUrl,
+        ...withFetch,
+      });
       return (model) => provider.textEmbeddingModel(model);
     }
     case "ollama": {
@@ -219,6 +290,7 @@ function buildEmbeddingResolver(
         baseURL: baseUrl ?? "http://localhost:11434/v1",
         supportsStructuredOutputs: true,
         ...withKey,
+        ...withFetch,
       });
       return (model) => provider.textEmbeddingModel(model);
     }
@@ -235,18 +307,23 @@ function buildResolver(
   const { apiKey, baseUrl } = options;
   const withKey = apiKey ? { apiKey } : {};
   const withUrl = baseUrl ? { baseURL: baseUrl } : {};
+  const withFetch = options.fetch ? { fetch: options.fetch } : {};
 
   switch (options.provider) {
     case "anthropic": {
-      const provider = createAnthropic({ ...withKey, ...withUrl });
+      const provider = createAnthropic({ ...withKey, ...withUrl, ...withFetch });
       return (model) => provider(model);
     }
     case "openai": {
-      const provider = createOpenAI({ ...withKey, ...withUrl });
+      const provider = createOpenAI({ ...withKey, ...withUrl, ...withFetch });
       return (model) => provider(model);
     }
     case "google": {
-      const provider = createGoogleGenerativeAI({ ...withKey, ...withUrl });
+      const provider = createGoogleGenerativeAI({
+        ...withKey,
+        ...withUrl,
+        ...withFetch,
+      });
       return (model) => provider(model);
     }
     case "ollama": {
@@ -261,7 +338,16 @@ function buildResolver(
         // Ollama's OpenAI-compatible endpoint does support schema-constrained
         // output; the flag is what tells the SDK to send it.
         supportsStructuredOutputs: true,
+        // Sends `stream_options: {include_usage: true}`. The OpenAI protocol
+        // reports token counts on a streamed response ONLY when asked, so
+        // without this every streamed call comes back with a usage of zero —
+        // and zero usage prices to zero. Non-streaming calls are unaffected,
+        // which is why this is invisible until something actually streams:
+        // measured here, generate() reported 38/25 tokens for the same model
+        // that stream() reported 0/0 for.
+        includeUsage: true,
         ...withKey,
+        ...withFetch,
       });
       return (model) => provider(model);
     }
