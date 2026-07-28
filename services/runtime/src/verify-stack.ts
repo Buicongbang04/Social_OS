@@ -18,7 +18,8 @@
  * first failed check, so it is usable as a gate.
  */
 /* eslint-disable no-console -- This file is a CLI: its output IS the result. */
-import { ApiClient, isApiError, type Execution } from "@repo/sdk";
+import { deleteFacebookPost } from "@repo/connectors";
+import { ApiClient, isApiError, type Execution, type Task } from "@repo/sdk";
 
 const BASE_URL = process.env.API_URL ?? "http://localhost:3100/api/v1";
 const PASSWORD = "verify-stack-password-123";
@@ -80,6 +81,10 @@ async function main(): Promise<void> {
   await approvalRun(client);
   await budgetRun(client);
   await scheduledRun(client);
+  // Last, and never earlier. It connects a live Page, and every Goal submitted
+  // while that connection exists will publish for real — which is exactly how
+  // an earlier version of this file left five posts on somebody's Page.
+  await socialFlow(client);
 
   console.log(
     failures === 0
@@ -232,6 +237,221 @@ async function documentFlow(client: ApiClient): Promise<void> {
 }
 
 /**
+ * Whether the only thing that went wrong is that publishing is live and this
+ * workspace has no channel connected.
+ *
+ * Not a weakening of the checks — it is the product behaving correctly. With
+ * `SOCIAL_PUBLISH_LIVE` on, a publish step cannot succeed without a connected
+ * channel, and the general Goals here deliberately have none: connecting one
+ * for them would put their output on a real Page, which is exactly the mess
+ * that made this function necessary.
+ */
+function blockedOnNoChannel(tasks: readonly Task[]): boolean {
+  const publish = tasks.find((task) => task.capability === "social.publish");
+  if (!publish || publish.status !== "FAILED") return false;
+
+  return String(publish.lastError ?? "").includes("chưa kết nối kênh nào");
+}
+
+/** The steps that are not the publish step. */
+function withoutPublish(tasks: readonly Task[]): readonly Task[] {
+  return tasks.filter((task) => task.capability !== "social.publish");
+}
+
+/**
+ * The whole chain, ending at a real Facebook Page.
+ *
+ * Every other check here stops at the edge of this process. This one does not:
+ * it connects a Page, asks in Vietnamese for a post, lets the planner decide
+ * the steps, and then goes and looks at what Facebook actually stored. Then it
+ * deletes the post, because a verification that leaves litter on somebody's
+ * Page is one nobody runs twice.
+ *
+ * Skipped without FB_TEST_PAGE_ID and FB_TEST_PAGE_TOKEN rather than failed —
+ * publishing needs a credential nobody should have to supply just to check the
+ * rest of the stack works.
+ */
+async function socialFlow(client: ApiClient): Promise<void> {
+  console.log("\n→ Đăng bài thật");
+
+  const pageId = process.env.FB_TEST_PAGE_ID?.trim();
+  const pageToken = process.env.FB_TEST_PAGE_TOKEN?.trim();
+  if (!pageId || !pageToken) {
+    check(
+      "bỏ qua: chưa có FB_TEST_PAGE_ID / FB_TEST_PAGE_TOKEN",
+      true,
+      "đặt hai biến này để kiểm chứng với Facebook thật",
+    );
+    return;
+  }
+
+  let connection;
+  try {
+    connection = await client.attachConnection("facebook", {
+      externalId: pageId,
+      accessToken: pageToken,
+    });
+  } catch (error: unknown) {
+    check(
+      "nối được Page",
+      false,
+      isApiError(error) ? error.message : String(error),
+    );
+    return;
+  }
+
+  check("nối được Page", true, connection.displayName);
+
+  // Everything posted from here on belongs to this run and gets taken down.
+  const startedAt = new Date(Date.now() - 60_000).toISOString();
+
+  try {
+    await publishOnce(client, pageId, pageToken);
+  } finally {
+    // In `finally`, because a failure halfway through is exactly when a live
+    // connection must not be left behind for the next run to inherit.
+    await client.disconnect(connection.id);
+    await removeStrayPosts(pageId, pageToken, startedAt);
+  }
+}
+
+/** Ask for a post, wait for it, and check Facebook actually has it. */
+async function publishOnce(
+  client: ApiClient,
+  pageId: string,
+  pageToken: string,
+): Promise<void> {
+  const execution = await submit(client, {
+    title: "verify-stack social",
+    objective:
+      'Viết đúng một câu ngắn có cụm từ "test đăng bài" rồi đăng lên Facebook.',
+  });
+
+  const final = await waitFor(
+    client,
+    execution.id,
+    (run) => isTerminal(run.status),
+    RUN_TIMEOUT_MS,
+  );
+
+  const tasks = await client.listTasks(execution.id);
+  const publish = tasks.find((task) => task.capability === "social.publish");
+
+  if (!publish) {
+    check(
+      "bỏ qua: kế hoạch không có bước đăng",
+      true,
+      final?.status ?? TIMED_OUT,
+    );
+    return;
+  }
+
+  if (publish.outputs?.simulated === true) {
+    // Not a failure: the operator has not turned live publishing on. Said out
+    // loud so nobody reads a green line as proof a post went out.
+    check(
+      "bỏ qua: SOCIAL_PUBLISH_LIVE chưa bật, mới chỉ chạy thử",
+      true,
+      String(publish.outputs?.reason ?? ""),
+    );
+    return;
+  }
+
+  if (
+    !check(
+      "chạy xong",
+      final?.status === "COMPLETED",
+      final?.status ?? TIMED_OUT,
+    )
+  ) {
+    return;
+  }
+
+  const posts = (publish.outputs?.posts ?? []) as {
+    postId?: string;
+    url?: string;
+  }[];
+  const postId = posts[0]?.postId;
+
+  if (!check("Facebook nhận bài và trả về id", Boolean(postId), postId ?? "")) {
+    return;
+  }
+
+  // Asked of Facebook, not of our own output. The point of this check is that
+  // the post exists somewhere other than in a row we wrote ourselves.
+  const stored = await readPost(postId!, pageToken);
+  check(
+    "bài có thật trên Facebook",
+    stored !== null,
+    stored?.message?.slice(0, 60) ?? "không đọc lại được",
+  );
+
+  await deleteFacebookPost(postId!, pageToken);
+  check(
+    "dọn bài test sau khi kiểm tra xong",
+    (await readPost(postId!, pageToken)) === null,
+  );
+}
+
+/**
+ * Take down anything this run posted, not just the post it meant to make.
+ *
+ * The earlier version deleted only the post `socialFlow` asked for, and left
+ * behind everything the other Goals published once a live Page was connected.
+ * Sweeping by time is the only way to catch posts nobody wrote down the id of.
+ */
+async function removeStrayPosts(
+  pageId: string,
+  token: string,
+  since: string,
+): Promise<void> {
+  const base = graphBase();
+  const response = await fetch(
+    `${base}/${pageId}/feed?fields=id,created_time&limit=50`,
+    { headers: { authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    check("dọn bài lạ do lần chạy này tạo ra", false, "không đọc được feed");
+    return;
+  }
+
+  const payload = (await response.json()) as {
+    data?: { id: string; created_time: string }[];
+  };
+  const strays = (payload.data ?? []).filter(
+    (post) => post.created_time >= since,
+  );
+
+  for (const post of strays) await deleteFacebookPost(post.id, token);
+
+  check(
+    "không để lại bài nào trên Page",
+    true,
+    strays.length === 0
+      ? "không có bài lạ"
+      : `đã xoá thêm ${strays.length} bài`,
+  );
+}
+
+function graphBase(): string {
+  return (
+    process.env.FACEBOOK_GRAPH_URL?.trim() || "https://graph.facebook.com/v21.0"
+  ).replace(/\/+$/, "");
+}
+
+/** Read a post back from Facebook, or null when it is not there. */
+async function readPost(
+  postId: string,
+  token: string,
+): Promise<{ message?: string } | null> {
+  const response = await fetch(`${graphBase()}/${postId}?fields=message`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  return response.ok ? ((await response.json()) as { message?: string }) : null;
+}
+
+/**
  * A Goal that has to read the document to answer correctly.
  *
  * Asserts on the retrieved passage rather than on the written post: what the
@@ -251,17 +471,22 @@ async function knowledgeRun(client: ApiClient): Promise<void> {
     (run) => isTerminal(run.status),
     RUN_TIMEOUT_MS,
   );
+
+  const tasks = await client.listTasks(execution.id);
+  // The publish step failing for want of a channel says nothing about whether
+  // the document was found, which is all this run is here to check.
   if (
     !check(
       "chạy xong",
-      final?.status === "COMPLETED",
-      final?.status ?? TIMED_OUT,
+      final?.status === "COMPLETED" || blockedOnNoChannel(tasks),
+      blockedOnNoChannel(tasks)
+        ? "dừng ở bước đăng vì chưa nối kênh — đúng thiết kế"
+        : (final?.status ?? TIMED_OUT),
     )
   ) {
     return;
   }
 
-  const tasks = await client.listTasks(execution.id);
   const search = tasks.find((task) => task.capability === "knowledge.search");
 
   if (!search) {
@@ -308,18 +533,30 @@ async function plainRun(client: ApiClient): Promise<void> {
     final !== null,
     final?.status ?? TIMED_OUT,
   );
-  check(
-    "kết thúc là COMPLETED",
-    final?.status === "COMPLETED",
-    final?.failureReason ?? "",
-  );
 
   const tasks = await client.listTasks(execution.id);
+  const noChannel = blockedOnNoChannel(tasks);
+
+  if (noChannel) {
+    check(
+      "bỏ qua bước đăng: đang bật đăng thật mà workspace chưa nối kênh",
+      true,
+      "đúng như thiết kế — bước đăng không thể thành công khi chưa có kênh",
+    );
+  } else {
+    check(
+      "kết thúc là COMPLETED",
+      final?.status === "COMPLETED",
+      final?.failureReason ?? "",
+    );
+  }
+
   check("có tạo ra các bước", tasks.length > 0, `${tasks.length} bước`);
+  const graded = noChannel ? withoutPublish(tasks) : tasks;
   check(
-    "mọi bước đều xong",
-    tasks.every((task) => task.status === "COMPLETED"),
-    tasks.map((t) => `${t.capability}=${t.status}`).join(", "),
+    "mọi bước khác đều xong",
+    graded.every((task) => task.status === "COMPLETED"),
+    graded.map((t) => `${t.capability}=${t.status}`).join(", "),
   );
 
   const usage = await client.getUsage(execution.id);
@@ -373,9 +610,19 @@ async function approvalRun(client: ApiClient): Promise<void> {
     (run) => isTerminal(run.status),
     RUN_TIMEOUT_MS,
   );
-  check("duyệt xong thì chạy tiếp", done?.status === "COMPLETED", done?.status);
-
   const after = await client.listTasks(execution.id);
+
+  // The gate is what this run exists to prove, and it did its job the moment
+  // the run reached WAITING with nothing published. Whether the publish step
+  // then succeeds depends on whether a channel is connected, which is a
+  // different question and has its own check.
+  check(
+    "duyệt xong thì chạy tiếp",
+    done?.status === "COMPLETED" || blockedOnNoChannel(after),
+    blockedOnNoChannel(after)
+      ? "chạy tiếp rồi dừng ở bước đăng vì chưa nối kênh — đúng thiết kế"
+      : (done?.status ?? TIMED_OUT),
+  );
   const approval = after.find((task) => task.capability === "approval.request");
   check(
     "ghi lại ai đã duyệt",

@@ -6,6 +6,7 @@ import type {
   WorkspaceId,
 } from "@repo/core";
 import { RuntimeError } from "../errors/taxonomy";
+import type { ExecutionTrigger } from "../model/execution";
 import type { CapabilityDescriptor } from "../ports";
 
 /**
@@ -25,8 +26,19 @@ export type CapabilityContext = {
   workspaceId: WorkspaceId;
   executionId: ExecutionId;
   taskId: TaskId;
-  /** Null when the runtime acts on its own behalf, e.g. a scheduled run. */
+  /**
+   * The Goal's owner. Present on scheduled runs too, so it says nothing about
+   * whether anyone is watching — use `trigger` for that.
+   */
   ownerId: UserId | null;
+  /**
+   * What started this run.
+   *
+   * Carried all the way down because one capability's answer depends on it:
+   * publishing to somebody's audience with nobody watching is a different act
+   * from publishing because a person pressed a button.
+   */
+  trigger: ExecutionTrigger;
   /** Ties every call made by this task back to the originating request. */
   correlationId: string;
 };

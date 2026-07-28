@@ -93,6 +93,11 @@ async function main(): Promise<void> {
           accounts: new DrizzleSocialAccountRepository(db),
           secrets: new DrizzleSecretRepository(db),
           keyring,
+          // A second, narrower switch. "Publish for real" and "publish for real
+          // with nobody watching" are different decisions, and collapsing them
+          // is how a scheduled Goal posts to a real audience at 3am.
+          allowUnattended:
+            process.env.SOCIAL_PUBLISH_UNATTENDED?.trim() === "true",
         })
       : null;
 
@@ -106,7 +111,10 @@ async function main(): Promise<void> {
   }
 
   logger.info(
-    { live: Boolean(social) },
+    {
+      live: Boolean(social),
+      unattended: process.env.SOCIAL_PUBLISH_UNATTENDED?.trim() === "true",
+    },
     social
       ? "social.publish sẽ đăng thật"
       : "social.publish chỉ chạy thử, không gửi đi đâu",

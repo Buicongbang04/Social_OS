@@ -25,6 +25,7 @@ function toEntity(row: ExecutionRow): Execution {
     goalId: row.goalId as GoalId,
     workspaceId: row.workspaceId as WorkspaceId,
     ownerId: row.ownerId as UserId,
+    trigger: row.trigger,
     status: row.status,
     priority: row.priority,
     /**
@@ -74,6 +75,7 @@ export class DrizzleExecutionRepository implements ExecutionRepository {
         goalId: execution.goalId,
         workspaceId: execution.workspaceId,
         ownerId: execution.ownerId,
+        trigger: execution.trigger,
         status: execution.status,
         priority: execution.priority,
         plan: execution.plan,

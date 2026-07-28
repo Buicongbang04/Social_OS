@@ -25,6 +25,17 @@ export type SocialPublisherDeps = {
   accounts: SocialAccountRepository;
   secrets: SecretRepository;
   keyring: Keyring;
+  /**
+   * Whether a run nobody started may post.
+   *
+   * Off by default, and this is not caution for its own sake — it is a thing
+   * that has already happened here. Connecting a channel changes what every
+   * Goal already in the system does the next time it runs, and a recurring Goal
+   * fires at three in the morning with nobody watching. The first time live
+   * publishing was switched on, a scheduled run put marketing copy on a real
+   * Page minutes after the verification finished.
+   */
+  allowUnattended: boolean;
 };
 
 /** The shape sealed in the vault by both the OAuth and the paste-a-token path. */
@@ -45,6 +56,26 @@ export function buildSocialPublish(
       permissions: ["workspace.workflow.execute"],
     },
     handler: async (context) => {
+      // `trigger`, not `ownerId`. An earlier version of this check read
+      // `ownerId === null` and never fired once: a scheduled Execution inherits
+      // the Goal's owner, so it looks exactly like a person pressing a button.
+      // The unit test passed because it constructed the context by hand — it
+      // tested the assumption rather than the system, and a cron run published
+      // to a real Page while the check sat there looking correct.
+      //
+      // It refuses rather than parking for approval, also deliberately.
+      // Approving a waiting task marks it SUCCESS without re-running the
+      // handler, so a publish step that asked for approval would report
+      // COMPLETED to whoever approved it and post nothing at all.
+      if (context.trigger === "SCHEDULE" && !deps.allowUnattended) {
+        throw new RuntimeError(
+          "VALIDATION",
+          "Lịch tự chạy không được đăng bài khi không có người duyệt. " +
+            "Chạy lại Goal này bằng tay, hoặc bật SOCIAL_PUBLISH_UNATTENDED nếu thật sự muốn nền tảng tự đăng.",
+          { retryable: false, context: { executionId: context.executionId } },
+        );
+      }
+
       const targets = await resolveTargets(
         deps.accounts,
         context.workspaceId,

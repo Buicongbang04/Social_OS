@@ -47,6 +47,7 @@ function context(
     executionId: EXECUTION,
     taskId: TASK,
     ownerId: OWNER,
+    trigger: "MANUAL",
     correlationId: "req_test",
     ...overrides,
   };
@@ -176,7 +177,11 @@ describe("AI capabilities", () => {
   it("says so when nothing was retrieved, rather than implying it was", async () => {
     const outputs = await harness.byId
       .get("content.generate")!
-      .handler(context({ previous: { "knowledge.search": { found: 0, passages: [] } } }));
+      .handler(
+        context({
+          previous: { "knowledge.search": { found: 0, passages: [] } },
+        }),
+      );
 
     expect(outputs.usedKnowledge).toBe(false);
   });

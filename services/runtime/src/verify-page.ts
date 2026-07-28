@@ -10,6 +10,7 @@
  *   pnpm --filter @repo/runtime-service verify:page
  *   pnpm --filter @repo/runtime-service verify:page -- --publish
  */
+/* eslint-disable no-console -- This file is a CLI: its output IS the result. */
 import {
   deleteFacebookPost,
   publishToFacebook,
