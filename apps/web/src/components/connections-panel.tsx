@@ -212,12 +212,18 @@ export function ConnectionsPanel() {
               <span className="min-w-0 flex-1 font-medium">
                 {connection.displayName}
               </span>
-              {/* Expired and revoked are shown apart because the fix differs:
-                  expired is reconnecting, revoked needs the permission put back
-                  on the platform first. */}
+              {/* Shown apart because the remedy differs: an expired token is
+                  fixed by reconnecting here, while a revoked one will refuse
+                  the reconnection too until the permission is restored on the
+                  platform itself. Telling someone to press a button that
+                  cannot work is worse than telling them nothing. */}
               {connection.status === "EXPIRED" ? (
                 <span className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
-                  hết hạn — kết nối lại
+                  hết hạn — nối lại là được
+                </span>
+              ) : connection.status === "REVOKED" ? (
+                <span className="shrink-0 rounded bg-red-100 px-2 py-0.5 text-xs text-red-800">
+                  bị thu hồi — cấp lại quyền bên nền tảng trước
                 </span>
               ) : null}
               <span
