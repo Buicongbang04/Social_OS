@@ -6,6 +6,7 @@ import { getClient } from "../lib/api";
 import { ChatPanel } from "./chat-panel";
 import { DocumentList } from "./document-list";
 import { ConnectionsPanel } from "./connections-panel";
+import { InboxPanel } from "./inbox-panel";
 import { KeysPanel } from "./keys-panel";
 import { MemoryPanel } from "./memory-panel";
 import { ExecutionView } from "./execution-view";
@@ -180,6 +181,11 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
       {/* Under the keys, because both answer the same question — what this
           workspace is connected to and on whose authority. */}
       <ConnectionsPanel />
+
+      {/* Right under the channels. Somebody waiting on an answer outranks
+          anything below, and burying it under the run history would mean
+          finding out days later. */}
+      <InboxPanel />
 
       {/* Above the run list: what a Goal can read has to be visible before
           someone writes a Goal that assumes it. */}

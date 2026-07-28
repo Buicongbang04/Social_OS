@@ -1011,6 +1011,18 @@ lại tin nhắn tới chậm vài phút thay vì tức thời.
 | Lấy tên người **khác** Page trong danh sách participant | Page cũng là một participant trong chính thread của nó. Lấy tên đầu danh sách sẽ gắn nhãn mọi thread bằng tên Page — vô nghĩa với người đọc                                   |
 | Không phụ thuộc `SOCIAL_PUBLISH_LIVE`                   | Đọc tin khách đã gửi không thay đổi gì ngoài đời; đăng bài thì có. Gộp cờ nghĩa là phải bật cái nguy hiểm để dùng cái vô hại                                                  |
 
+Trên màn hình có riêng một khung **Hộp thư**, đọc thẳng từ nền tảng mỗi lần
+tải chứ không lưu bản sao — bản sao sẽ sai ngay khi có người trả lời từ app
+Facebook, và một khách đang chờ hồi âm là thứ cuối cùng nên để cũ. Kênh nào
+không đọc được thì **gọi tên ra** thay vì bỏ qua: hộp thư rỗng và hộp thư không
+ai mở được trông giống hệt nhau trên màn hình, mà chỉ một trong hai nghĩa là
+không có ai đang chờ. Khung đó **không có ô trả lời**, và đó là chủ ý chứ không
+phải làm dở.
+
+Ranh giới workspace ở đây **không biểu diễn được** để vượt qua: `list` bắt buộc
+nhận `workspaceId`, nên không có cách nào gọi nó mà đọc sang workspace khác —
+mạnh hơn một test canh chừng.
+
 **Nói thẳng:** việc này đưa tin nhắn của khách hàng vào context của model. Đó
 chính là thứ khiến việc tóm tắt trở nên khả thi, và cũng là điều một workspace
 nên biết mình đã bật.
