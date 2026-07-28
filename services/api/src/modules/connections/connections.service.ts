@@ -1,6 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   CONNECTORS,
+  canPublish,
+  fetchInbox,
   credentialsFor,
   exchangeCode,
   fetchIdentity,
@@ -18,6 +20,7 @@ import {
   type WorkspaceId,
 } from "@repo/core";
 import type { SocialAccount, SocialAccountRepository } from "@repo/domain";
+import type { InboxThread } from "@repo/connectors";
 import { RuntimeError } from "@repo/runtime";
 import { SOCIAL_ACCOUNT_REPOSITORY } from "../../infra/database/database.module";
 import { SecretsService } from "../secrets/secrets.service";
@@ -239,6 +242,75 @@ export class ConnectionsService {
       },
       userId,
     );
+  }
+
+  /**
+   * The workspace's inbox, across every connected channel.
+   *
+   * Read straight from the platform rather than from a table of our own. A
+   * cached copy would be wrong the moment somebody replies from the Facebook
+   * app, and a customer waiting on an answer is exactly the thing that must not
+   * be stale.
+   *
+   * A channel that fails is reported rather than failing the whole call: one
+   * expired token should not hide the messages sitting in the others.
+   */
+  async inbox(
+    workspaceId: WorkspaceId,
+    limit = 20,
+  ): Promise<{
+    threads: (InboxThread & { account: string; accountId: string })[];
+    failed: { account: string; reason: string }[];
+  }> {
+    const accounts = (await this.accounts.list(workspaceId)).filter(
+      (account) => {
+        if (account.status !== "ACTIVE") return false;
+        const connector = findConnector(account.connectorId);
+        return connector !== null && canPublish(connector);
+      },
+    );
+
+    const threads: (InboxThread & { account: string; accountId: string })[] =
+      [];
+    const failed: { account: string; reason: string }[] = [];
+
+    for (const account of accounts) {
+      const token = await this.secrets.resolve(workspaceId, account.secretName);
+      if (!token) {
+        failed.push({
+          account: account.displayName,
+          reason: "Không còn credential. Hãy kết nối lại kênh này.",
+        });
+        continue;
+      }
+
+      const { accessToken } = JSON.parse(token) as { accessToken: string };
+
+      try {
+        const inbox = await fetchInbox(
+          { externalId: account.externalId, accessToken },
+          { limit },
+        );
+        for (const thread of inbox) {
+          threads.push({
+            ...thread,
+            account: account.displayName,
+            accountId: account.id,
+          });
+        }
+      } catch (caught: unknown) {
+        failed.push({
+          account: account.displayName,
+          reason: caught instanceof Error ? caught.message : String(caught),
+        });
+      }
+    }
+
+    // Newest first, across channels. Sorting per channel would bury a message
+    // from an hour ago under a week-old thread from the other one.
+    threads.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+    return { threads, failed };
   }
 
   /**

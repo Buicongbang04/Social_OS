@@ -19,6 +19,7 @@ import type {
   Task,
   UploadedDocument,
   ConnectorSummary,
+  Inbox,
   ProviderKeyStatus,
   SocialConnection,
   StoredSecret,
@@ -427,6 +428,19 @@ export class ApiClient {
       `/connections/${connectorId}/token`,
       { body: input, workspaceScoped: true },
     );
+  }
+
+  /**
+   * Messages waiting on the workspace's channels.
+   *
+   * Read from the platform on every call rather than from a cache: a copy would
+   * be wrong the moment somebody replies from the Facebook app, and a customer
+   * waiting for an answer is the last thing that should be stale.
+   */
+  async inbox(): Promise<Inbox> {
+    return this.request<Inbox>("GET", "/connections/inbox", {
+      workspaceScoped: true,
+    });
   }
 
   /** Disconnect. The stored credential goes with it. */

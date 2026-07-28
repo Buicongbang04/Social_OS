@@ -347,6 +347,34 @@ export type SocialConnection = {
   connectedAt: string;
 };
 
+/**
+ * One waiting conversation, as the inbox shows it.
+ *
+ * `lastMessage` is a trimmed snippet, not the whole thing. A customer's full
+ * message belongs where they wrote it, not in every log and context window it
+ * would otherwise pass through.
+ */
+export type InboxThread = {
+  id: string;
+  account: string;
+  accountId: string;
+  participant: string;
+  updatedAt: string;
+  lastMessage: string | null;
+  unread: boolean;
+};
+
+/**
+ * The inbox, plus the channels that could not be read.
+ *
+ * Reported rather than thrown: one expired token must not hide the messages
+ * sitting in the other channels.
+ */
+export type Inbox = {
+  threads: InboxThread[];
+  failed: { account: string; reason: string }[];
+};
+
 /** A platform on offer, and whether the operator has registered an app for it. */
 export type ConnectorSummary = {
   id: string;

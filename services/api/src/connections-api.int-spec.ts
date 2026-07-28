@@ -54,6 +54,9 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
 
   const seen: Seen = {};
   let behaviour: Behaviour;
+  /** What the fake Page's inbox holds, and whether it can be read at all. */
+  let conversations: unknown[];
+  let inboxStatus: number;
 
   const as = (user: RegisteredUser, workspaceId: string) => ({
     Authorization: `Bearer ${user.accessToken}`,
@@ -101,6 +104,20 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
         return;
       }
 
+      // The inbox read. Answered separately so a test can put messages on the
+      // fake Page without changing how a token check behaves.
+      if (url.pathname.endsWith("/conversations")) {
+        response.writeHead(inboxStatus, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify(
+            inboxStatus === 200
+              ? { data: conversations }
+              : { error: { message: "requires pages_messaging" } },
+          ),
+        );
+        return;
+      }
+
       // `/{page-id}` — how a pasted token is checked before anything is
       // stored.
       if (url.pathname.startsWith("/graph/")) {
@@ -145,6 +162,9 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
     await testApp.reset();
     delete seen.tokenBody;
     delete seen.identityAuth;
+
+    conversations = [];
+    inboxStatus = 200;
 
     behaviour = {
       tokenStatus: 200,
@@ -516,6 +536,155 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
           secret.name === "connections/facebook/page-777",
       ),
     ).toBe(false);
+  });
+
+  it("shows messages waiting on a connected channel", async () => {
+    behaviour.identityBody = JSON.stringify({ id: "page-777", name: "Trang" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    conversations = [
+      {
+        id: "t_1",
+        updated_time: "2026-07-28T10:00:00+0000",
+        unread_count: 1,
+        participants: {
+          data: [
+            { id: "page-777", name: "Trang" },
+            { id: "u_1", name: "Khách A" },
+          ],
+        },
+        messages: { data: [{ message: "Còn hàng không shop?" }] },
+      },
+    ];
+
+    const inbox = await testApp
+      .http()
+      .get("/api/v1/connections/inbox")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(inbox.body.data.threads).toHaveLength(1);
+    expect(inbox.body.data.threads[0].participant).toBe("Khách A");
+    expect(inbox.body.data.threads[0].unread).toBe(true);
+    expect(inbox.body.data.failed).toEqual([]);
+  });
+
+  it("names a channel it could not read instead of hiding it", async () => {
+    // An empty inbox and an inbox nobody could open look the same on screen,
+    // and only one of them means there is nothing waiting.
+    behaviour.identityBody = JSON.stringify({ id: "page-777", name: "Trang" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    inboxStatus = 403;
+
+    const inbox = await testApp
+      .http()
+      .get("/api/v1/connections/inbox")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(inbox.body.data.threads).toEqual([]);
+    expect(inbox.body.data.failed).toHaveLength(1);
+    expect(inbox.body.data.failed[0].account).toBe("Trang");
+  });
+
+  it("puts the newest message first, across channels", async () => {
+    // Sorting per channel would bury a message from an hour ago under a
+    // week-old thread from the other one — which is the message that actually
+    // needs answering.
+    behaviour.identityBody = JSON.stringify({ id: "page-a", name: "Trang A" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({ externalId: "page-a", accessToken: "a-real-looking-page-token" })
+      .expect(201);
+
+    behaviour.identityBody = JSON.stringify({ id: "page-b", name: "Trang B" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({ externalId: "page-b", accessToken: "another-page-token-here" })
+      .expect(201);
+
+    // The same fake feed answers for both channels, so the two threads differ
+    // only by time — which is exactly what the ordering has to get right.
+    conversations = [
+      {
+        id: "t_old",
+        updated_time: "2026-07-01T10:00:00+0000",
+        unread_count: 0,
+        participants: { data: [{ id: "u_1", name: "Khách cũ" }] },
+        messages: { data: [{ message: "tuần trước" }] },
+      },
+      {
+        id: "t_new",
+        updated_time: "2026-07-28T10:00:00+0000",
+        unread_count: 1,
+        participants: { data: [{ id: "u_2", name: "Khách mới" }] },
+        messages: { data: [{ message: "vừa nãy" }] },
+      },
+    ];
+
+    const inbox = await testApp
+      .http()
+      .get("/api/v1/connections/inbox")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    const times = inbox.body.data.threads.map(
+      (thread: { updatedAt: string }) => thread.updatedAt,
+    );
+    expect(times).toEqual([...times].sort().reverse());
+    expect(inbox.body.data.threads[0].participant).toBe("Khách mới");
+  });
+
+  it("does not show one workspace's messages to another", async () => {
+    behaviour.identityBody = JSON.stringify({ id: "page-777", name: "Trang" });
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/token")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        externalId: "page-777",
+        accessToken: "a-real-looking-page-token",
+      })
+      .expect(201);
+
+    conversations = [
+      {
+        id: "t_1",
+        updated_time: "2026-07-28T10:00:00+0000",
+        unread_count: 1,
+        participants: { data: [{ id: "u_1", name: "Khách A" }] },
+        messages: { data: [{ message: "riêng tư" }] },
+      },
+    ];
+
+    const bobs = await testApp
+      .http()
+      .get("/api/v1/connections/inbox")
+      .set(as(bob, bobWorkspace))
+      .expect(200);
+
+    expect(bobs.body.data.threads).toEqual([]);
   });
 
   it("says which platforms can actually be connected", async () => {

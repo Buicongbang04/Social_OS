@@ -64,6 +64,19 @@ export class ConnectionsController {
     return this.connections.catalog();
   }
 
+  /**
+   * Messages waiting on the workspace's channels.
+   *
+   * `read`, not `manage`: seeing what customers have written is ordinary
+   * awareness of the work, while connecting or removing a channel changes who
+   * can be posted to.
+   */
+  @RequirePermission("workspace.connector.read")
+  @Get("inbox")
+  async inbox(@Headers(WORKSPACE_ID_HEADER) workspaceHeader: string) {
+    return this.connections.inbox(requireWorkspace(workspaceHeader));
+  }
+
   @RequirePermission("workspace.connector.manage")
   @Post(":connectorId/start")
   async start(
