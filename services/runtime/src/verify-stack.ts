@@ -384,6 +384,7 @@ async function socialFlow(client: ApiClient): Promise<void> {
   const startedAt = new Date(Date.now() - 60_000).toISOString();
 
   try {
+    await readChannel(client);
     await publishOnce(client, pageId, pageToken);
   } finally {
     // In `finally`, because a failure halfway through is exactly when a live
@@ -391,6 +392,58 @@ async function socialFlow(client: ApiClient): Promise<void> {
     await client.disconnect(connection.id);
     await removeStrayPosts(pageId, pageToken, startedAt);
   }
+}
+
+/**
+ * Read the channel back through the API: messages waiting, and how posts did.
+ *
+ * Separate from publishing and run first, because these two work whether or not
+ * live publishing is switched on — and because they are the routes a browser
+ * calls, which is exactly what this file is for. Their integration tests share
+ * a process with the service; nothing before this had them crossing a socket.
+ */
+async function readChannel(client: ApiClient): Promise<void> {
+  const inbox = await client.inbox();
+
+  // Not a count: this Page's inbox will differ from anyone else's. What has to
+  // hold is that the read succeeded, named its channel, and reported any it
+  // could not open rather than quietly returning fewer threads.
+  check(
+    "đọc được hộp thư",
+    inbox.failed.length === 0,
+    inbox.failed.length === 0
+      ? `${inbox.threads.length} luồng, ${inbox.threads.filter((t) => t.unread).length} chưa đọc`
+      : inbox.failed.map((f) => `${f.account}: ${f.reason}`).join("; "),
+  );
+
+  check(
+    "mỗi luồng nói rõ thuộc kênh nào",
+    inbox.threads.every((thread) => thread.account !== ""),
+    `${inbox.threads.length} luồng`,
+  );
+
+  const stats = await client.postStats();
+
+  check(
+    "đọc được số liệu bài đăng",
+    stats.failed.length === 0,
+    stats.failed.length === 0
+      ? `${stats.posts.length} bài`
+      : stats.failed.map((f) => `${f.account}: ${f.reason}`).join("; "),
+  );
+
+  // A count that arrives as undefined would render as a blank where a number
+  // belongs, and nothing upstream would have complained.
+  check(
+    "mọi con số đều là số, không phải chỗ trống",
+    stats.posts.every(
+      (post) =>
+        Number.isInteger(post.likes) &&
+        Number.isInteger(post.comments) &&
+        Number.isInteger(post.shares),
+    ),
+    `${stats.posts.length} bài`,
+  );
 }
 
 /** Ask for a post, wait for it, and check Facebook actually has it. */
