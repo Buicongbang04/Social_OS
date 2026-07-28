@@ -169,6 +169,8 @@ export function ExecutionView({ executionId }: { executionId: string }) {
                     </p>
                   ) : null}
 
+                  <PublishedPosts outputs={task.outputs} />
+
                   {task.outputs ? (
                     <pre className="mt-2 overflow-x-auto rounded bg-neutral-50 p-2 text-xs text-neutral-700">
                       {JSON.stringify(task.outputs, null, 2)}
@@ -352,5 +354,64 @@ function UsagePanel({ usage }: { usage: ExecutionUsage | null }) {
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** One post, as `social.publish` records it. */
+type PublishedPost = {
+  account?: string;
+  postId?: string;
+  url?: string;
+  /** True when a retry found the earlier attempt rather than posting again. */
+  alreadyPosted?: boolean;
+};
+
+/**
+ * Where a run's posts actually went.
+ *
+ * The raw output is printed below this as well, and deliberately — but a link
+ * a person can click has to be findable without reading JSON. This is the one
+ * thing a run does that leaves the system, and "did it really go out, and
+ * where" is the first question anyone asks about it.
+ */
+function PublishedPosts({
+  outputs,
+}: {
+  outputs: Record<string, unknown> | null;
+}) {
+  const posts = outputs?.posts;
+  if (!Array.isArray(posts) || posts.length === 0) return null;
+
+  return (
+    <ul className="mt-2 flex flex-col gap-1">
+      {(posts as PublishedPost[]).map((post, index) => (
+        <li
+          key={post.postId ?? index}
+          className="flex flex-wrap items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs"
+        >
+          <span className="font-medium text-emerald-900">
+            {post.account ?? "kênh đã nối"}
+          </span>
+          {post.url ? (
+            <a
+              href={post.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-emerald-800 hover:text-emerald-950"
+            >
+              Xem bài đã đăng
+            </a>
+          ) : null}
+          {/* Said out loud. A run that reports success because a retry found
+              the earlier attempt is telling a different story from one that
+              posted just now, and the person reading this needs the real one. */}
+          {post.alreadyPosted ? (
+            <span className="text-emerald-700">
+              (bài của lần thử trước, không đăng lại)
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
