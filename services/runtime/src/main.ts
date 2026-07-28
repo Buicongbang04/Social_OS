@@ -21,7 +21,7 @@ import {
 } from "@repo/runtime";
 import { Keyring } from "@repo/secrets";
 import { buildAiEngines } from "./ai-engines";
-import { buildSocialPublish } from "./capabilities/social";
+import { buildSocialInbox, buildSocialPublish } from "./capabilities/social";
 import { buildKnowledgeStack } from "./knowledge";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
 import { Scheduler } from "./scheduler";
@@ -87,6 +87,21 @@ async function main(): Promise<void> {
    */
   const keyring = Keyring.fromEnv();
   const publishLive = process.env.SOCIAL_PUBLISH_LIVE?.trim() === "true";
+  /**
+   * Reading the inbox needs only the vault, not the publish switch.
+   *
+   * Deliberately separate: reading messages a customer already sent to a Page
+   * changes nothing in the world, while publishing does. Gating them together
+   * would mean turning on the dangerous one to get the harmless one.
+   */
+  const inbox = keyring
+    ? buildSocialInbox({
+        accounts: new DrizzleSocialAccountRepository(db),
+        secrets: new DrizzleSecretRepository(db),
+        keyring,
+      })
+    : null;
+
   const social =
     publishLive && keyring
       ? buildSocialPublish({
@@ -129,6 +144,7 @@ async function main(): Promise<void> {
     ...ai.capabilities,
     ...(knowledge?.capabilities ?? []),
     ...(social ? [social] : []),
+    ...(inbox ? [inbox] : []),
   ];
   const providedIds = new Set(provided.map((c) => c.descriptor.id));
   const capabilities = [
