@@ -2,8 +2,7 @@ import type { ProviderGateway } from "@repo/ai";
 import type { DocumentRepository } from "@repo/domain";
 import {
   DocumentIndexer,
-  KnowledgeService,
-  QdrantVectorStore,
+  buildKnowledgeFromEnv,
   createKnowledgeCapabilities,
 } from "@repo/knowledge";
 import { S3ObjectStore } from "@repo/storage";
@@ -54,18 +53,16 @@ export function buildKnowledgeStack(input: {
     return null;
   }
 
-  const knowledge = new KnowledgeService({
-    gateway: input.gateway,
-    store: new QdrantVectorStore({
-      url: qdrantUrl,
-      ...(text(env.QDRANT_API_KEY)
-        ? { apiKey: text(env.QDRANT_API_KEY) }
-        : {}),
-    }),
-    ...(text(env.AI_EMBEDDING_MODEL)
-      ? { model: text(env.AI_EMBEDDING_MODEL) }
-      : {}),
-  });
+  // Same builder services/api uses. They have to agree on the embedding model
+  // and the Qdrant instance: a collection belongs to one model, so an API
+  // configured differently would search a collection the documents are not in
+  // and find nothing, with no error to say why.
+  const knowledge = buildKnowledgeFromEnv({ gateway: input.gateway, env });
+  if (!knowledge) {
+    throw new Error(
+      "Qdrant and a gateway were both present but the knowledge service did not build.",
+    );
+  }
 
   const storage = new S3ObjectStore({
     endpoint: storageEndpoint,

@@ -12,3 +12,4 @@ export * from "./store/qdrant-store";
 export * from "./service";
 export * from "./capability";
 export * from "./indexer";
+export * from "./from-env";

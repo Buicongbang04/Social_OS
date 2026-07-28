@@ -281,7 +281,16 @@ export type ChatMessage = {
  * already seen part of it — dropping that would leave the screen showing text
  * the transcript denies exists.
  */
+export type Citation = {
+  documentId: string;
+  title: string;
+  score: number;
+  excerpt: string;
+};
+
 export type ChatStreamEvent =
   | { type: "delta"; text: string }
+  /** What the answer is about to draw on. Arrives before the first token. */
+  | { type: "sources"; citations: Citation[] }
   | { type: "done"; message: ChatMessage }
   | { type: "error"; message: string; partial: ChatMessage | null };

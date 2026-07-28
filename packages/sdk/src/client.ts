@@ -5,6 +5,7 @@ import type {
   AuthTokens,
   ChatMessage,
   ChatStreamEvent,
+  Citation,
   Conversation,
   CreateGoalInput,
   DocumentSummary,
@@ -588,6 +589,10 @@ function parseSseBlock(block: string): ChatStreamEvent | null {
 
   if (name === "delta") {
     return { type: "delta", text: String((data as { text?: string }).text ?? "") };
+  }
+  if (name === "sources") {
+    const body = data as { citations?: Citation[] };
+    return { type: "sources", citations: body.citations ?? [] };
   }
   if (name === "done") {
     return { type: "done", message: data as ChatMessage };

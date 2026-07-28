@@ -458,6 +458,19 @@ bắt buộc cho mô hình AI.
 - Kiểu suy ra rất phức tạp, làm chậm trình biên dịch trên schema lớn.
 - Đang có sự chia rẽ giữa zod 3 và zod 4 trong hệ sinh thái.
 
+**Chat tra tài liệu ở MỌI lượt, không phải khi "thấy cần".** Quyết định xem
+câu hỏi có cần tài liệu hay không đòi hỏi thêm một lời gọi model — đắt hơn chính
+lời gọi nhúng để đi tìm. Và quyết định sai thì **vô hình**: câu trả lời vẫn nghe
+xuôi tai. Ngưỡng điểm là thứ giữ đoạn không liên quan ở ngoài, không phải một
+bước phân loại.
+
+**Trích đoạn phải kèm câu lệnh "nếu không trả lời được thì nói thẳng".** Đưa
+model một đoạn văn không liên quan mà không có câu đó thì nó vẫn dùng.
+
+**Nguồn gửi TRƯỚC token đầu tiên.** Người đọc thấy câu trả lời sắp dựa trên cái
+gì, thay vì biết sau khi đã đọc xong. Và lưu vào metadata của tin nhắn, để bản
+ghi đọc lại sau nhiều tháng vẫn biết câu đó dựa trên đâu.
+
 **Hội thoại dài quên phần đầu một cách IM LẶNG nếu không làm gì.** Cắt cứng ở
 N lượt gần nhất là cách hỏng tệ nhất: model đơn giản là không còn biết đoạn đầu,
 đưa ra câu trả lời mâu thuẫn với thứ đã chốt mười lượt trước, và **không có chỗ

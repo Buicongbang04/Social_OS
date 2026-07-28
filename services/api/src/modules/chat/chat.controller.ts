@@ -145,6 +145,11 @@ export class ChatController {
         signal: abort.signal,
       })) {
         if (event.type === "delta") send("delta", { text: event.text });
+        // Sent before the first token, so the reader can see what the answer
+        // is about to be based on rather than learning it afterwards.
+        if (event.type === "sources") {
+          send("sources", { citations: event.citations });
+        }
         if (event.type === "done") send("done", event.message);
         if (event.type === "error") {
           send("error", { message: event.message, partial: event.partial });
