@@ -8,6 +8,8 @@ import {
   type ProviderGateway,
   type ProviderMessage,
   type ProviderResponse,
+  type ProviderTool,
+  type ProviderToolCall,
 } from "@repo/ai";
 import {
   NotFoundError,
@@ -17,10 +19,14 @@ import {
   type WorkspaceId,
 } from "@repo/core";
 import type { KnowledgeService } from "@repo/knowledge";
-import { WORKSPACE_MEMORY_REPOSITORY } from "../../infra/database/database.module";
+import {
+  DOCUMENT_REPOSITORY,
+  WORKSPACE_MEMORY_REPOSITORY,
+} from "../../infra/database/database.module";
 import type {
   Conversation,
   ConversationRepository,
+  DocumentRepository,
   Message,
   WorkspaceMemory,
   WorkspaceMemoryRepository,
@@ -29,6 +35,7 @@ import { AI_USAGE_REPOSITORY } from "../../infra/database/database.module";
 import { CONVERSATION_REPOSITORY } from "../../infra/database/database.module";
 import { AI_GATEWAY } from "../../infra/ai/ai.module";
 import { KNOWLEDGE_SERVICE } from "../../infra/knowledge/knowledge.module";
+import { createChatTools, type ChatTool } from "./chat-tools";
 
 /**
  * How many past turns go into the prompt.
@@ -51,6 +58,16 @@ const HISTORY_TURNS = 20;
  * turns is roughly one exchange's worth of drift.
  */
 const SUMMARY_LAG = 10;
+
+/**
+ * How many times the model may call a tool and be asked again.
+ *
+ * Every round is another paid request, and a model that calls a tool, reads the
+ * result and calls the same tool again is an ordinary failure — not a rare one.
+ * Three is enough for "look it up, then look up the thing that mentioned",
+ * and small enough that a confused model costs a known amount.
+ */
+const MAX_TOOL_ROUNDS = 3;
 
 /**
  * Rendered once at module load.
@@ -81,8 +98,16 @@ export type Citation = {
   excerpt: string;
 };
 
+/** A tool the model asked for, and what it returned. */
+export type ToolRun = {
+  name: string;
+  input: unknown;
+  result: unknown;
+};
+
 export type StreamEvent =
   | { type: "delta"; text: string }
+  | { type: "tool"; run: ToolRun }
   | { type: "sources"; citations: Citation[] }
   | { type: "done"; message: Message }
   | { type: "error"; message: string; partial: Message | null };
@@ -98,6 +123,8 @@ export class ChatService {
     private readonly knowledge: KnowledgeService | null,
     @Inject(WORKSPACE_MEMORY_REPOSITORY)
     private readonly memory: WorkspaceMemoryRepository,
+    @Inject(DOCUMENT_REPOSITORY)
+    private readonly documents: DocumentRepository,
   ) {}
 
   async createConversation(
@@ -198,28 +225,56 @@ export class ChatService {
     // message to use it, not the next deploy.
     const remembered = await this.memory.list(input.workspaceId);
 
+    const tools = createChatTools({
+      knowledge: this.knowledge,
+      documents: this.documents,
+      memory: this.memory,
+    });
+    const messages = toPrompt(
+      history,
+      conversation.summary,
+      citations,
+      remembered,
+    );
+
     let text = "";
 
     try {
-      for await (const chunk of gateway.stream(
-        {
-          messages: toPrompt(
-            history,
-            conversation.summary,
-            citations,
-            remembered,
-          ),
-        },
-        input.signal,
-      )) {
-        if (chunk.type === "text") {
-          text += chunk.delta;
-          yield { type: "delta", text: chunk.delta };
+      // Bounded on purpose. A model that calls a tool, reads the result and
+      // calls it again is a normal failure mode, and every turn of the loop is
+      // another paid request — so the limit is what stands between a confused
+      // model and an unbounded bill. Reaching it is not an error: the last
+      // answer is delivered as it is.
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+        const calls: ProviderToolCall[] = [];
+        let response: ProviderResponse | undefined;
+        text = "";
+
+        for await (const chunk of gateway.stream(
+          {
+            messages,
+            ...(tools.length > 0
+              ? { tools: tools.map(toProviderTool) }
+              : {}),
+          },
+          input.signal,
+        )) {
+          if (chunk.type === "text") {
+            text += chunk.delta;
+            yield { type: "delta", text: chunk.delta };
+          }
+          if (chunk.type === "tool-call") calls.push(chunk.call);
+          if (chunk.type === "done") response = chunk.response;
         }
-        if (chunk.type === "done") {
+
+        if (!response) {
+          throw new Error("The gateway ended the stream without a final chunk.");
+        }
+
+        if (calls.length === 0 || round === MAX_TOOL_ROUNDS - 1) {
           const message = await this.recordAnswer(
             input,
-            chunk.response,
+            response,
             false,
             citations,
           );
@@ -231,6 +286,22 @@ export class ChatService {
           // see until the turn after.
           await this.consolidate(input, conversation, history.length + 1);
           return;
+        }
+
+        // The model asked for something. Run it, show the reader what was run,
+        // and hand the result back for another round.
+        for (const call of calls) {
+          const run = await this.runTool(tools, call, input);
+          yield { type: "tool", run };
+
+          messages.push({
+            role: "assistant",
+            content: `Đã gọi công cụ ${run.name}.`,
+          });
+          messages.push({
+            role: "user",
+            content: `Kết quả của công cụ ${run.name}:\n${JSON.stringify(run.result)}`,
+          });
         }
       }
     } catch (error: unknown) {
@@ -350,6 +421,45 @@ export class ChatService {
       }));
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Run one tool the model asked for.
+   *
+   * A failure comes back as a result rather than as an exception: the model
+   * asked for something and deserves to be told it did not work, which it can
+   * then say. Throwing would lose the whole answer over one bad call.
+   */
+  private async runTool(
+    tools: readonly ChatTool[],
+    call: ProviderToolCall,
+    context: { workspaceId: WorkspaceId; userId: UserId },
+  ): Promise<ToolRun> {
+    const tool = tools.find((candidate) => candidate.name === call.name);
+
+    if (!tool) {
+      return {
+        name: call.name,
+        input: call.input,
+        result: { error: `Không có công cụ tên ${call.name}.` },
+      };
+    }
+
+    try {
+      const result = await tool.run(
+        (call.input ?? {}) as Record<string, unknown>,
+        { workspaceId: context.workspaceId, userId: context.userId },
+      );
+      return { name: call.name, input: call.input, result };
+    } catch (error: unknown) {
+      return {
+        name: call.name,
+        input: call.input,
+        result: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      };
     }
   }
 
@@ -502,4 +612,13 @@ function toPrompt(
         content: message.content,
       })),
   ];
+}
+
+/** A chat tool as the provider sees it: a name, a description, a shape. */
+function toProviderTool(tool: ChatTool): ProviderTool {
+  return {
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+  };
 }

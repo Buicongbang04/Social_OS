@@ -288,8 +288,17 @@ export type Citation = {
   excerpt: string;
 };
 
+/** A tool the assistant ran, and what it got back. */
+export type ToolRun = {
+  name: string;
+  input: unknown;
+  result: unknown;
+};
+
 export type ChatStreamEvent =
   | { type: "delta"; text: string }
+  /** The assistant ran a tool. Read-only today — see chat-tools.ts. */
+  | { type: "tool"; run: ToolRun }
   /** What the answer is about to draw on. Arrives before the first token. */
   | { type: "sources"; citations: Citation[] }
   | { type: "done"; message: ChatMessage }
