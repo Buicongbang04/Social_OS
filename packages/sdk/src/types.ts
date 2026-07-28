@@ -311,6 +311,28 @@ export type ChatStreamEvent =
  * cannot be inspected is the frightening kind: when it is wrong, the only
  * symptom is that the output has quietly been wrong for a while.
  */
+/**
+ * A stored credential, as the client is allowed to see it.
+ *
+ * Note the absence: no `value`. The server has no route that returns one — a
+ * credential is written in and used from inside — so there is nothing here to
+ * hold it. `hint` is the last four characters, enough to tell two keys apart.
+ */
+export type StoredSecret = {
+  id: string;
+  name: string;
+  description: string | null;
+  hint: string;
+  activeVersion: number;
+  updatedAt: string;
+};
+
+/** Whose credential this workspace's AI requests are spending. */
+export type ProviderKeyStatus = {
+  source: "workspace" | "platform";
+  providers: string[];
+};
+
 export type WorkspaceMemory = {
   id: string;
   workspaceId: string;

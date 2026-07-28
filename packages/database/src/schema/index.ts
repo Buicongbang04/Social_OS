@@ -10,6 +10,7 @@ export * from "./idempotency-keys";
 export * from "./memberships";
 export * from "./organizations";
 export * from "./permissions";
+export * from "./secrets";
 export * from "./sessions";
 export * from "./tasks";
 export * from "./users";

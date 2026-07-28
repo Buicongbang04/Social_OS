@@ -6,6 +6,7 @@ export * from "./repositories/execution.repository";
 export * from "./repositories/goal.repository";
 export * from "./repositories/membership.repository";
 export * from "./repositories/organization.repository";
+export * from "./repositories/secret.repository";
 export * from "./repositories/session.repository";
 export * from "./repositories/task.repository";
 export * from "./repositories/user.repository";

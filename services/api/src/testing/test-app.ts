@@ -4,6 +4,7 @@ import Redis from "ioredis";
 import request from "supertest";
 import { truncateTenantData } from "@repo/database";
 import { AppModule } from "../app.module";
+import { WorkspaceGatewayFactory } from "../infra/ai/workspace-gateway";
 import { DATABASE_CLIENT } from "../infra/database/database.module";
 import { REDIS_CLIENT } from "../infra/redis/redis.module";
 
@@ -31,6 +32,7 @@ export async function createTestApp(): Promise<TestApp> {
   await app.init();
 
   const db = app.get(DATABASE_CLIENT);
+  const gateways = app.get(WorkspaceGatewayFactory);
   const redis = app.get<Redis>(REDIS_CLIENT);
 
   return {
@@ -47,6 +49,10 @@ export async function createTestApp(): Promise<TestApp> {
       // Redis holds the permission cache and the session denylist; leaving
       // them would let one test's authorization decisions bleed into the next.
       await redis.flushdb();
+      // In-process too: resolved provider keys are cached in memory, and an
+      // entry outliving the rows it was built from is exactly the bleed the
+      // truncate above is meant to prevent.
+      gateways.clear();
     },
 
     async close() {

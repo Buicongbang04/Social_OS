@@ -35,6 +35,9 @@ export const ID_PREFIXES = {
   message: "msg",
   /** One durable fact about a workspace (docs/ai/06_AGENT_MEMORY.md). */
   workspaceMemory: "mem",
+  /** A stored credential (docs/platform/12_SECRET_MANAGER.md). */
+  secret: "sec",
+  secretVersion: "sev",
 } as const;
 
 export type IdPrefixName = keyof typeof ID_PREFIXES;
@@ -72,6 +75,8 @@ export type ChunkId = Branded<"chunk">;
 export type ConversationId = Branded<"conversation">;
 export type MessageId = Branded<"message">;
 export type WorkspaceMemoryId = Branded<"workspaceMemory">;
+export type SecretId = Branded<"secret">;
+export type SecretVersionId = Branded<"secretVersion">;
 
 export type IdOf<TName extends IdPrefixName> = Branded<TName>;
 

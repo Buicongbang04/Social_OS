@@ -50,7 +50,8 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
           "x-workspace-id": workspaceId,
         });
       const documents = listed.body.data as { status: string }[];
-      if (documents.some((document) => document.status === "READY")) return true;
+      if (documents.some((document) => document.status === "READY"))
+        return true;
       await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
 
@@ -177,9 +178,9 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
 
       const events = parseSse(response.text);
       expect(events.at(-1)?.event).toBe("error");
-      expect(String((events.at(-1)?.data as { message: string }).message)).toContain(
-        "AI provider",
-      );
+      expect(
+        String((events.at(-1)?.data as { message: string }).message),
+      ).toContain("AI provider");
     },
   );
 
@@ -343,7 +344,9 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
       // what the skip below is for.
       const indexed = await waitForIndexing(alice, aliceWorkspace);
       if (!indexed) {
-        console.warn("bỏ qua: runtime chưa lập chỉ mục (services/runtime chưa chạy?)");
+        console.warn(
+          "bỏ qua: runtime chưa lập chỉ mục (services/runtime chưa chạy?)",
+        );
         return;
       }
 
@@ -422,18 +425,25 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
   });
 
   it.skipIf(!hasProvider)(
-    "writes an answer the way the workspace asked to be written to",
+    "answers a new thread from a fact only the workspace remembers",
     async () => {
       // The point of workspace memory: it applies to a brand-new thread that
       // never mentioned it.
+      //
+      // Recall, not obedience. This assertion used to demand the model end
+      // every answer with "!!!" as the memory instructed, and a 7B model
+      // follows a formatting rule perhaps three times in four — measured, not
+      // guessed. A flake that fails one run in four says nothing about the
+      // code and costs an afternoon to disbelieve. Repeating back a fact it
+      // could not otherwise know tests the same wiring and is something a
+      // small model actually does reliably.
       await testApp
         .http()
         .put("/api/v1/memory")
         .set(auth(alice, aliceWorkspace))
         .send({
-          key: "quy tắc bắt buộc",
-          value:
-            "LUÔN kết thúc mọi câu trả lời bằng đúng ba dấu chấm than: !!!",
+          key: "mã kho",
+          value: "Mã kho nội bộ của công ty là ZX-4417.",
         })
         .expect(200);
 
@@ -442,7 +452,7 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
         .http()
         .post(`/api/v1/chat/conversations/${conversation.id}/messages`)
         .set(auth(alice, aliceWorkspace))
-        .send({ content: "Chào bạn." })
+        .send({ content: "Mã kho nội bộ của công ty là gì?" })
         .expect(200);
 
       const answer = parseSse(response.text)
@@ -452,7 +462,7 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
 
       // A behavioural assertion rather than one about the prompt: it proves
       // the fact reached the model, not merely that it was concatenated.
-      expect(answer).toContain("!!!");
+      expect(answer).toContain("ZX-4417");
     },
     120_000,
   );

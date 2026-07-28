@@ -926,6 +926,32 @@ quyền.
 khác trả về 404 chứ không phải 403 — nếu trả 403 thì chính nó đã xác nhận tài
 nguyên có tồn tại.
 
+### Kho bí mật (`@repo/secrets`)
+
+| Thành phần | Chọn gì                                                               | Vì sao                                                                                                                                                                                             |
+| ---------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thuật toán | AES-256-GCM qua `node:crypto`                                         | GCM vừa mã hoá vừa xác thực: ciphertext bị sửa trong CSDL sẽ **không giải mã được**, thay vì giải ra một giá trị khác. Với bảng chứa API key thì trả về byte đã bị sửa nguy hiểm hơn là trả về lỗi |
+| Thư viện   | Không thêm gì                                                         | `node:crypto` đủ. Một thư viện mã hoá là thứ phải tin tuyệt đối; ít bề mặt hơn thì tốt hơn                                                                                                         |
+| Xoay khoá  | Keyring nhiều khoá, `keyId` đi kèm từng ciphertext                    | Xoay khoá không phải là một cuộc di trú phải thành công trọn vẹn — giá trị cũ vẫn nói rõ khoá nào mở được nó                                                                                       |
+| Lưu        | Hai bảng: `secrets` (metadata) và `secret_versions` (giá trị đã niêm) | Giá trị **vắng mặt về mặt cấu trúc** khỏi metadata, không phải chỉ vắng theo quy ước. Tài liệu nói thẳng: "Giá trị Secret không bao giờ xuất hiện trong Metadata"                                  |
+| Đọc ra     | Không có route nào trả về giá trị                                     | Ghi vào rồi dùng từ bên trong. Có đường đọc ngược ra là mọi credential chỉ cách một lỗi phân quyền                                                                                                 |
+
+**Ghi phiên bản mới thay vì ghi đè.** Một credential bị thay ở đây vẫn còn đang
+bay ở nơi khác một lúc nữa. Giữ được bản trước là cái biến một lần xoay khoá
+hỏng thành _rollback_, chứ không thành sự cố.
+
+**Gateway đọc key riêng của từng workspace.** Đây là điều FR-031 yêu cầu và là
+lý do kho bí mật tồn tại: workspace mang key của mình, tiêu quota của mình, bị
+giới hạn tốc độ trên tài khoản của mình. Không có key riêng thì rơi về key của
+nền tảng — bỏ đường lui đó nghĩa là bắt người dùng phải mua credential trước khi
+được thử sản phẩm.
+
+Kết quả giải được **cache trong tiến trình**, có hạn dùng 60 giây và bị xoá ngay
+khi key thay đổi. Giới hạn nói thẳng: xoá cache là chuyện trong một tiến trình,
+nên khi chạy nhiều instance API thì key bị thu hồi ở instance này vẫn sống ở
+instance kia — **hạn dùng 60 giây mới là thứ chặn cửa sổ đó**, không phải việc
+xoá cache.
+
 ---
 
 ## 10. Frontend
@@ -1157,14 +1183,14 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 
 `docs/05_TECH_STACK.md` mô tả stack đầy đủ của sản phẩm. Những phần **chưa làm**:
 
-| Dự kiến                     | Trạng thái hiện tại                                                                                                   |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| NATS JetStream              | Chưa. Đang dùng Redis + `InMemoryEventBus`. Quyết định có chủ đích: dùng Redis trước, nâng cấp sau                    |
-| Meilisearch                 | Chưa                                                                                                                  |
-| Prometheus / Grafana / Loki | Chưa. Mới có log dạng JSON, sẵn sàng để cắm vào                                                                       |
-| OpenTelemetry / Jaeger      | Chưa. Mới có `correlationId` xuyên suốt một lần chạy                                                                  |
-| Swagger                     | Chưa sinh tài liệu API                                                                                                |
-| Secret Manager              | **Chưa — khoảng cách đáng kể nhất.** API key đang đọc từ biến môi trường, chưa theo từng workspace như FR-031 yêu cầu |
+| Dự kiến                     | Trạng thái hiện tại                                                                                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NATS JetStream              | Chưa. Đang dùng Redis + `InMemoryEventBus`. Quyết định có chủ đích: dùng Redis trước, nâng cấp sau                                                                                                                               |
+| Meilisearch                 | Chưa                                                                                                                                                                                                                             |
+| Prometheus / Grafana / Loki | Chưa. Mới có log dạng JSON, sẵn sàng để cắm vào                                                                                                                                                                                  |
+| OpenTelemetry / Jaeger      | Chưa. Mới có `correlationId` xuyên suốt một lần chạy                                                                                                                                                                             |
+| Swagger                     | Chưa sinh tài liệu API                                                                                                                                                                                                           |
+| Secret Manager              | **Xong phần cốt lõi.** AES-256-GCM có keyring xoay khoá, bảng `secrets` + `secret_versions`, và Gateway đọc key riêng của từng workspace (FR-031). Còn thiếu: HashiCorp Vault, scope ngoài PLATFORM/WORKSPACE, xoay khoá tự động |
 
 ---
 
