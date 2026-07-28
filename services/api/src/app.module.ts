@@ -11,6 +11,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionGuard } from "./common/guards/permission.guard";
 import { ScopedThrottlerGuard } from "./common/guards/scoped-throttler.guard";
+import { MetricsInterceptor } from "./common/interceptors/metrics.interceptor";
 import { ResponseEnvelopeInterceptor } from "./common/interceptors/response-envelope.interceptor";
 import { CorrelationIdMiddleware } from "./common/middleware/correlation-id.middleware";
 import { HealthController } from "./health/health.controller";
@@ -25,6 +26,7 @@ import { AuthorizationModule } from "./modules/authorization/authorization.modul
 import { ChatModule } from "./modules/chat/chat.module";
 import { MemoryModule } from "./modules/memory/memory.module";
 import { ConnectionsModule } from "./modules/connections/connections.module";
+import { MetricsModule } from "./infra/metrics/metrics.module";
 import { SecretsModule } from "./modules/secrets/secrets.module";
 import { DocumentsModule } from "./modules/documents/documents.module";
 import { GoalsModule } from "./modules/goals/goals.module";
@@ -71,6 +73,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     MemoryModule,
     SecretsModule,
     ConnectionsModule,
+    MetricsModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -81,6 +84,9 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     { provide: APP_GUARD, useClass: ScopedThrottlerGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    // Outermost of the two, so the time it records includes everything the
+    // envelope interceptor does rather than stopping short of it.
+    { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
   ],
 })

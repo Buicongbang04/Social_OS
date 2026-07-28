@@ -1013,6 +1013,31 @@ Test "mọi tool đều lấy workspace từ context" trước đây dùng `ever
 tool **không gọi gì cả** vẫn lọt qua. Giờ nó đếm: đúng một lượt đọc cho mỗi
 tool. Kiểm chứng ngược bằng cách cho tool đọc workspace cố định — đỏ ngay.
 
+### Metrics (`@repo/observability`, `prom-client` 15.1)
+
+`GET /metrics` ở dạng exposition Prometheus, **nằm ngoài tiền tố `api/v1`** —
+cùng lý do với `/health`: một load balancer và một scraper được cấu hình một
+lần, không được đổi chỗ khi API lên phiên bản.
+
+| Quyết định                                                | Vì sao                                                                                                                                                                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tắt** khi chưa đặt `METRICS_TOKEN`, và trả **404**      | `/metrics` cho biết hình dạng lưu lượng, tỉ lệ lỗi và mức chi tiêu — bức tranh vận hành không ai bên ngoài nên có. 404 chứ không 401 để một lượt quét không phân biệt được "đang tắt" với "chưa đoán ra token" |
+| So token bằng `timingSafeEqual`                           | Token này do người gọi endpoint nộp lên, tức là do bất kỳ ai                                                                                                                                                   |
+| Nhãn route là **khuôn mẫu**, không phải đường dẫn         | Một nhãn có miền giá trị vô hạn sinh một chuỗi thời gian cho mỗi execution từng chạy. Kho metrics chết vì chuyện đó, và chết lặng lẽ — đúng lúc có sự cố                                                       |
+| Không đo chính `/metrics`                                 | Scraper hỏi mỗi 15 giây sẽ át toàn bộ histogram và biến các con số thành nói về chính nó                                                                                                                       |
+| Ghi cả nhánh lỗi                                          | Chỉ đo request thành công sẽ bỏ ngoài histogram đúng những request chậm nhất, và đồ thị trông khoẻ nhất lúc dịch vụ tệ nhất                                                                                    |
+| Registry riêng, không dùng registry toàn cục của thư viện | Registry mặc định là singleton sống qua nhiều test; hai suite dùng chung khiến mọi khẳng định về số đếm phụ thuộc vào thứ chạy trước                                                                           |
+
+**Một lỗi thật, do test kiểm sai chỗ.** Bản đầu bọc exposition trong
+`{"data": "..."}` của response envelope — Prometheus từ chối thẳng. Test vẫn
+xanh vì nó dùng `toContain`, và chuỗi đó vẫn nằm trong JSON. Giờ test khẳng định
+thân phản hồi **bắt đầu bằng `# HELP`** và **`JSON.parse` phải ném lỗi**.
+
+**Hai giới hạn ghi rõ:** request bị guard từ chối không được đo (guard chạy
+trước interceptor), và đường dẫn không khớp route nào cũng không được đo (Nest
+không chạy interceptor khi không có handler). Nghĩa là 404 từ đường dẫn lạ
+không xuất hiện trong histogram.
+
 ### Chi phí AI trên màn hình
 
 Bảng `ai_usage` được ghi từ Phase 2 và **chưa có đường nào đọc ra** cho tới giờ.

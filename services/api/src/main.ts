@@ -12,7 +12,9 @@ async function bootstrap(): Promise<void> {
 
   // URL versioning per docs/api/10_API_VERSIONING.md. /health stays unprefixed
   // so probes do not have to track the API version.
-  app.setGlobalPrefix(config.apiPrefix, { exclude: ["health"] });
+  // Both sit outside the versioned API on purpose: a load balancer and a
+  // metrics scraper are configured once and must not move when the API is.
+  app.setGlobalPrefix(config.apiPrefix, { exclude: ["health", "metrics"] });
 
   // An explicit allowlist, never `*`. The browser sends the access token in an
   // Authorization header, so a wildcard origin would let any site on the
