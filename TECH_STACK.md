@@ -996,6 +996,23 @@ mà chạy lại **không sửa được sai lầm**. Nên nó từ chối nhi�
 Đăng lần lượt từng kênh chứ không song song: hỏng giữa chừng mà chạy song song
 thì không biết kênh nào đã đăng, và lần thử lại sẽ đăng trùng.
 
+### Chat đọc được kênh mạng xã hội
+
+Hai tool chỉ-đọc nữa: `xem_hop_thu` và `so_lieu_bai_dang`. Người dùng hỏi "có ai
+nhắn gì không?" bằng tiếng Việt, model tự gọi tool, trả lời bằng dữ liệu thật.
+Đã kiểm chứng trọn vòng qua stack đang chạy với Page thật.
+
+| Quyết định                                 | Vì sao                                                                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Không có tool nào **trả lời** khách        | Cùng lý do không có tool đăng bài: đường chat không có cổng duyệt, không có hạn mức, không có idempotency, không có vết kiểm toán |
+| Chưa nối kênh nào thì **không chào tool**  | Một tool được chào mà gọi lần nào cũng hỏng sẽ dạy model thôi gọi — và nó thôi gọi cho cả những workspace lẽ ra dùng được         |
+| Trả về `khong_doc_duoc` kèm danh sách kênh | Để model nói "có một kênh tôi không đọc được" thay vì trả lời như thể kênh đó không có tin nào                                    |
+| **Không** trả lượt tiếp cận dưới dạng 0    | Model nhận một cột toàn số 0 sẽ kết luận không ai xem bài và nói ra — một khẳng định dữ liệu không chống đỡ nổi                   |
+
+Test "mọi tool đều lấy workspace từ context" trước đây dùng `every`, nên một
+tool **không gọi gì cả** vẫn lọt qua. Giờ nó đếm: đúng một lượt đọc cho mỗi
+tool. Kiểm chứng ngược bằng cách cho tool đọc workspace cố định — đỏ ngay.
+
 ### Chi phí AI trên màn hình
 
 Bảng `ai_usage` được ghi từ Phase 2 và **chưa có đường nào đọc ra** cho tới giờ.
