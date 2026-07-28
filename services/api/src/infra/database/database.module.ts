@@ -9,6 +9,7 @@ import {
   DrizzleTaskRepository,
   DrizzleOrganizationMembershipRepository,
   DrizzleOrganizationRepository,
+  DrizzleSecretRepository,
   DrizzleSessionRepository,
   DrizzleUserRepository,
   DrizzleWorkspaceMembershipRepository,
@@ -46,6 +47,7 @@ export const CONVERSATION_REPOSITORY = Symbol("CONVERSATION_REPOSITORY");
 export const WORKSPACE_MEMORY_REPOSITORY = Symbol(
   "WORKSPACE_MEMORY_REPOSITORY",
 );
+export const SECRET_REPOSITORY = Symbol("SECRET_REPOSITORY");
 
 @Global()
 @Module({
@@ -122,6 +124,11 @@ export const WORKSPACE_MEMORY_REPOSITORY = Symbol(
       useFactory: (db: DatabaseClient) => new DrizzleConversationRepository(db),
     },
     {
+      provide: SECRET_REPOSITORY,
+      inject: [DATABASE_CLIENT],
+      useFactory: (db: DatabaseClient) => new DrizzleSecretRepository(db),
+    },
+    {
       provide: WORKSPACE_MEMORY_REPOSITORY,
       inject: [DATABASE_CLIENT],
       useFactory: (db: DatabaseClient) =>
@@ -143,6 +150,7 @@ export const WORKSPACE_MEMORY_REPOSITORY = Symbol(
     DOCUMENT_REPOSITORY,
     CONVERSATION_REPOSITORY,
     WORKSPACE_MEMORY_REPOSITORY,
+    SECRET_REPOSITORY,
   ],
 })
 export class DatabaseModule implements OnApplicationShutdown {

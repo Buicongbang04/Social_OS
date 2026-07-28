@@ -33,7 +33,7 @@ import type {
 } from "@repo/domain";
 import { AI_USAGE_REPOSITORY } from "../../infra/database/database.module";
 import { CONVERSATION_REPOSITORY } from "../../infra/database/database.module";
-import { AI_GATEWAY } from "../../infra/ai/ai.module";
+import { WorkspaceGatewayFactory } from "../../infra/ai/workspace-gateway";
 import { KNOWLEDGE_SERVICE } from "../../infra/knowledge/knowledge.module";
 import { createChatTools, type ChatTool } from "./chat-tools";
 
@@ -80,8 +80,6 @@ const PROMPTS = createDefaultPromptRegistry();
 const CHAT_PROMPT = PROMPTS.render("chat.system");
 const SUMMARY_PROMPT = PROMPTS.render("chat.summary.system");
 
-
-
 /**
  * A passage the answer was allowed to draw on, and where it came from.
  *
@@ -117,7 +115,7 @@ export class ChatService {
   constructor(
     @Inject(CONVERSATION_REPOSITORY)
     private readonly conversations: ConversationRepository,
-    @Inject(AI_GATEWAY) private readonly gateway: ProviderGateway | null,
+    private readonly gateways: WorkspaceGatewayFactory,
     @Inject(AI_USAGE_REPOSITORY) private readonly usage: AiUsageRecorder,
     @Inject(KNOWLEDGE_SERVICE)
     private readonly knowledge: KnowledgeService | null,
@@ -188,7 +186,7 @@ export class ChatService {
     /** Aborted when the client goes away. */
     signal: AbortSignal;
   }): AsyncGenerator<StreamEvent, void, undefined> {
-    const gateway = this.requireGateway();
+    const gateway = await this.requireGateway(input.workspaceId);
     const content = input.content.trim();
     if (content === "") {
       throw new ValidationError("Tin nhắn rỗng.");
@@ -253,9 +251,7 @@ export class ChatService {
         for await (const chunk of gateway.stream(
           {
             messages,
-            ...(tools.length > 0
-              ? { tools: tools.map(toProviderTool) }
-              : {}),
+            ...(tools.length > 0 ? { tools: tools.map(toProviderTool) } : {}),
           },
           input.signal,
         )) {
@@ -268,7 +264,9 @@ export class ChatService {
         }
 
         if (!response) {
-          throw new Error("The gateway ended the stream without a final chunk.");
+          throw new Error(
+            "The gateway ended the stream without a final chunk.",
+          );
         }
 
         if (calls.length === 0 || round === MAX_TOOL_ROUNDS - 1) {
@@ -354,7 +352,8 @@ export class ChatService {
       const toFold = all.slice(conversation.summarisedCount, overflow);
       if (toFold.length === 0) return;
 
-      const response = await this.requireGateway().generate({
+      const gateway = await this.requireGateway(input.workspaceId);
+      const response = await gateway.generate({
         messages: [
           { role: "system", content: SUMMARY_PROMPT.text },
           {
@@ -365,9 +364,7 @@ export class ChatService {
                 : "Chưa có tóm tắt nào.",
               "",
               "Các lượt cần gộp thêm:",
-              ...toFold.map(
-                (message) => `${message.role}: ${message.content}`,
-              ),
+              ...toFold.map((message) => `${message.role}: ${message.content}`),
             ].join("\n"),
           },
         ],
@@ -531,13 +528,23 @@ export class ChatService {
     });
   }
 
-  private requireGateway(): ProviderGateway {
-    if (!this.gateway) {
+  /**
+   * The gateway this workspace's messages run on.
+   *
+   * Resolved per call rather than injected once, because which one it is
+   * depends on the workspace: its own key if it has connected one, the
+   * platform's otherwise.
+   */
+  private async requireGateway(
+    workspaceId: WorkspaceId,
+  ): Promise<ProviderGateway> {
+    const gateway = await this.gateways.forWorkspace(workspaceId);
+    if (!gateway) {
       throw new ValidationError(
-        "Chưa cấu hình AI provider. Đặt AI_PROVIDER và key tương ứng.",
+        "Chưa cấu hình AI provider. Kết nối key của workspace, hoặc đặt AI_PROVIDER và key tương ứng.",
       );
     }
-    return this.gateway;
+    return gateway;
   }
 }
 

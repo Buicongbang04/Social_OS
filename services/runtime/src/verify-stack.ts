@@ -74,6 +74,7 @@ async function main(): Promise<void> {
   client.setWorkspace(workspace.id);
   check("registered and created a workspace", true, workspace.id);
 
+  await secretFlow(client);
   await documentFlow(client);
   await plainRun(client);
   await approvalRun(client);
@@ -86,6 +87,63 @@ async function main(): Promise<void> {
       : `\n${failures} kiểm tra KHÔNG đạt.`,
   );
   process.exitCode = failures === 0 ? 0 : 1;
+}
+
+/**
+ * Store a credential, confirm the workspace moves onto it, then revoke it.
+ *
+ * Through the public API only, like everything else here. What it proves that a
+ * unit test cannot: the value is sealed with a key the running process actually
+ * holds, and no response anywhere in the flow carries the plaintext back.
+ */
+async function secretFlow(client: ApiClient): Promise<void> {
+  console.log("\n→ Kho bí mật");
+
+  // Obviously not a live key. The point is what the platform does with it, and
+  // sending a real one to a script that prints its output would be a poor idea.
+  const value = `sk-ant-verify-stack-${Date.now()}`;
+
+  let stored;
+  try {
+    stored = await client.putSecret({ name: "providers/anthropic", value });
+  } catch (error: unknown) {
+    check(
+      "bỏ qua: chưa cấu hình SECRET_KEYS",
+      true,
+      isApiError(error) ? error.message : String(error),
+    );
+    return;
+  }
+
+  check("lưu được credential", stored.activeVersion === 1, stored.hint);
+  check(
+    "không trả lại giá trị ở bất kỳ đâu",
+    !JSON.stringify(await client.listSecrets()).includes(value),
+  );
+
+  const connected = await client.providerKeys();
+  check(
+    "workspace chuyển sang key của chính nó",
+    connected.source === "workspace" &&
+      connected.providers.includes("anthropic"),
+    connected.providers.join(", "),
+  );
+
+  const rotated = await client.putSecret({
+    name: "providers/anthropic",
+    value: `${value}-v2`,
+  });
+  check("xoay khoá tạo bản mới", rotated.activeVersion === 2);
+  check(
+    "quay lại được bản trước",
+    (await client.rollbackSecret(rotated.id, 1)).activeVersion === 1,
+  );
+
+  await client.deleteSecret(stored.id);
+  check(
+    "thu hồi là ngừng dùng ngay",
+    (await client.providerKeys()).source === "platform",
+  );
 }
 
 /**

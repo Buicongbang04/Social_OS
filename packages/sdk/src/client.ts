@@ -18,6 +18,8 @@ import type {
   PublicUser,
   Task,
   UploadedDocument,
+  ProviderKeyStatus,
+  StoredSecret,
   WorkspaceMemory,
   Workspace,
 } from "./types";
@@ -327,6 +329,55 @@ export class ApiClient {
     });
   }
 
+  // --- Secrets --------------------------------------------------------------
+
+  async listSecrets(): Promise<StoredSecret[]> {
+    return this.request<StoredSecret[]>("GET", "/secrets", {
+      workspaceScoped: true,
+    });
+  }
+
+  /**
+   * Which keys this workspace's AI requests actually run on.
+   *
+   * Worth asking after saving one: no route returns a value, so a key that was
+   * stored but never picked up looks exactly like one that works.
+   */
+  async providerKeys(): Promise<ProviderKeyStatus> {
+    return this.request<ProviderKeyStatus>("GET", "/secrets/providers", {
+      workspaceScoped: true,
+    });
+  }
+
+  /**
+   * Store a credential. Saying the same name twice writes a new version and
+   * points the secret at it, rather than overwriting — so a bad rotation is a
+   * rollback, not an outage.
+   */
+  async putSecret(input: {
+    name: string;
+    value: string;
+    description?: string;
+  }): Promise<StoredSecret> {
+    return this.request<StoredSecret>("PUT", "/secrets", {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  async rollbackSecret(id: string, version: number): Promise<StoredSecret> {
+    return this.request<StoredSecret>("POST", `/secrets/${id}/rollback`, {
+      body: { version },
+      workspaceScoped: true,
+    });
+  }
+
+  async deleteSecret(id: string): Promise<void> {
+    await this.request<void>("DELETE", `/secrets/${id}`, {
+      workspaceScoped: true,
+    });
+  }
+
   // --- Chat -----------------------------------------------------------------
 
   async createConversation(title?: string): Promise<Conversation> {
@@ -612,7 +663,10 @@ function parseSseBlock(block: string): ChatStreamEvent | null {
   }
 
   if (name === "delta") {
-    return { type: "delta", text: String((data as { text?: string }).text ?? "") };
+    return {
+      type: "delta",
+      text: String((data as { text?: string }).text ?? ""),
+    };
   }
   if (name === "tool") {
     return { type: "tool", run: data as ToolRun };

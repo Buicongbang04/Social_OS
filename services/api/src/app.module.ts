@@ -19,10 +19,12 @@ import { RedisModule } from "./infra/redis/redis.module";
 import { StorageModule } from "./infra/storage/storage.module";
 import { AiModule } from "./infra/ai/ai.module";
 import { KnowledgeModule } from "./infra/knowledge/knowledge.module";
+import { SecretsInfraModule } from "./infra/secrets/secrets.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AuthorizationModule } from "./modules/authorization/authorization.module";
 import { ChatModule } from "./modules/chat/chat.module";
 import { MemoryModule } from "./modules/memory/memory.module";
+import { SecretsModule } from "./modules/secrets/secrets.module";
 import { DocumentsModule } from "./modules/documents/documents.module";
 import { GoalsModule } from "./modules/goals/goals.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
@@ -56,6 +58,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     StorageModule,
     AiModule,
     KnowledgeModule,
+    SecretsInfraModule,
     AuthorizationModule,
     AuthModule,
     UsersModule,
@@ -65,6 +68,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     DocumentsModule,
     ChatModule,
     MemoryModule,
+    SecretsModule,
   ],
   controllers: [HealthController],
   providers: [

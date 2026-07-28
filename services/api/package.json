@@ -30,6 +30,7 @@
     "@repo/logger": "workspace:*",
     "@repo/queue": "workspace:*",
     "@repo/runtime": "workspace:*",
+    "@repo/secrets": "workspace:^",
     "@repo/storage": "workspace:^",
     "ioredis": "^5.4.2",
     "passport": "^0.7.0",

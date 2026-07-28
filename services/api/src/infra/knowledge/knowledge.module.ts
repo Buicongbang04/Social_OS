@@ -1,7 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import type { ProviderGateway } from "@repo/ai";
 import { buildKnowledgeFromEnv, type KnowledgeService } from "@repo/knowledge";
-import { AI_GATEWAY } from "../ai/ai.module";
+import { AI_GATEWAY } from "../ai/ai.tokens";
 
 /**
  * Document search, or nothing.
