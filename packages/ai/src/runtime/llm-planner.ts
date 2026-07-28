@@ -23,7 +23,12 @@ import {
   type AiUsageRecorder,
 } from "../usage/recorder";
 import { enforceDataFlow } from "./data-flow";
-import { PLAN_SYSTEM_PROMPT, PROMPT_VERSION, planUserPrompt } from "./prompts";
+import { createDefaultPromptRegistry } from "../prompt/builtin";
+import { planUserPrompt } from "./prompts";
+
+/** Rendered once: a system prompt has no variables. See the intent analyzer. */
+const PLAN_PROMPT = createDefaultPromptRegistry().render("plan.system");
+
 
 const planSchema = z.object({
   steps: z
@@ -110,7 +115,7 @@ export class LlmPlanner implements Planner {
             : { model: this.options.model }),
           temperature: this.options.temperature ?? 0.1,
           messages: [
-            { role: "system", content: PLAN_SYSTEM_PROMPT },
+            { role: "system", content: PLAN_PROMPT.text },
             {
               role: "user",
               content: planUserPrompt({
@@ -132,7 +137,10 @@ export class LlmPlanner implements Planner {
               }),
             },
           ],
-          metadata: { operation: "plan.build", promptVersion: PROMPT_VERSION },
+          metadata: {
+            operation: "plan.build",
+            promptVersion: PLAN_PROMPT.version,
+          },
         },
         LlmPlanner.schema,
       )
@@ -228,7 +236,7 @@ export class LlmPlanner implements Planner {
         planner: "llm",
         provider: response.provider,
         model: response.model,
-        promptVersion: PROMPT_VERSION,
+        promptVersion: PLAN_PROMPT.version,
         intentCount: intents.length,
         // Visible rather than silent: a high number here means the model is
         // not producing the dependencies it is asked for, which is worth
