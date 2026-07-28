@@ -660,6 +660,34 @@ describe("provider gateway — streaming", () => {
     ).rejects.toThrow(/without finishing/i);
   });
 
+  it("stops when the caller aborts", async () => {
+    // A browser tab that closes mid-answer must not leave the vendor
+    // generating — and billing — text nobody will read.
+    const { gateway } = build({
+      anthropic: {
+        fallbackReply: { text: "một câu trả lời rất dài để cắt nhiều mảnh" },
+        streamChunkSize: 4,
+      },
+    });
+
+    const controller = new AbortController();
+    const seen: string[] = [];
+
+    await expect(
+      (async () => {
+        for await (const chunk of gateway.stream(ASK, controller.signal)) {
+          if (chunk.type === "text") {
+            seen.push(chunk.delta);
+            if (seen.length === 2) controller.abort();
+          }
+        }
+      })(),
+    ).rejects.toThrow();
+
+    // Stopped early rather than running to the end and discarding the rest.
+    expect(seen.length).toBeLessThan(5);
+  });
+
   it("says so clearly when nothing registered can stream", async () => {
     const { gateway } = build({ anthropic: { fallbackReply: { text: "x" } } });
 

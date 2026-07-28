@@ -85,7 +85,7 @@ export class StubProviderAdapter implements ProviderAdapter {
       this.embed = (request) => this.fakeEmbed(request);
     }
     if (options.streamChunkSize !== undefined) {
-      this.stream = (request) => this.fakeStream(request);
+      this.stream = (request, signal) => this.fakeStream(request, signal);
     }
   }
 
@@ -138,6 +138,7 @@ export class StubProviderAdapter implements ProviderAdapter {
 
   stream?: (
     request: ProviderRequest,
+    signal?: AbortSignal,
   ) => AsyncGenerator<AdapterStreamChunk, void, undefined>;
 
   /**
@@ -150,6 +151,7 @@ export class StubProviderAdapter implements ProviderAdapter {
    */
   private async *fakeStream(
     request: ProviderRequest,
+    signal?: AbortSignal,
   ): AsyncGenerator<AdapterStreamChunk, void, undefined> {
     const reply = this.replyFor(request);
     const text = "text" in reply ? reply.text : "";
@@ -157,6 +159,11 @@ export class StubProviderAdapter implements ProviderAdapter {
 
     let delivered = 0;
     for (let at = 0; at < text.length; at += size) {
+      // Honoured rather than ignored, so this stub can model what a real
+      // provider does when the caller walks away — a stub that kept going
+      // would let the Gateway's abort wiring look correct while doing nothing.
+      signal?.throwIfAborted();
+
       if (
         this.options.failAfterChunks !== undefined &&
         delivered >= this.options.failAfterChunks

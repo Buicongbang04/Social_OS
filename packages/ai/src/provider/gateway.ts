@@ -274,6 +274,15 @@ export class ProviderGateway {
    */
   async *stream(
     request: ProviderRequest,
+    /**
+     * Stops the call when the caller stops caring.
+     *
+     * A browser tab that closes mid-answer would otherwise leave the vendor
+     * generating — and billing — text nobody will ever read. Combined with the
+     * gateway's own timeout rather than replacing it, so a caller that never
+     * aborts still cannot hang for ever.
+     */
+    signal?: AbortSignal,
   ): AsyncGenerator<StreamChunk, void, undefined> {
     const chain = this.chainFor(request).flatMap((provider) => {
       const adapter = this.registry.get(provider)?.adapter;
@@ -306,9 +315,11 @@ export class ProviderGateway {
       let textSoFar = "";
 
       try {
+        const timeout = AbortSignal.timeout(this.config.timeoutMs);
+
         for await (const chunk of stream(
           request,
-          AbortSignal.timeout(this.config.timeoutMs),
+          signal ? AbortSignal.any([signal, timeout]) : timeout,
         )) {
           if (chunk.type === "done") {
             this.registry.markHealthy(provider);
