@@ -457,6 +457,24 @@ bắt buộc cho mô hình AI.
 - Kiểu suy ra rất phức tạp, làm chậm trình biên dịch trên schema lớn.
 - Đang có sự chia rẽ giữa zod 3 và zod 4 trong hệ sinh thái.
 
+**Hội thoại dài quên phần đầu một cách IM LẶNG nếu không làm gì.** Cắt cứng ở
+N lượt gần nhất là cách hỏng tệ nhất: model đơn giản là không còn biết đoạn đầu,
+đưa ra câu trả lời mâu thuẫn với thứ đã chốt mười lượt trước, và **không có chỗ
+nào nói vì sao**. Nên các lượt rơi ra khỏi cửa sổ được gộp vào một đoạn tóm tắt
+(`conversations.summary`), và tóm tắt đó được đưa vào prompt dưới dạng **system
+message có nhãn**, không phải replay như lời người dùng — nếu không model sẽ
+trích lại nó như thể người dùng vừa nói đúng câu đó.
+
+**Tóm tắt chạy SAU khi đã trả lời xong, không phải trước.** Nó là một lời gọi
+model nữa; đặt nó trên đường trả lời sẽ làm mọi lượt trong hội thoại dài chậm
+đi thấy rõ, đổi lấy một lợi ích người đọc chỉ thấy ở lượt kế tiếp.
+
+**CAS trên `summarisedCount`, không phải trên `version`.** `version` đổi mỗi khi
+có tin nhắn, nên dùng nó sẽ làm việc tóm tắt thất bại mỗi khi có lượt mới rơi
+vào đúng lúc — và không bao giờ thử lại được, vì lần sau đọc lại vẫn thấy tóm
+tắt cũ rồi lại đua tiếp. `summarisedCount` chỉ đổi khi một bản tóm tắt thật sự
+ghi xuống, đúng va chạm cần từ chối.
+
 **SSE, không phải WebSocket, cho chat.** Luồng dữ liệu một chiều; SSE tự kết
 nối lại, đi qua proxy được, và không cần nâng cấp giao thức. Nhưng client ở đây
 dùng `fetch` chứ không dùng `EventSource`: `EventSource` không gửi được POST

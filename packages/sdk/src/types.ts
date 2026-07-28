@@ -246,6 +246,14 @@ export type Conversation = {
   title: string;
   lastMessageAt: string | null;
   messageCount: number;
+  /**
+   * What the turns that fell out of the context window said, or null.
+   *
+   * Exposed so a UI can show that a thread has been condensed rather than
+   * letting the model appear to forget for no stated reason.
+   */
+  summary: string | null;
+  summarisedCount: number;
   createdAt: string;
 };
 

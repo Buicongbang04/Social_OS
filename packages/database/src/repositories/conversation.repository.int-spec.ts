@@ -223,6 +223,68 @@ describe.skipIf(!DATABASE_URL)(
       expect(listed.map((c) => c.id)).toContain(empty.id);
     });
 
+    it("starts with no summary", async () => {
+      const conversation = await start();
+
+      expect(conversation.summary).toBeNull();
+      expect(conversation.summarisedCount).toBe(0);
+    });
+
+    it("folds the overflow into the summary", async () => {
+      const conversation = await start();
+
+      const updated = await repo.updateSummary(
+        workspaceId,
+        conversation.id,
+        "Người dùng bán cà phê ở Đắk Lắk, đã chốt giọng văn thân thiện.",
+        12,
+        0,
+      );
+
+      expect(updated?.summary).toContain("Đắk Lắk");
+      expect(updated?.summarisedCount).toBe(12);
+    });
+
+    it("lets only one of two concurrent summaries land", async () => {
+      // Both would otherwise start from the same point, and the second would
+      // overwrite the first — losing everything the first had folded in.
+      const conversation = await start();
+
+      const [first, second] = await Promise.all([
+        repo.updateSummary(workspaceId, conversation.id, "bản A", 12, 0),
+        repo.updateSummary(workspaceId, conversation.id, "bản B", 12, 0),
+      ]);
+
+      expect([first, second].filter(Boolean)).toHaveLength(1);
+    });
+
+    it("refuses a summary computed from a stale starting point", async () => {
+      const conversation = await start();
+      await repo.updateSummary(workspaceId, conversation.id, "bản 1", 12, 0);
+
+      // A second worker still holding summarisedCount 0.
+      expect(
+        await repo.updateSummary(workspaceId, conversation.id, "bản 2", 12, 0),
+      ).toBeNull();
+      expect(
+        (await repo.findById(workspaceId, conversation.id))?.summary,
+      ).toBe("bản 1");
+    });
+
+    it("will not let another workspace write a summary", async () => {
+      const conversation = await start();
+
+      expect(
+        await repo.updateSummary(
+          otherWorkspaceId,
+          conversation.id,
+          "của người khác",
+          12,
+          0,
+        ),
+      ).toBeNull();
+    });
+
     it("renames a thread", async () => {
       const conversation = await start("Hội thoại mới");
 

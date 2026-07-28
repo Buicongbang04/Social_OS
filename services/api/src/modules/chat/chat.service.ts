@@ -36,6 +36,30 @@ import { AI_GATEWAY } from "../../infra/ai/ai.module";
  */
 const HISTORY_TURNS = 20;
 
+/**
+ * How far behind the summary is allowed to fall before it is refreshed.
+ *
+ * Not one, because summarising costs a model call and doing it on every turn
+ * past the window would double the price of a long conversation. Not fifty,
+ * because everything between the summary and the window is simply gone. Ten
+ * turns is roughly one exchange's worth of drift.
+ */
+const SUMMARY_LAG = 10;
+
+const SUMMARY_PROMPT = `Bạn đang nén phần đầu của một cuộc trò chuyện để giữ lại trong bộ nhớ.
+
+Viết lại thành một đoạn tóm tắt ngắn, ở ngôi thứ ba, giữ đúng những thứ mà lượt sau còn cần:
+
+- Người dùng là ai, đang làm gì, muốn gì.
+- Những quyết định đã chốt và những con số, tên riêng, ràng buộc đã nêu.
+- Những gì đã bị bác bỏ, để không đề xuất lại.
+
+Bỏ lời chào, lời cảm ơn, và mọi thứ chỉ có ý nghĩa tại thời điểm nói.
+
+Nếu đã có tóm tắt trước đó, hãy gộp phần mới vào chứ đừng viết lại từ đầu và đừng làm mất thông tin cũ.
+
+Chỉ trả về đoạn tóm tắt, không thêm lời dẫn.`;
+
 const SYSTEM_PROMPT = `Bạn là trợ lý của một nền tảng tự động hoá mạng xã hội.
 
 Trả lời ngắn gọn, đúng trọng tâm, bằng ngôn ngữ người dùng đang dùng.
@@ -136,12 +160,16 @@ export class ChatService {
       input.workspaceId,
       input.conversationId,
     );
+    const conversation = await this.getConversation(
+      input.workspaceId,
+      input.conversationId,
+    );
 
     let text = "";
 
     try {
       for await (const chunk of gateway.stream(
-        { messages: toPrompt(history) },
+        { messages: toPrompt(history, conversation.summary) },
         input.signal,
       )) {
         if (chunk.type === "text") {
@@ -151,6 +179,12 @@ export class ChatService {
         if (chunk.type === "done") {
           const message = await this.recordAnswer(input, chunk.response, false);
           yield { type: "done", message };
+
+          // After the answer, never before it. Summarising is another model
+          // call, and putting it on the path of a reply would make every turn
+          // in a long thread visibly slower for a benefit the reader does not
+          // see until the turn after.
+          await this.consolidate(input, conversation, history.length + 1);
           return;
         }
       }
@@ -175,6 +209,72 @@ export class ChatService {
     // The gateway guarantees a `done`, so reaching here means it broke its own
     // contract. Said out loud rather than returning an empty answer.
     throw new Error("The gateway ended the stream without a final chunk.");
+  }
+
+  /**
+   * Fold the turns that have fallen out of the window into the summary.
+   *
+   * Best effort and deliberately silent on failure: the answer has already
+   * been delivered, and turning a summarisation hiccup into a failed reply
+   * would trade something the reader has for something they cannot see.
+   * The next turn retries, because the count has not moved.
+   */
+  private async consolidate(
+    input: { workspaceId: WorkspaceId; conversationId: ConversationId },
+    conversation: Conversation,
+    messageCount: number,
+  ): Promise<void> {
+    const overflow = messageCount - HISTORY_TURNS;
+    if (overflow <= 0) return;
+    if (overflow - conversation.summarisedCount < SUMMARY_LAG) return;
+
+    try {
+      const all = await this.conversations.listMessages(
+        input.workspaceId,
+        input.conversationId,
+      );
+      // Exactly the turns that will not fit next time, and only the ones the
+      // summary does not already cover.
+      const toFold = all.slice(conversation.summarisedCount, overflow);
+      if (toFold.length === 0) return;
+
+      const response = await this.requireGateway().generate({
+        messages: [
+          { role: "system", content: SUMMARY_PROMPT },
+          {
+            role: "user",
+            content: [
+              conversation.summary
+                ? `Tóm tắt hiện có:\n${conversation.summary}`
+                : "Chưa có tóm tắt nào.",
+              "",
+              "Các lượt cần gộp thêm:",
+              ...toFold.map(
+                (message) => `${message.role}: ${message.content}`,
+              ),
+            ].join("\n"),
+          },
+        ],
+      });
+
+      await this.conversations.updateSummary(
+        input.workspaceId,
+        input.conversationId,
+        response.text.trim(),
+        overflow,
+        conversation.summarisedCount,
+      );
+
+      await recordUsageSafely(
+        this.usage,
+        usageRecordFrom(response, {
+          workspaceId: input.workspaceId,
+          operation: "chat.summarise",
+        }),
+      );
+    } catch {
+      // See above: the reply is already out, and the next turn retries.
+    }
   }
 
   private async recordAnswer(
@@ -258,11 +358,24 @@ export class ChatService {
  * stored: it is code, not conversation, and storing it would freeze every old
  * thread to the wording it was started with.
  */
-function toPrompt(history: readonly Message[]): ProviderMessage[] {
+function toPrompt(
+  history: readonly Message[],
+  summary: string | null,
+): ProviderMessage[] {
   const recent = history.slice(-HISTORY_TURNS);
 
   return [
     { role: "system", content: SYSTEM_PROMPT },
+    // Labelled as a summary rather than replayed as dialogue, so the model
+    // does not quote it back as something the user said in those words.
+    ...(summary
+      ? [
+          {
+            role: "system" as const,
+            content: `Tóm tắt phần đầu cuộc trò chuyện (không phải lời người dùng vừa nói):\n${summary}`,
+          },
+        ]
+      : []),
     ...recent
       // A truncated answer is shown to the reader but not fed back: it stops
       // mid-word, and a model asked to continue from it tends to repeat the

@@ -50,6 +50,22 @@ export interface ConversationRepository {
    */
   appendMessage(input: AppendMessageInput): Promise<Message>;
 
+  /**
+   * Fold the turns that have fallen out of the window into the summary.
+   *
+   * `expectedSummarisedCount` is a compare-and-swap: two turns arriving
+   * together would otherwise both summarise from the same starting point and
+   * the second would overwrite the first, losing everything the first had
+   * folded in. The loser gets null and skips — the work is already done.
+   */
+  updateSummary(
+    workspaceId: WorkspaceId,
+    id: ConversationId,
+    summary: string,
+    summarisedCount: number,
+    expectedSummarisedCount: number,
+  ): Promise<Conversation | null>;
+
   /** Rename a thread. Returns null when there is no such conversation here. */
   rename(
     workspaceId: WorkspaceId,

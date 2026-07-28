@@ -81,6 +81,17 @@ export function ChatPanel() {
         if (event.type === "done") {
           setMessages((current) => [...current, event.message]);
           setStreaming(null);
+          // Re-read the thread: the summary is written after the answer, so it
+          // is only ever visible on the turn after it was made.
+          void getClient()
+            .listConversations()
+            .then((all) => {
+              const fresh = all.find((c) => c.id === thread.id);
+              if (fresh) setConversation(fresh);
+            })
+            .catch(() => {
+              // A stale summary banner is not worth an error message.
+            });
         }
         if (event.type === "error") {
           // The partial answer is kept on screen: the reader saw it, and the
@@ -121,6 +132,19 @@ export function ChatPanel() {
             Hội thoại mới
           </button>
         </p>
+      ) : null}
+
+      {/* Said out loud rather than left to be inferred. Past the window the
+          model reads a summary instead of the original turns, and a reader who
+          does not know that reads a worse answer as the model being careless. */}
+      {conversation?.summary ? (
+        <details className="mb-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+          <summary className="cursor-pointer">
+            Phần đầu cuộc trò chuyện đã được tóm tắt lại (
+            {conversation.summarisedCount} tin nhắn)
+          </summary>
+          <p className="mt-2 whitespace-pre-wrap">{conversation.summary}</p>
+        </details>
       ) : null}
 
       <div className="mb-3 flex max-h-96 flex-col gap-2 overflow-y-auto">

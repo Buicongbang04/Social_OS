@@ -40,6 +40,24 @@ export const conversations = pgTable(
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
     messageCount: integer("message_count").notNull().default(0),
 
+    /**
+     * What the turns that fell out of the context window said.
+     *
+     * A long thread outgrows any window, and the alternative to this is
+     * silence: the model simply stops knowing the beginning, gives an answer
+     * that contradicts something agreed ten turns ago, and nothing anywhere
+     * says why. docs/ai/06_AGENT_MEMORY.md calls this Memory Consolidation.
+     */
+    summary: text("summary"),
+    /**
+     * How many messages the summary already covers.
+     *
+     * A count rather than a message id because that is what the window is
+     * measured in, and because it makes "is the summary behind?" one
+     * subtraction instead of a lookup.
+     */
+    summarisedCount: integer("summarised_count").notNull().default(0),
+
     ...auditColumns,
     ...softDeleteColumns,
     ...metadataColumn,

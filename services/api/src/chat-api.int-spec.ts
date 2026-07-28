@@ -232,6 +232,48 @@ describe.skipIf(!hasInfra)("chat API (integration)", () => {
     120_000,
   );
 
+  it.skipIf(!hasProvider)(
+    "remembers the beginning of a thread longer than the window",
+    async () => {
+      // The failure this closes: past the window the model simply stops
+      // knowing the start of the conversation, answers something that
+      // contradicts what was agreed, and nothing anywhere says why.
+      const conversation = await startThread(alice, aliceWorkspace);
+
+      const say = async (content: string) => {
+        await testApp
+          .http()
+          .post(`/api/v1/chat/conversations/${conversation.id}/messages`)
+          .set(auth(alice, aliceWorkspace))
+          .send({ content })
+          .expect(200);
+      };
+
+      // The fact worth remembering goes first, so it is the thing that falls
+      // out of the window.
+      await say("Nhớ giúp tôi: thương hiệu của tôi tên là Tiximax.");
+      for (let turn = 0; turn < 16; turn += 1) {
+        await say(`Đếm giúp tôi số ${turn}.`);
+      }
+
+      const after = await testApp
+        .http()
+        .get("/api/v1/chat/conversations")
+        .set(auth(alice, aliceWorkspace))
+        .expect(200);
+
+      const thread = (after.body.data as { id: string; summary: string | null }[])
+        .find((c) => c.id === conversation.id);
+
+      // Asserting the summary exists and mentions the fact, rather than
+      // asserting the model's next answer: what a model says varies, whether
+      // the fact survived the window does not.
+      expect(thread?.summary).not.toBeNull();
+      expect(thread?.summary ?? "").toContain("Tiximax");
+    },
+    600_000,
+  );
+
   it("lists the thread it just created", async () => {
     const conversation = await startThread(alice, aliceWorkspace);
 
