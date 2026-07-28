@@ -18,7 +18,9 @@ import type {
   PublicUser,
   Task,
   UploadedDocument,
+  ConnectorSummary,
   ProviderKeyStatus,
+  SocialConnection,
   StoredSecret,
   WorkspaceMemory,
   Workspace,
@@ -374,6 +376,43 @@ export class ApiClient {
 
   async deleteSecret(id: string): Promise<void> {
     await this.request<void>("DELETE", `/secrets/${id}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  // --- Social connections ---------------------------------------------------
+
+  async listConnections(): Promise<SocialConnection[]> {
+    return this.request<SocialConnection[]>("GET", "/connections", {
+      workspaceScoped: true,
+    });
+  }
+
+  /** The platforms on offer, and which of them can actually be connected. */
+  async connectorCatalog(): Promise<ConnectorSummary[]> {
+    return this.request<ConnectorSummary[]>("GET", "/connections/catalog", {
+      workspaceScoped: true,
+    });
+  }
+
+  /**
+   * Begin connecting a platform.
+   *
+   * Returns the URL to send the person to. The browser has to go there itself —
+   * the platform's consent screen is the whole point, and nothing about it can
+   * be done on their behalf.
+   */
+  async startConnection(connectorId: string): Promise<{ url: string }> {
+    return this.request<{ url: string }>(
+      "POST",
+      `/connections/${connectorId}/start`,
+      { workspaceScoped: true },
+    );
+  }
+
+  /** Disconnect. The stored credential goes with it. */
+  async disconnect(id: string): Promise<void> {
+    await this.request<void>("DELETE", `/connections/${id}`, {
       workspaceScoped: true,
     });
   }

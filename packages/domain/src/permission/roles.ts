@@ -69,6 +69,8 @@ const WORKSPACE_ADMIN: readonly PermissionKey[] = [
   "workspace.agent.delete",
   "workspace.secret.read",
   "workspace.secret.manage",
+  "workspace.connector.read",
+  "workspace.connector.manage",
 ];
 
 /**

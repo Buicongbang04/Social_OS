@@ -12,6 +12,7 @@ export * from "./organizations";
 export * from "./permissions";
 export * from "./secrets";
 export * from "./sessions";
+export * from "./social-accounts";
 export * from "./tasks";
 export * from "./users";
 export * from "./workspace-memory";

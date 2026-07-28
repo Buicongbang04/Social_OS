@@ -24,6 +24,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { AuthorizationModule } from "./modules/authorization/authorization.module";
 import { ChatModule } from "./modules/chat/chat.module";
 import { MemoryModule } from "./modules/memory/memory.module";
+import { ConnectionsModule } from "./modules/connections/connections.module";
 import { SecretsModule } from "./modules/secrets/secrets.module";
 import { DocumentsModule } from "./modules/documents/documents.module";
 import { GoalsModule } from "./modules/goals/goals.module";
@@ -69,6 +70,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     ChatModule,
     MemoryModule,
     SecretsModule,
+    ConnectionsModule,
   ],
   controllers: [HealthController],
   providers: [

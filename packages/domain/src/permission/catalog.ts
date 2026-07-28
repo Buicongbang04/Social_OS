@@ -128,6 +128,12 @@ export const PERMISSIONS: readonly PermissionDefinition[] = Object.freeze([
   define("workspace.secret.read", "Xem Secret"),
   define("workspace.secret.manage", "Quản lý Secret"),
 
+  // Social connections. Reading is separate from managing because seeing which
+  // pages a workspace publishes from is ordinary awareness, while connecting or
+  // disconnecting one changes who can be posted to and is not.
+  define("workspace.connector.read", "Xem kết nối mạng xã hội"),
+  define("workspace.connector.manage", "Kết nối và gỡ mạng xã hội"),
+
   // Organization scope
   define("organization.organization.read", "Xem thông tin Organization"),
   define("organization.organization.update", "Cập nhật Organization"),

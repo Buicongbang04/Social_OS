@@ -188,6 +188,31 @@ importers:
         specifier: ^8.15.0
         version: 8.65.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
 
+  packages/connectors:
+    dependencies:
+      "@repo/core":
+        specifier: workspace:*
+        version: link:../core
+      "@repo/runtime":
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      "@repo/config":
+        specifier: workspace:*
+        version: link:../config
+      "@types/node":
+        specifier: ^22.10.0
+        version: 22.20.1
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.5(jiti@1.21.7)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(terser@5.49.0)
+
   packages/core:
     dependencies:
       ulid:
@@ -568,6 +593,9 @@ importers:
       "@repo/auth":
         specifier: workspace:*
         version: link:../../packages/auth
+      "@repo/connectors":
+        specifier: workspace:*
+        version: link:../../packages/connectors
       "@repo/core":
         specifier: workspace:*
         version: link:../../packages/core

@@ -38,6 +38,11 @@ export const ID_PREFIXES = {
   /** A stored credential (docs/platform/12_SECRET_MANAGER.md). */
   secret: "sec",
   secretVersion: "sev",
+  /**
+   * A social platform account a workspace has connected
+   * (docs/03_DOMAIN_MODEL.md, Integration Domain).
+   */
+  socialAccount: "sac",
 } as const;
 
 export type IdPrefixName = keyof typeof ID_PREFIXES;
@@ -77,6 +82,7 @@ export type MessageId = Branded<"message">;
 export type WorkspaceMemoryId = Branded<"workspaceMemory">;
 export type SecretId = Branded<"secret">;
 export type SecretVersionId = Branded<"secretVersion">;
+export type SocialAccountId = Branded<"socialAccount">;
 
 export type IdOf<TName extends IdPrefixName> = Branded<TName>;
 

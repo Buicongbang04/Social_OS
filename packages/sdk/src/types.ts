@@ -327,6 +327,34 @@ export type StoredSecret = {
   updatedAt: string;
 };
 
+/**
+ * A social platform account the workspace has connected.
+ *
+ * As with `StoredSecret`, note the absence: no token. The server keeps those
+ * sealed in the vault and hands out only a reference, so nothing that
+ * serialises a connection can carry a live credential for someone's audience.
+ */
+export type SocialConnection = {
+  id: string;
+  connectorId: string;
+  externalId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  /** What the platform granted, which can be less than what was asked for. */
+  scopes: string[];
+  status: "ACTIVE" | "EXPIRED" | "REVOKED";
+  expiresAt: string | null;
+  connectedAt: string;
+};
+
+/** A platform on offer, and whether the operator has registered an app for it. */
+export type ConnectorSummary = {
+  id: string;
+  name: string;
+  scopes: string[];
+  configured: boolean;
+};
+
 /** Whose credential this workspace's AI requests are spending. */
 export type ProviderKeyStatus = {
   source: "workspace" | "platform";
