@@ -1428,14 +1428,14 @@ với mã nguồn chứ không chép lại từ bản cũ.
 Bốn tiêu chí thoát đều đạt và có kiểm chứng thật: Multi Provider, Streaming
 Chat, RAG, Memory.
 
-| Deliverable                  | Trạng thái                                                                                                                              |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| OpenRouter                   | **Xong.** Dùng chung giao thức OpenAI qua `createOpenAICompatible`                                                                      |
-| Tool Calling trong chat      | **Xong.** Năm tool, tất cả chỉ-đọc: tài liệu, tìm trong tài liệu, ghi nhớ, hộp thư, số liệu bài đăng                                    |
-| Workspace / Brand Memory     | **Xong.** Có kho riêng, có màn hình sửa                                                                                                 |
-| Trích dẫn nguồn trong chat   | **Xong.** Sự kiện `sources` tới trước token đầu tiên, giao diện hiện nguồn                                                              |
-| Prompt Versioning / Registry | Mỗi prompt có version riêng, nhưng vẫn là hằng số trong mã. Kho lưu trong CSDL **đã cân nhắc và cố ý không làm** — xem ghi chú bên dưới |
-| Multi Conversation           | API có nhiều hội thoại; giao diện vẫn chỉ hiện một luồng tại một thời điểm                                                              |
+| Deliverable                  | Trạng thái                                                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenRouter                   | **Xong.** Dùng chung giao thức OpenAI qua `createOpenAICompatible`                                                                            |
+| Tool Calling trong chat      | **Xong.** Năm tool, tất cả chỉ-đọc: tài liệu, tìm trong tài liệu, ghi nhớ, hộp thư, số liệu bài đăng                                          |
+| Workspace / Brand Memory     | **Xong.** Có kho riêng, có màn hình sửa                                                                                                       |
+| Trích dẫn nguồn trong chat   | **Xong.** Sự kiện `sources` tới trước token đầu tiên, giao diện hiện nguồn                                                                    |
+| Prompt Versioning / Registry | Mỗi prompt có version riêng, nhưng vẫn là hằng số trong mã. Kho lưu trong CSDL **đã cân nhắc và cố ý không làm** — xem ghi chú bên dưới       |
+| Multi Conversation           | **Xong.** Giao diện liệt kê mọi luồng, chuyển qua lại, xoá được. Lịch sử đọc lại từ server mỗi lần chuyển chứ không giữ trong bộ nhớ theo tab |
 
 **Vì sao không làm Prompt Registry trong CSDL.** Bản theo workspace trùng gần
 hết với Workspace Memory đã có. Phần thật sự khác biệt — sửa system prompt của
