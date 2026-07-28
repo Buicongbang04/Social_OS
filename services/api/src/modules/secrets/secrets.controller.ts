@@ -17,6 +17,7 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import { parseRouteId } from "../../common/parse-id";
@@ -78,6 +79,7 @@ export class SecretsController {
   }
 
   @RequirePermission("workspace.secret.manage")
+  @ApiZodBody(putSchema)
   @Put()
   async put(
     @Body(new ZodValidationPipe(putSchema)) body: z.infer<typeof putSchema>,
@@ -92,6 +94,7 @@ export class SecretsController {
   }
 
   @RequirePermission("workspace.secret.manage")
+  @ApiZodBody(rollbackSchema)
   @Post(":id/rollback")
   async rollback(
     @Param("id") id: string,

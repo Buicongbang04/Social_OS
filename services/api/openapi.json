@@ -1,0 +1,2292 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Health"]
+      }
+    },
+    "/api/v1/secrets": {
+      "get": {
+        "operationId": "SecretsController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Secrets"]
+      },
+      "put": {
+        "operationId": "SecretsController_put",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[a-z0-9][a-z0-9._/-]*$"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": ["name", "value"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Secrets"]
+      }
+    },
+    "/api/v1/secrets/providers": {
+      "get": {
+        "operationId": "SecretsController_providers",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Secrets"]
+      }
+    },
+    "/api/v1/secrets/{id}/rollback": {
+      "post": {
+        "operationId": "SecretsController_rollback",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  }
+                },
+                "required": ["version"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Secrets"]
+      }
+    },
+    "/api/v1/secrets/{id}": {
+      "delete": {
+        "operationId": "SecretsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Secrets"]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 320
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 256
+                  },
+                  "fullName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64,
+                    "pattern": "^[a-z0-9_-]+$"
+                  }
+                },
+                "required": ["email", "password"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 320
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": ["email", "password"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["refreshToken"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "operationId": "UsersController_me",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Users"]
+      }
+    },
+    "/api/v1/organizations": {
+      "get": {
+        "operationId": "OrganizationsController_list",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Organizations"]
+      },
+      "post": {
+        "operationId": "OrganizationsController_create",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100,
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  }
+                },
+                "required": ["name", "slug"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Organizations"]
+      }
+    },
+    "/api/v1/organizations/{id}": {
+      "get": {
+        "operationId": "OrganizationsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Organizations"]
+      },
+      "patch": {
+        "operationId": "OrganizationsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["ACTIVE", "SUSPENDED", "ARCHIVED"]
+                  }
+                },
+                "required": ["version"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Organizations"]
+      }
+    },
+    "/api/v1/workspaces": {
+      "get": {
+        "operationId": "WorkspacesController_list",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      },
+      "post": {
+        "operationId": "WorkspacesController_create",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100,
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "organizationId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["name", "slug", "organizationId"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      }
+    },
+    "/api/v1/workspaces/{id}": {
+      "get": {
+        "operationId": "WorkspacesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      },
+      "patch": {
+        "operationId": "WorkspacesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["ACTIVE", "SUSPENDED", "ARCHIVED"]
+                  }
+                },
+                "required": ["version"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      },
+      "delete": {
+        "operationId": "WorkspacesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/members": {
+      "get": {
+        "operationId": "WorkspacesController_listMembers",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      },
+      "post": {
+        "operationId": "WorkspacesController_addMember",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "OWNER",
+                      "ADMIN",
+                      "DEVELOPER",
+                      "OPERATOR",
+                      "VIEWER",
+                      "GUEST"
+                    ]
+                  }
+                },
+                "required": ["userId", "role"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}/members/{userId}": {
+      "delete": {
+        "operationId": "WorkspacesController_removeMember",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Workspaces"]
+      }
+    },
+    "/api/v1/goals": {
+      "post": {
+        "operationId": "GoalsController_create",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "objective": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 5000
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 5000,
+                    "nullable": true
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "CHAT",
+                      "CONTENT",
+                      "CAMPAIGN",
+                      "RESEARCH",
+                      "AUTOMATION",
+                      "PUBLISHING",
+                      "MULTI_STEP"
+                    ]
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["CRITICAL", "HIGH", "NORMAL", "LOW"]
+                  },
+                  "constraints": {
+                    "type": "object",
+                    "properties": {
+                      "maxCostUsd": {
+                        "type": "number",
+                        "exclusiveMinimum": true,
+                        "minimum": 0,
+                        "maximum": 10000
+                      },
+                      "timeoutMs": {
+                        "type": "integer",
+                        "exclusiveMinimum": true,
+                        "minimum": 0,
+                        "maximum": 86400000
+                      },
+                      "approval": {
+                        "type": "boolean"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "language": {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      "retry": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "inputs": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "outputs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "CONTENT",
+                        "IMAGE",
+                        "VIDEO",
+                        "PDF",
+                        "POST",
+                        "NOTIFICATION",
+                        "ANALYTICS"
+                      ]
+                    }
+                  },
+                  "schedule": {
+                    "type": "object",
+                    "properties": {
+                      "cron": {
+                        "type": "string",
+                        "minLength": 9,
+                        "maxLength": 100
+                      },
+                      "timezone": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 64
+                      }
+                    },
+                    "required": ["cron", "timezone"],
+                    "additionalProperties": false,
+                    "nullable": true
+                  }
+                },
+                "required": ["title", "objective"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Goals"]
+      },
+      "get": {
+        "operationId": "GoalsController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Goals"]
+      }
+    },
+    "/api/v1/goals/{id}": {
+      "delete": {
+        "operationId": "GoalsController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Goals"]
+      },
+      "get": {
+        "operationId": "GoalsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Goals"]
+      }
+    },
+    "/api/v1/goals/{id}/executions": {
+      "post": {
+        "operationId": "GoalsController_submit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": ["Goals"]
+      }
+    },
+    "/api/v1/executions": {
+      "get": {
+        "operationId": "ExecutionsController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Executions"]
+      }
+    },
+    "/api/v1/executions/{id}": {
+      "get": {
+        "operationId": "ExecutionsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Executions"]
+      }
+    },
+    "/api/v1/executions/{id}/tasks": {
+      "get": {
+        "operationId": "ExecutionsController_tasks",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Executions"]
+      }
+    },
+    "/api/v1/executions/{id}/usage": {
+      "get": {
+        "operationId": "ExecutionsController_usage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Executions"]
+      }
+    },
+    "/api/v1/executions/{id}/approval": {
+      "post": {
+        "operationId": "ExecutionsController_approval",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": ["APPROVED", "REJECTED"]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": ["decision"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Executions"]
+      }
+    },
+    "/api/v1/executions/{id}/cancel": {
+      "post": {
+        "operationId": "ExecutionsController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": ["Executions"]
+      }
+    },
+    "/api/v1/usage": {
+      "get": {
+        "operationId": "UsageController_spend",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Usage"]
+      }
+    },
+    "/api/v1/documents": {
+      "post": {
+        "operationId": "DocumentsController_upload",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Documents"]
+      },
+      "get": {
+        "operationId": "DocumentsController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Documents"]
+      }
+    },
+    "/api/v1/documents/{id}": {
+      "get": {
+        "operationId": "DocumentsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Documents"]
+      },
+      "delete": {
+        "operationId": "DocumentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Documents"]
+      }
+    },
+    "/api/v1/documents/{id}/download-url": {
+      "get": {
+        "operationId": "DocumentsController_downloadUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Documents"]
+      }
+    },
+    "/api/v1/chat/conversations": {
+      "post": {
+        "operationId": "ChatController_create",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Chat"]
+      },
+      "get": {
+        "operationId": "ChatController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Chat"]
+      }
+    },
+    "/api/v1/chat/conversations/{id}/messages": {
+      "get": {
+        "operationId": "ChatController_messages",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Chat"]
+      },
+      "post": {
+        "operationId": "ChatController_send",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
+                  }
+                },
+                "required": ["content"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Chat"]
+      }
+    },
+    "/api/v1/chat/conversations/{id}": {
+      "delete": {
+        "operationId": "ChatController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Chat"]
+      }
+    },
+    "/api/v1/connections": {
+      "get": {
+        "operationId": "ConnectionsController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/connections/catalog": {
+      "get": {
+        "operationId": "ConnectionsController_catalog",
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/connections/inbox": {
+      "get": {
+        "operationId": "ConnectionsController_inbox",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/connections/stats": {
+      "get": {
+        "operationId": "ConnectionsController_stats",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/connections/{connectorId}/start": {
+      "post": {
+        "operationId": "ConnectionsController_start",
+        "parameters": [
+          {
+            "name": "connectorId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/connections/{connectorId}/token": {
+      "post": {
+        "operationId": "ConnectionsController_attach",
+        "parameters": [
+          {
+            "name": "connectorId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "externalId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[A-Za-z0-9_.-]+$"
+                  },
+                  "accessToken": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 8000
+                  }
+                },
+                "required": ["externalId", "accessToken"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/connections/{connectorId}/callback": {
+      "get": {
+        "operationId": "ConnectionsController_callback",
+        "parameters": [
+          {
+            "name": "connectorId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/connections/{id}": {
+      "delete": {
+        "operationId": "ConnectionsController_disconnect",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
+    "/api/v1/memory": {
+      "get": {
+        "operationId": "MemoryController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Memory"]
+      },
+      "put": {
+        "operationId": "MemoryController_remember",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": ["key", "value"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Memory"]
+      }
+    },
+    "/api/v1/memory/{id}": {
+      "delete": {
+        "operationId": "MemoryController_forget",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Memory"]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "MetricsController_scrape",
+        "parameters": [
+          {
+            "name": "authorization",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Metrics"]
+      }
+    }
+  },
+  "info": {
+    "title": "AI Social OS API",
+    "description": "Mọi route đều cần đăng nhập trừ khi ghi rõ là công khai. Route thuộc phạm vi workspace cần thêm header `X-Workspace-Id`; thiếu nó là 400, và trỏ vào workspace không phải của mình là 404 chứ không phải 403 — 403 sẽ xác nhận workspace đó có tồn tại.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}

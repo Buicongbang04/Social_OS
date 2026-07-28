@@ -18,6 +18,7 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import { parseRouteId } from "../../common/parse-id";
@@ -54,6 +55,7 @@ export class MemoryController {
   }
 
   @RequirePermission("workspace.workspace.configure")
+  @ApiZodBody(rememberSchema)
   @Put()
   async remember(
     @Body(new ZodValidationPipe(rememberSchema))

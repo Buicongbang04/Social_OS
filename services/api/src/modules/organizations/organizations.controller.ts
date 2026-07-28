@@ -15,6 +15,7 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { parseRouteId } from "../../common/parse-id";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -45,6 +46,7 @@ export class OrganizationsController {
 
   /** Entry point into the tenant model — no pre-existing scope to check. */
   @AuthenticatedOnly()
+  @ApiZodBody(createOrganizationSchema)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -65,6 +67,7 @@ export class OrganizationsController {
   }
 
   @RequirePermission("organization.organization.update")
+  @ApiZodBody(updateOrganizationSchema)
   @Patch(":id")
   async update(
     @Param("id") id: string,

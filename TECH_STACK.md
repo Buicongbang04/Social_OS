@@ -1013,6 +1013,32 @@ Test "mọi tool đều lấy workspace từ context" trước đây dùng `ever
 tool **không gọi gì cả** vẫn lọt qua. Giờ nó đếm: đúng một lượt đọc cho mỗi
 tool. Kiểm chứng ngược bằng cách cho tool đọc workspace cố định — đỏ ngay.
 
+### Đặc tả OpenAPI (`@nestjs/swagger` 11.4, `zod-to-json-schema` 3.25)
+
+`GET /docs` **chỉ ở môi trường phát triển**. Tài liệu này mô tả mọi route và
+mọi body nền tảng chấp nhận — một tấm bản đồ đáng có, nhưng không phải thứ đem
+phát.
+
+**Request body sinh từ chính schema zod đang validate.** Codebase dùng zod chứ
+không dùng class DTO, mà Nest suy ra từ class — nên nếu để mặc, đặc tả sẽ ghi
+mọi endpoint ghi dữ liệu là **body rỗng**. Một đặc tả bỏ sót thứ người gọi phải
+gửi còn tệ hơn không có, vì người gọi tin nó rồi nhận 422 mà không hiểu vì sao.
+Suy ra từ schema cũng khiến hai bên **không thể lệch nhau**: sửa validate là đặc
+tả đổi theo, trong cùng một commit, hoặc không đổi gì cả.
+
+`openapi.json` được **commit vào repo**, và có test so bản sinh ra với bản trong
+repo. Một tài liệu sinh theo yêu cầu mà không ai đối chiếu là tài liệu sẽ trôi,
+và cái trôi đó hiện ra dưới dạng người dùng làm theo hướng dẫn đã hết đúng.
+Commit nó biến mỗi lần đổi bề mặt API thành một diff có người đọc lúc review.
+Sinh lại bằng `pnpm --filter @repo/api openapi:write`.
+
+**Script chạy từ bản build, không qua `tsx`.** `tsx` không phát
+`design:paramtypes`, nên Nest tiêm `undefined` vào mọi constructor và lỗi hiện
+ra ở tận đâu — dưới dạng đọc thuộc tính của một giá trị không tồn tại. Đây đúng
+là lý do `vitest.int.config.ts` phải dùng SWC. Mất gần một giờ mới thấy, vì
+`NestFactory` mặc định `abortOnError: true` gọi thẳng `process.exit(1)` và
+`logger: false` nuốt luôn thông báo — script hỏng mà **không in ra chữ nào**.
+
 ### Metrics (`@repo/observability`, `prom-client` 15.1)
 
 `GET /metrics` ở dạng exposition Prometheus, **nằm ngoài tiền tố `api/v1`** —

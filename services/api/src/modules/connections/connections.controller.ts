@@ -20,6 +20,7 @@ import {
   Public,
   type AuthenticatedUser,
 } from "../../common/decorators/public.decorator";
+import { ApiZodBody } from "../../common/openapi/zod-body";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator";
 import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import { parseRouteId } from "../../common/parse-id";
@@ -105,6 +106,7 @@ export class ConnectionsController {
    * audience, which is the same authority as completing an OAuth flow.
    */
   @RequirePermission("workspace.connector.manage")
+  @ApiZodBody(attachSchema)
   @Post(":connectorId/token")
   async attach(
     @Param("connectorId") connectorId: string,
