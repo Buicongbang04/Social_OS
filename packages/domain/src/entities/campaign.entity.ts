@@ -25,9 +25,19 @@ export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
  * a state in between, "ready to go out" and "gone out" are the same fact and
  * nothing can tell whether a person ever looked.
  */
+/**
+ * Where a piece is on its way out.
+ *
+ * `PUBLISHING` is not decoration. It is the row a runtime node claims before
+ * it calls the platform, and it is what stops two nodes sending the same post
+ * to the same audience — a mistake with no undo. A piece found sitting in it
+ * after a crash is left for a person, never retried: the call may have landed
+ * with only the answer lost, and posting again is a worse answer than asking.
+ */
 export const CONTENT_PIECE_STATUSES = [
   "DRAFT",
   "APPROVED",
+  "PUBLISHING",
   "PUBLISHED",
   "FAILED",
 ] as const;
@@ -162,4 +172,34 @@ export type ContentPieceRepository = {
     id: ContentPieceId,
     actorId: string | null,
   ): Promise<boolean>;
+
+  /**
+   * Take ownership of what is due, across every workspace.
+   *
+   * Not scoped to one workspace, unlike everything above it: the runtime sweeps
+   * on behalf of all of them and has no workspace to be scoped to. The claim is
+   * one statement — read and mark together — because reading first and marking
+   * second is exactly the window two nodes both fit through.
+   *
+   * Only `APPROVED` is ever claimed. A draft nobody looked at must not go out
+   * because a date on it happened to pass.
+   */
+  claimDue(now: Date, limit: number): Promise<ContentPiece[]>;
+
+  /** Record what the platform said, and stop the piece moving again. */
+  settle(
+    id: ContentPieceId,
+    outcome:
+      | { status: "PUBLISHED"; postId: string; publishedAt: Date }
+      | { status: "FAILED"; error: string },
+  ): Promise<void>;
+
+  /**
+   * Pieces stuck mid-send, so a person can be told.
+   *
+   * `olderThan` exists because a piece being in PUBLISHING is normal for the
+   * second a publish takes; it is only evidence of a crash once it has been
+   * there far longer than any call could run.
+   */
+  listStuck(olderThan: Date, limit: number): Promise<ContentPiece[]>;
 };

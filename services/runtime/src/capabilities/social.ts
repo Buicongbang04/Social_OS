@@ -361,7 +361,7 @@ function joined(title: unknown, body: unknown): string | null {
  * by definition nothing to find, and a feed read before every post would spend
  * a round trip to learn nothing.
  */
-async function publishOnce(
+export async function publishOnce(
   deps: VaultAccess,
   account: SocialAccount,
   target: { externalId: string; accessToken: string },
@@ -429,7 +429,7 @@ async function markIfCredentialDead(
  * keeps working after the connection is removed, which is the difference
  * between revoking access and asking politely.
  */
-async function openToken(
+export async function openToken(
   deps: VaultAccess,
   workspaceId: WorkspaceId,
   account: SocialAccount,

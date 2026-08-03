@@ -2858,7 +2858,7 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["DRAFT", "APPROVED", "PUBLISHED", "FAILED"]
+                    "enum": ["DRAFT", "APPROVED"]
                   }
                 },
                 "additionalProperties": false

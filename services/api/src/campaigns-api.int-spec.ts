@@ -139,6 +139,47 @@ describe.skipIf(!hasInfra)("campaigns API (integration)", () => {
       .expect(422);
   });
 
+  it("will not let a client declare a piece published", async () => {
+    // PUBLISHED is a record of something that happened, not an instruction.
+    // Accepting it would let the calendar claim a post exists that nobody
+    // sent — and the link next to it would go nowhere.
+    const piece = await newPiece();
+
+    await testApp
+      .http()
+      .patch(`/api/v1/content-pieces/${piece.id}`)
+      .set(as(alice, aliceWorkspace))
+      .send({ status: "PUBLISHED" })
+      .expect(422);
+
+    await testApp
+      .http()
+      .patch(`/api/v1/content-pieces/${piece.id}`)
+      .set(as(alice, aliceWorkspace))
+      .send({ status: "PUBLISHING" })
+      .expect(422);
+  });
+
+  it("lets a person approve, and take an approval back", async () => {
+    const piece = await newPiece();
+
+    const approved = await testApp
+      .http()
+      .patch(`/api/v1/content-pieces/${piece.id}`)
+      .set(as(alice, aliceWorkspace))
+      .send({ status: "APPROVED" })
+      .expect(200);
+    expect(approved.body.data.status).toBe("APPROVED");
+
+    const withdrawn = await testApp
+      .http()
+      .patch(`/api/v1/content-pieces/${piece.id}`)
+      .set(as(alice, aliceWorkspace))
+      .send({ status: "DRAFT" })
+      .expect(200);
+    expect(withdrawn.body.data.status).toBe("DRAFT");
+  });
+
   it("filters the calendar to one campaign", async () => {
     const campaign = await newCampaign();
     await newPiece({ title: "Thuộc chiến dịch", campaignId: campaign.id });

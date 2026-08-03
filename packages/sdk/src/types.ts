@@ -395,6 +395,7 @@ export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 export const CONTENT_PIECE_STATUSES = [
   "DRAFT",
   "APPROVED",
+  "PUBLISHING",
   "PUBLISHED",
   "FAILED",
 ] as const;

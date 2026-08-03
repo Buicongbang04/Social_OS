@@ -4,6 +4,7 @@ import { createLogger } from "@repo/logger";
 import {
   DrizzleAiUsageRepository,
   DrizzleSecretRepository,
+  DrizzleContentPieceRepository,
   DrizzleSocialAccountRepository,
   DrizzleDocumentRepository,
   DrizzleExecutionRepository,
@@ -26,6 +27,7 @@ import { buildSocialInbox, buildSocialPublish } from "./capabilities/social";
 import { buildKnowledgeStack } from "./knowledge";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
 import { startMetricsServer } from "./metrics-server";
+import { ContentPublisher } from "./content-publisher";
 import { Scheduler } from "./scheduler";
 
 const logger = createLogger("runtime");
@@ -120,6 +122,26 @@ async function main(): Promise<void> {
           // is how a scheduled Goal posts to a real audience at 3am.
           allowUnattended:
             process.env.SOCIAL_PUBLISH_UNATTENDED?.trim() === "true",
+          metrics,
+        })
+      : null;
+
+  /**
+   * The calendar's own publisher.
+   *
+   * Behind SOCIAL_PUBLISH_LIVE like everything that reaches an audience, but
+   * deliberately NOT behind SOCIAL_PUBLISH_UNATTENDED. That switch exists
+   * because a scheduled Goal publishes something nobody read; here a person
+   * wrote the text, chose the time and approved that exact post. Gating it
+   * would make the Duyệt button do nothing and say nothing.
+   */
+  const contentPublisher =
+    publishLive && keyring
+      ? new ContentPublisher({
+          accounts: new DrizzleSocialAccountRepository(db),
+          secrets: new DrizzleSecretRepository(db),
+          keyring,
+          pieces: new DrizzleContentPieceRepository(db),
           metrics,
         })
       : null;
@@ -234,6 +256,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, "shutting down");
     scheduler.stop();
+    contentPublisher?.stop();
     if (indexing) clearInterval(indexing);
     // Give the in-flight tick a moment to finish rather than killing a task
     // mid-run and relying on reservation recovery to clean up.
@@ -258,7 +281,11 @@ async function main(): Promise<void> {
     },
     "runtime starting",
   );
-  await scheduler.start();
+  // Both loops run for the life of the process; whichever settles first is a
+  // failure, and awaiting the race surfaces it instead of leaving one dead.
+  await Promise.race(
+    [scheduler.start(), contentPublisher?.start()].filter(Boolean),
+  );
 }
 
 function positiveInt(raw: string | undefined, fallback: number): number {

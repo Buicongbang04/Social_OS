@@ -16,7 +16,6 @@ import { NotFoundError, ValidationError, isId } from "@repo/core";
 import type { CampaignId, ContentPieceId, WorkspaceId } from "@repo/core";
 import {
   CAMPAIGN_STATUSES,
-  CONTENT_PIECE_STATUSES,
   type CampaignRepository,
   type ContentPieceRepository,
 } from "@repo/domain";
@@ -91,7 +90,16 @@ const updatePieceSchema = z.object({
   hashtags: z.array(z.string().trim().max(40)).max(12).optional(),
   channel: z.string().trim().min(1).max(40).optional(),
   scheduledAt: instant.nullable().optional(),
-  status: z.enum(CONTENT_PIECE_STATUSES).optional(),
+  /**
+   * What a person may set, which is not every status there is.
+   *
+   * `PUBLISHING`, `PUBLISHED` and `FAILED` are the publisher's to write — they
+   * are records of what happened, not instructions. A client that could set
+   * PUBLISHED would make the calendar claim a post exists that nobody sent,
+   * and one that could set PUBLISHING would park a piece where the sweep never
+   * looks at it again.
+   */
+  status: z.enum(["DRAFT", "APPROVED"]).optional(),
 });
 
 /**
