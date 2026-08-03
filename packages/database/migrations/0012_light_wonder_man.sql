@@ -1,0 +1,1 @@
+ALTER TYPE "public"."content_piece_status" ADD VALUE 'PUBLISHING' BEFORE 'PUBLISHED';

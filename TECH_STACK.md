@@ -1453,6 +1453,52 @@ Máy chủ tự đọc ghi nhớ mỗi lần gọi — client không truyền, n
 không thể quên. Mọi lời gọi đều vào sổ `ai_usage`; sổ hỏng thì **vẫn trả bản
 nháp về**, vì provider đã trả lời và tiền đã tiêu rồi.
 
+### Tự động đăng theo lịch (Phase 4)
+
+Vòng lặp riêng trong runtime, không phải một bước trong scheduler: một lượt
+đăng là vài lần gọi ra mạng ngoài, và chạy nó trong tick sẽ chặn mọi task đang
+xếp hàng phía sau.
+
+**Uỷ quyền nằm ở nút Duyệt, và theo từng bài.** Đây là chỗ khác hẳn với một
+Goal định kỳ có bước đăng bài — trường hợp đã từng hỏng ở đây, khi bật kết nối
+kênh làm thay đổi hành vi của mọi lịch đã có, và một lần chạy lúc 3 giờ sáng
+đăng nội dung không ai đọc lên Page thật. Ở đây một người viết đúng đoạn văn
+đó, chọn đúng giờ đó, và bấm duyệt đúng bài đó. **Bài nháp thì không bao giờ
+được đăng, dù ngày đã qua bao lâu.**
+
+Cũng vì thế nó **không** nằm sau `SOCIAL_PUBLISH_UNATTENDED`. Cờ đó tồn tại vì
+Goal định kỳ đăng thứ chưa ai đọc; đặt bài đã duyệt sau nó thì nút Duyệt bấm
+xong không xảy ra gì và cũng không báo gì — tệ hơn cả hai lựa chọn.
+
+Trạng thái `PUBLISHING` không phải trang trí. Nó là dòng mà một node runtime
+**giành lấy trước khi gọi ra platform**, và đó là thứ ngăn hai node cùng gửi
+một bài tới cùng một tệp khán giả — sai lầm không có nút hoàn tác.
+
+Điều giữ cho nó đúng là **một câu lệnh duy nhất**: đọc trạng thái và ghi đè
+cùng lúc. Đọc trước rồi ghi sau để lại đúng cái khe hở mà hai node cùng lọt
+qua. Node thứ hai bị chặn ở dòng đang khoá, khi tỉnh dậy nó **đánh giá lại
+subquery**, thấy `PUBLISHING` và không lấy gì cả.
+
+`for update skip locked` vì thế là chuyện **thông lượng, không phải an toàn**:
+nó cho node thứ hai bước qua dòng đang bị giữ và nhặt việc khác thay vì đứng
+đợi. Ghi rõ ở đây vì bản đầu tiên của chính đoạn ghi chú này nói ngược lại —
+đã kiểm chứng bằng cách bỏ `skip locked` ra và chạy hai connection pool độc
+lập, không lần nào sinh ra hai lần giành.
+
+**Bài kẹt giữa chừng thì báo hỏng, không đăng lại.** Một node chết giữa lúc
+giành và lúc nghe trả lời để lại dòng ở `PUBLISHING`. Lời gọi có thể chưa từng
+tới nơi, mà cũng có thể đã tới và được nhận, chỉ mất câu trả lời — từ đây không
+có cách nào phân biệt. Đăng lại là cách một bài thành hai bài trên trang thật,
+nên nó dừng, nói rõ, và để người quyết định.
+
+API **không cho client tự đặt** `PUBLISHING`, `PUBLISHED` hay `FAILED`. Đó là
+bản ghi việc đã xảy ra, không phải mệnh lệnh: một client đặt được `PUBLISHED`
+sẽ khiến lịch khẳng định có một bài mà không ai gửi.
+
+Một bài mang **kênh**, không mang tài khoản. Nối hai Page thì "đăng lên
+Facebook" là một câu thiếu tân ngữ, nên nó dừng và nói ra tên cả hai — chọn hộ
+là nền tảng tự quyết định khán giả của người khác.
+
 ### Xu hướng: Google Trends và YouTube (Phase 4)
 
 **Google Trends không có API dùng được.** API chính thức có tồn tại — công bố

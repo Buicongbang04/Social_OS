@@ -393,6 +393,16 @@ async function calendarFlow(client: ApiClient): Promise<void> {
   const renamed = await client.updateContentPiece(piece.id, {
     title: "Bài đã đổi tên",
   });
+  // PUBLISHED is a record of something that happened, not an instruction. The
+  // SDK's type still offers it because the field carries every status a piece
+  // can be read in; the server is what refuses to be told one.
+  check(
+    "không cho client tự nhận là đã đăng",
+    await client
+      .updateContentPiece(piece.id, { status: "PUBLISHED" })
+      .then(() => false)
+      .catch(() => true),
+  );
   check(
     "đổi tên không mất lịch",
     renamed.title === "Bài đã đổi tên" && renamed.scheduledAt === when,

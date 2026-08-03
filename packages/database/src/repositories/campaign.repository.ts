@@ -348,4 +348,92 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
 
     return rows.length > 0;
   }
+
+  /**
+   * Claim what is due, in one statement.
+   *
+   * One statement is what makes it safe. Reading first and marking second
+   * leaves a window two nodes both fit through; here the `status = 'APPROVED'`
+   * test and the write happen together, and a second node that blocks on the
+   * locked row re-evaluates the subquery when it wakes, finds PUBLISHING, and
+   * claims nothing. Verified against Postgres with two independent connection
+   * pools rather than assumed.
+   *
+   * `for update skip locked` is therefore about throughput, not safety: it
+   * lets that second sweep step over what this one holds and pick up different
+   * work instead of waiting. Worth having, but it is not the thing standing
+   * between one post and two.
+   */
+  async claimDue(now: Date, limit: number): Promise<ContentPiece[]> {
+    const rows = await this.db
+      .update(contentPieces)
+      .set({
+        status: "PUBLISHING",
+        updatedAt: new Date(),
+        version: sql`${contentPieces.version} + 1`,
+      })
+      // The locked subquery is raw because that is the part that matters and
+      // drizzle has no builder for it. The update around it is not, so the
+      // returned rows come back through drizzle's column mapping — written as
+      // one raw statement, `returning *` hands back snake_case keys and every
+      // field reads as undefined, which is exactly what the first version did.
+      .where(
+        sql`${contentPieces.id} in (
+          select id from content_pieces
+          where status = 'APPROVED'
+            and scheduled_at is not null
+            -- Sent as text with an explicit cast: a Date interpolated into raw
+            -- SQL reaches the driver as an object it refuses.
+            and scheduled_at <= ${now.toISOString()}::timestamptz
+            and deleted_at is null
+          order by scheduled_at asc
+          limit ${limit}
+          for update skip locked
+        )`,
+      )
+      .returning();
+
+    return rows.map(toPiece);
+  }
+
+  async settle(
+    id: ContentPieceId,
+    outcome:
+      | { status: "PUBLISHED"; postId: string; publishedAt: Date }
+      | { status: "FAILED"; error: string },
+  ): Promise<void> {
+    await this.db
+      .update(contentPieces)
+      .set({
+        status: outcome.status,
+        // Cleared on success. A piece that failed, was fixed and went out
+        // still showing yesterday's error reads as still broken.
+        lastError: outcome.status === "FAILED" ? outcome.error : null,
+        ...(outcome.status === "PUBLISHED"
+          ? {
+              publishedPostId: outcome.postId,
+              publishedAt: outcome.publishedAt,
+            }
+          : {}),
+        updatedAt: new Date(),
+        version: sql`${contentPieces.version} + 1`,
+      })
+      .where(eq(contentPieces.id, id));
+  }
+
+  async listStuck(olderThan: Date, limit: number): Promise<ContentPiece[]> {
+    const rows = await this.db
+      .select()
+      .from(contentPieces)
+      .where(
+        and(
+          eq(contentPieces.status, "PUBLISHING"),
+          lte(contentPieces.updatedAt, olderThan),
+          isNull(contentPieces.deletedAt),
+        ),
+      )
+      .limit(limit);
+
+    return rows.map(toPiece);
+  }
 }

@@ -281,6 +281,153 @@ describe.skipIf(!DATABASE_URL)("campaigns and content (integration)", () => {
     expect(loose?.campaignId).toBeNull();
   });
 
+  it("claims only what is approved and due", async () => {
+    // The rule the whole feature rests on: a draft nobody looked at must not
+    // go out because a date on it happened to pass.
+    const past = new Date(Date.now() - 60_000);
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+
+    const ready = await newPiece({
+      title: "Đã duyệt, tới giờ",
+      scheduledAt: past,
+    });
+    await pieces.update(workspaceId, ready.id, { status: "APPROVED" }, userId);
+
+    const early = await newPiece({
+      title: "Đã duyệt, chưa tới giờ",
+      scheduledAt: future,
+    });
+    await pieces.update(workspaceId, early.id, { status: "APPROVED" }, userId);
+
+    await newPiece({ title: "Nháp, tới giờ", scheduledAt: past });
+    await newPiece({ title: "Đã duyệt, chưa hẹn ngày" }).then((piece) =>
+      pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId),
+    );
+
+    const claimed = await pieces.claimDue(new Date(), 10);
+
+    expect(claimed.map((piece) => piece.title)).toEqual(["Đã duyệt, tới giờ"]);
+  });
+
+  it("hands back a whole piece, not just the columns with no underscore", async () => {
+    // The claim is the one statement written partly in raw SQL, and a raw
+    // `returning *` comes back with the driver's own snake_case keys. Every
+    // single-word column still reads fine, so a test that checks `title` and
+    // `status` passes while `workspaceId` and `scheduledAt` are undefined —
+    // and the publisher then looks for a connection belonging to nobody.
+    const when = new Date(Date.now() - 60_000);
+    const piece = await newPiece({ scheduledAt: when });
+    await pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId);
+
+    const [claimed] = await pieces.claimDue(new Date(), 10);
+
+    expect(claimed?.workspaceId).toBe(workspaceId);
+    expect(claimed?.scheduledAt?.getTime()).toBe(when.getTime());
+    expect(claimed?.hashtags).toEqual(["muahang"]);
+    expect(claimed?.publishedPostId).toBeNull();
+  });
+
+  it("does not hand the same piece to a second sweep", async () => {
+    // Two runtime nodes sweeping at the same moment must not both send the
+    // same post to the same audience. There is no undo for that.
+    const piece = await newPiece({
+      scheduledAt: new Date(Date.now() - 60_000),
+    });
+    await pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId);
+
+    const first = await pieces.claimDue(new Date(), 10);
+    const second = await pieces.claimDue(new Date(), 10);
+
+    expect(first).toHaveLength(1);
+    expect(second).toEqual([]);
+    expect(first[0]?.status).toBe("PUBLISHING");
+  });
+
+  it("does not hand the same piece to two sweeps running at once", async () => {
+    // Two sweeps at the same instant, which is what two runtime nodes are.
+    //
+    // What holds here is the single statement, not `skip locked`: the second
+    // claim blocks on the locked row, re-evaluates the subquery when it wakes,
+    // sees PUBLISHING and takes nothing. Checked by removing `skip locked` and
+    // by running two independent connection pools — neither produces a double
+    // claim, which is the opposite of what the first version of this comment
+    // asserted.
+    const piece = await newPiece({
+      scheduledAt: new Date(Date.now() - 60_000),
+    });
+    await pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId);
+
+    const [first, second] = await Promise.all([
+      pieces.claimDue(new Date(), 10),
+      pieces.claimDue(new Date(), 10),
+    ]);
+
+    expect(first.length + second.length).toBe(1);
+  });
+
+  it("records the platform's own id when a piece goes out", async () => {
+    const piece = await newPiece({
+      scheduledAt: new Date(Date.now() - 60_000),
+    });
+    await pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId);
+    const [claimed] = await pieces.claimDue(new Date(), 10);
+
+    const publishedAt = new Date();
+    await pieces.settle(claimed!.id, {
+      status: "PUBLISHED",
+      postId: "589788187548879_123",
+      publishedAt,
+    });
+
+    const settled = await pieces.find(workspaceId, piece.id);
+    expect(settled?.status).toBe("PUBLISHED");
+    expect(settled?.publishedPostId).toBe("589788187548879_123");
+    expect(settled?.publishedAt?.getTime()).toBe(publishedAt.getTime());
+  });
+
+  it("clears the old error when a piece that failed later succeeds", async () => {
+    // A piece that failed, was fixed and went out, still showing yesterday's
+    // error reads as still broken.
+    const piece = await newPiece({
+      scheduledAt: new Date(Date.now() - 60_000),
+    });
+    await pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId);
+
+    await pieces.claimDue(new Date(), 10);
+    await pieces.settle(piece.id, { status: "FAILED", error: "token hết hạn" });
+    expect((await pieces.find(workspaceId, piece.id))?.lastError).toBe(
+      "token hết hạn",
+    );
+
+    await pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId);
+    await pieces.claimDue(new Date(), 10);
+    await pieces.settle(piece.id, {
+      status: "PUBLISHED",
+      postId: "p_1",
+      publishedAt: new Date(),
+    });
+
+    expect((await pieces.find(workspaceId, piece.id))?.lastError).toBeNull();
+  });
+
+  it("finds a piece left mid-send, and only once it is really stuck", async () => {
+    // Being in PUBLISHING is normal for the second a publish takes. It is only
+    // evidence of a crash once it has been there longer than any call could
+    // run.
+    const piece = await newPiece({
+      scheduledAt: new Date(Date.now() - 60_000),
+    });
+    await pieces.update(workspaceId, piece.id, { status: "APPROVED" }, userId);
+    await pieces.claimDue(new Date(), 10);
+
+    expect(
+      await pieces.listStuck(new Date(Date.now() - 10 * 60 * 1000), 10),
+    ).toEqual([]);
+    expect(
+      await pieces.listStuck(new Date(Date.now() + 1_000), 10),
+    ).toHaveLength(1);
+  });
+
   it("returns nothing for something that never existed", async () => {
     expect(
       await campaigns.find(workspaceId, newId("campaign") as CampaignId),

@@ -12,7 +12,8 @@ import { ErrorNote, Panel, PrimaryButton } from "./ui";
 
 const STATUS_LABELS: Record<ContentPieceStatus, string> = {
   DRAFT: "nháp",
-  APPROVED: "đã duyệt",
+  APPROVED: "chờ tới giờ",
+  PUBLISHING: "đang đăng",
   PUBLISHED: "đã đăng",
   FAILED: "hỏng",
 };
@@ -20,6 +21,7 @@ const STATUS_LABELS: Record<ContentPieceStatus, string> = {
 const STATUS_STYLES: Record<ContentPieceStatus, string> = {
   DRAFT: "bg-neutral-100 text-neutral-700",
   APPROVED: "bg-emerald-100 text-emerald-800",
+  PUBLISHING: "bg-amber-100 text-amber-900",
   PUBLISHED: "bg-sky-100 text-sky-800",
   FAILED: "bg-red-100 text-red-800",
 };
@@ -97,7 +99,7 @@ export function CalendarPanel() {
   return (
     <Panel
       title="Lịch nội dung"
-      subtitle="Bài nào đi lúc nào. Bài chưa hẹn ngày nằm cuối, không nằm bừa vào một ngày nào đó."
+      subtitle="Bài nào đi lúc nào. Bài đã duyệt và tới giờ sẽ tự đăng — chưa duyệt thì không, dù ngày đã qua."
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
@@ -202,18 +204,32 @@ function Row({
         {STATUS_LABELS[piece.status]}
       </span>
 
-      {/* Approving is a person saying this is ready to go out. It is offered
-          only from DRAFT: re-approving something already published, or
-          approving something that failed without looking at why, are both
-          worse than making somebody edit it first. */}
-      {piece.status === "DRAFT" ? (
+      {/* Approving is a person saying this exact text may go out, and it is
+          the only authorisation the publisher has — nothing else is ever sent.
+          Offered from DRAFT, and again from FAILED, because a post that failed
+          for a reason somebody has since fixed needs a way back without being
+          rewritten. Never from PUBLISHED: that would post it twice. */}
+      {piece.status === "DRAFT" || piece.status === "FAILED" ? (
         <button
           type="button"
           onClick={() => void onStatus(piece, "APPROVED")}
           className="shrink-0 text-xs text-emerald-700 underline"
         >
-          Duyệt
+          {piece.status === "FAILED" ? "Duyệt lại" : "Duyệt"}
         </button>
+      ) : null}
+
+      {/* Where it went. A calendar that says "đã đăng" without a way to go and
+          look is asking to be taken on trust. */}
+      {piece.publishedPostId ? (
+        <a
+          href={`https://www.facebook.com/${piece.publishedPostId}`}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="shrink-0 text-xs text-sky-700 underline"
+        >
+          Xem bài
+        </a>
       ) : null}
 
       {piece.lastError ? (
