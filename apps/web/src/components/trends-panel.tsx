@@ -18,7 +18,11 @@ const SOURCE_LABELS: Record<TrendSourceName, string> = {
  * count. Sorting them together would put a video with a hundred thousand views
  * above a search term with "20K+" and call that a ranking.
  */
-export function TrendsPanel() {
+export function TrendsPanel({
+  onUseAsBrief,
+}: {
+  onUseAsBrief?: (brief: string) => void;
+}) {
   const [source, setSource] = useState<TrendSourceName>("google");
   const [items, setItems] = useState<TrendItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +48,7 @@ export function TrendsPanel() {
   return (
     <Panel
       title="Xu hướng"
-      subtitle="Người ta đang tìm gì và xem gì hôm nay. Bấm vào một dòng để đọc nguồn."
+      subtitle="Người ta đang tìm gì và xem gì hôm nay. Bấm tiêu đề để đọc nguồn, bấm Viết bài để đưa sang Studio."
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {(Object.keys(SOURCE_LABELS) as TrendSourceName[]).map((name) => (
@@ -110,6 +114,16 @@ export function TrendsPanel() {
                 </span>
               ) : null}
 
+              {onUseAsBrief ? (
+                <button
+                  type="button"
+                  onClick={() => onUseAsBrief(briefFrom(item))}
+                  className="shrink-0 text-xs text-neutral-600 underline hover:text-neutral-900"
+                >
+                  Viết bài
+                </button>
+              ) : null}
+
               {item.context ? (
                 <span className="w-full text-xs text-neutral-500">
                   {item.context}
@@ -123,6 +137,26 @@ export function TrendsPanel() {
       <ErrorNote message={error} />
     </Panel>
   );
+}
+
+/**
+ * What the studio gets handed.
+ *
+ * A sentence, not the raw term. "sân bay" on its own tells a model nothing
+ * about what to write, while the headline underneath it is the whole reason
+ * the term is trending — and it is already on screen, so the brief says what
+ * the person clicking could already see.
+ *
+ * Left editable rather than sent anywhere: it lands in the brief box, and
+ * whoever clicked decides what to do with it.
+ */
+function briefFrom(item: TrendItem): string {
+  const what =
+    item.source === "google"
+      ? `Người Việt đang tìm nhiều về "${item.title}".`
+      : `Video đang thịnh hành trên YouTube: "${item.title}".`;
+
+  return item.context ? `${what} Bối cảnh: ${item.context}` : what;
 }
 
 /** A view count with separators. Left as text if it is not a plain number. */

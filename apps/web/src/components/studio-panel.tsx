@@ -7,7 +7,7 @@ import {
   type ContentLength,
   type ContentTone,
 } from "@repo/sdk";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getClient } from "../lib/api";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
 
@@ -62,7 +62,17 @@ type Draft = {
  * The draft stays on screen and every operation acts on it, so rewriting and
  * translating compose instead of each needing a fresh paste.
  */
-export function StudioPanel() {
+/**
+ * A brief handed in from somewhere else, most often a trend.
+ *
+ * `nonce` is what makes clicking the same trend twice work. Without it the
+ * text is unchanged, the effect does not run, and the second click looks
+ * broken — which is exactly what happens after somebody edits the brief and
+ * wants the original back.
+ */
+export type SeededBrief = { text: string; nonce: number };
+
+export function StudioPanel({ seed }: { seed?: SeededBrief }) {
   const [brief, setBrief] = useState("");
   const [channel, setChannel] = useState<ContentChannel>("facebook");
   const [tone, setTone] = useState<ContentTone>("than-thien");
@@ -76,6 +86,19 @@ export function StudioPanel() {
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const briefRef = useRef<HTMLTextAreaElement>(null);
+
+  // Replaces whatever is in the box, and says so by scrolling to it. Appending
+  // instead would quietly build a brief out of three unrelated trends, and
+  // asking "replace what you wrote?" every time is a dialog in the way of a
+  // one-click action.
+  useEffect(() => {
+    if (!seed) return;
+    setBrief(seed.text);
+    briefRef.current?.focus();
+    briefRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [seed]);
 
   // Loaded once. Which Pages exist is not something that changes while
   // somebody is writing a post, and re-reading it on every keystroke would be
@@ -198,6 +221,7 @@ export function StudioPanel() {
       subtitle="Viết, viết lại, dịch và kiểm SEO — không cần tạo Goal."
     >
       <textarea
+        ref={briefRef}
         value={brief}
         onChange={(event) => setBrief(event.target.value)}
         rows={3}
