@@ -419,6 +419,12 @@ async function calendarFlow(client: ApiClient): Promise<void> {
       .catch(() => true),
   );
 
+  const report = await client.campaignReport();
+  check(
+    "báo cáo đếm đúng bài của chiến dịch",
+    report.rows.find((row) => row.campaignId === campaign.id)?.drafts === 1,
+    `${report.rows.length} dòng`,
+  );
   await client.archiveCampaign(campaign.id);
   const survivors = await client.listContentPieces();
   check(

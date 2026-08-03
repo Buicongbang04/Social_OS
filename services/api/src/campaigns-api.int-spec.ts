@@ -366,4 +366,140 @@ describe.skipIf(!hasInfra)("campaigns API (integration)", () => {
   it("needs a signature at all", async () => {
     await testApp.http().get("/api/v1/campaigns").expect(401);
   });
+
+  it("reports each campaign's pieces by status", async () => {
+    const campaign = await newCampaign();
+    await newPiece({ campaignId: campaign.id, title: "Nháp" });
+    const ready = await newPiece({
+      campaignId: campaign.id,
+      title: "Đã duyệt",
+    });
+    await testApp
+      .http()
+      .patch(`/api/v1/content-pieces/${ready.id}`)
+      .set(as(alice, aliceWorkspace))
+      .send({ status: "APPROVED" })
+      .expect(200);
+
+    const response = await testApp
+      .http()
+      .get("/api/v1/campaigns/report")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    const row = response.body.data.rows.find(
+      (entry: { campaignId: string }) => entry.campaignId === campaign.id,
+    );
+    expect(row).toMatchObject({
+      name: "Chiến dịch tháng 8",
+      drafts: 1,
+      approved: 1,
+      published: 0,
+      failed: 0,
+    });
+  });
+
+  it("keeps the pieces belonging to no campaign in the report", async () => {
+    // For most workspaces these are most of the posts. Dropping them would
+    // show a fraction of the work and call it the total.
+    await newPiece();
+
+    const response = await testApp
+      .http()
+      .get("/api/v1/campaigns/report")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    const loose = response.body.data.rows.find(
+      (entry: { campaignId: string | null }) => entry.campaignId === null,
+    );
+    expect(loose).toMatchObject({
+      name: "Không thuộc chiến dịch nào",
+      drafts: 1,
+    });
+  });
+
+  it("still names a campaign that has been archived", async () => {
+    // Archiving a campaign leaves its pieces, so its row outlives it. An id
+    // with no name is a row of numbers nobody can read.
+    const campaign = await newCampaign();
+    await newPiece({ campaignId: campaign.id });
+    await testApp
+      .http()
+      .delete(`/api/v1/campaigns/${campaign.id}`)
+      .set(as(alice, aliceWorkspace))
+      .expect(204);
+
+    const response = await testApp
+      .http()
+      .get("/api/v1/campaigns/report")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    const row = response.body.data.rows.find(
+      (entry: { campaignId: string }) => entry.campaignId === campaign.id,
+    );
+    expect(row.name).toBe("Chiến dịch đã lưu trữ");
+  });
+
+  it("reports the pieces even when no channel is connected", async () => {
+    // The counts are ours. A workspace with nothing connected, or with an
+    // expired token, should still see what it has written.
+    await newPiece();
+
+    const response = await testApp
+      .http()
+      .get("/api/v1/campaigns/report")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(response.body.data.rows).toHaveLength(1);
+    expect(response.body.data.rows[0].likes).toBe(0);
+    expect(response.body.data.rows[0].postsWithoutStats).toBe(0);
+  });
+
+  it("names a channel whose numbers could not be read", async () => {
+    // A connection whose credential has gone is the common case, and it must
+    // not silently understate the totals — the row still shows the pieces, and
+    // the channel is named alongside.
+    await connectPage(aliceWorkspace, "page-gone");
+    await newPiece();
+
+    const response = await testApp
+      .http()
+      .get("/api/v1/campaigns/report")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(response.body.data.rows).toHaveLength(1);
+    expect(response.body.data.unreadable).toEqual([
+      {
+        account: "page-gone",
+        reason: "Không còn credential. Hãy kết nối lại kênh này.",
+      },
+    ]);
+  });
+
+  it("does not report one workspace's campaigns to another", async () => {
+    const campaign = await newCampaign();
+    await newPiece({ campaignId: campaign.id });
+
+    const response = await testApp
+      .http()
+      .get("/api/v1/campaigns/report")
+      .set(as(bob, bobWorkspace))
+      .expect(200);
+
+    expect(response.body.data.rows).toEqual([]);
+  });
+
+  it("does not read /report as a campaign id", async () => {
+    // Nest matches in declaration order. A `@Get(":id")` added later would
+    // swallow this route and try to parse "report" as an id.
+    await testApp
+      .http()
+      .get("/api/v1/campaigns/report")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+  });
 });

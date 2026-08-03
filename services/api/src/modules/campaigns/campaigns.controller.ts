@@ -40,6 +40,7 @@ import {
 import { ApiZodBody } from "../../common/openapi/zod-body";
 import { parseRouteId } from "../../common/parse-id";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
+import { CampaignsService } from "./campaigns.service";
 
 /**
  * An instant, sent as ISO 8601.
@@ -131,12 +132,26 @@ export class CampaignsController {
   constructor(
     @Inject(CAMPAIGN_REPOSITORY)
     private readonly campaigns: CampaignRepository,
+    private readonly report_: CampaignsService,
   ) {}
 
   @RequirePermission("workspace.workflow.read")
   @Get()
   async list(@Headers(WORKSPACE_ID_HEADER) header: string) {
     return this.campaigns.list(requireWorkspace(header));
+  }
+
+  /**
+   * How each campaign is doing.
+   *
+   * Declared before `:id` would be if there were one — Nest matches routes in
+   * declaration order, and a later `@Get(":id")` would otherwise swallow
+   * `/report` and try to parse it as a campaign id.
+   */
+  @RequirePermission("workspace.workflow.read")
+  @Get("report")
+  async report(@Headers(WORKSPACE_ID_HEADER) header: string) {
+    return this.report_.report(requireWorkspace(header));
   }
 
   @RequirePermission("workspace.workflow.create")

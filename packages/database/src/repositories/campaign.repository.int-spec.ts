@@ -428,6 +428,86 @@ describe.skipIf(!DATABASE_URL)("campaigns and content (integration)", () => {
     ).toHaveLength(1);
   });
 
+  it("counts each campaign's pieces by status", async () => {
+    const campaign = await newCampaign();
+    const drafted = await newPiece({ campaignId: campaign.id });
+    void drafted;
+    const approved = await newPiece({ campaignId: campaign.id });
+    await pieces.update(
+      workspaceId,
+      approved.id,
+      { status: "APPROVED" },
+      userId,
+    );
+    const out = await newPiece({
+      campaignId: campaign.id,
+      scheduledAt: new Date(Date.now() - 60_000),
+    });
+    await pieces.update(workspaceId, out.id, { status: "APPROVED" }, userId);
+    await pieces.claimDue(new Date(), 10);
+    await pieces.settle(out.id, {
+      status: "PUBLISHED",
+      postId: "page_1_11",
+      publishedAt: new Date(),
+    });
+
+    const [summary] = await pieces.summariseByCampaign(workspaceId);
+
+    expect(summary).toMatchObject({
+      campaignId: campaign.id,
+      drafts: 1,
+      approved: 1,
+      published: 1,
+      failed: 0,
+      publishedPostIds: ["page_1_11"],
+    });
+  });
+
+  it("keeps loose pieces in the report rather than dropping them", async () => {
+    // For most workspaces the pieces belonging to no campaign are most of the
+    // posts. A report that excluded them would show a fraction of the work and
+    // call it the total.
+    const campaign = await newCampaign();
+    await newPiece({ campaignId: campaign.id });
+    await newPiece();
+
+    const summaries = await pieces.summariseByCampaign(workspaceId);
+
+    expect(summaries).toHaveLength(2);
+    expect(summaries.find((row) => row.campaignId === null)?.drafts).toBe(1);
+  });
+
+  it("gives an empty list of post ids, not a list of nothings", async () => {
+    // array_agg over a column full of nulls returns [null], which downstream
+    // reads as one published post that has no id.
+    const campaign = await newCampaign();
+    await newPiece({ campaignId: campaign.id });
+
+    const [summary] = await pieces.summariseByCampaign(workspaceId);
+
+    expect(summary?.publishedPostIds).toEqual([]);
+  });
+
+  it("does not count another workspace's pieces", async () => {
+    await newPiece();
+    await newPiece({ workspaceId: otherWorkspaceId });
+
+    const summaries = await pieces.summariseByCampaign(workspaceId);
+
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]?.drafts).toBe(1);
+  });
+
+  it("leaves an archived piece out of the counts", async () => {
+    const piece = await newPiece();
+    await newPiece();
+    await pieces.archive(workspaceId, piece.id, userId);
+
+    const [summary] = await pieces.summariseByCampaign(workspaceId);
+
+    expect(summary?.drafts).toBe(1);
+  });
+
   it("returns nothing for something that never existed", async () => {
     expect(
       await campaigns.find(workspaceId, newId("campaign") as CampaignId),
