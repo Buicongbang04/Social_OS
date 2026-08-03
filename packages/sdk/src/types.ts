@@ -334,6 +334,18 @@ export type StoredSecret = {
  * sealed in the vault and hands out only a reference, so nothing that
  * serialises a connection can carry a live credential for someone's audience.
  */
+/**
+ * A Page a user token can manage.
+ *
+ * No token in it, and never will be: the browser names which Pages to connect,
+ * and the server re-reads their tokens itself.
+ */
+export type ManageablePage = {
+  externalId: string;
+  displayName: string;
+  alreadyConnected: boolean;
+};
+
 export type SocialConnection = {
   id: string;
   connectorId: string;

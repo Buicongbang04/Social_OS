@@ -102,6 +102,81 @@ export async function verifyPageToken(
 }
 
 /**
+ * Every Page a user token can manage, with the Page token for each.
+ *
+ * This is what makes running more than one or two Pages bearable. A Page token
+ * has to be fetched per Page from Facebook's own tooling, so connecting ten
+ * means hunting down ten ids and ten tokens; one user token answers for all of
+ * them at once.
+ *
+ * The Page tokens come back with the list because they are what an attach
+ * needs. Nothing is expected to hand them onwards — the caller in this build
+ * seals them straight into the vault, and no HTTP response ever carries them.
+ */
+export async function listManageablePages(
+  userAccessToken: string,
+  deps: { fetch?: typeof globalThis.fetch; env?: NodeJS.ProcessEnv } = {},
+): Promise<{ externalId: string; displayName: string; accessToken: string }[]> {
+  const call = deps.fetch ?? globalThis.fetch;
+  const url = new URL(`${graphBase(deps.env)}/me/accounts`);
+  url.searchParams.set("fields", "id,name,access_token");
+  // Facebook's default page size is 25. Somebody with more Pages than that
+  // would silently see a subset, and the missing ones are invisible — there is
+  // nothing on screen to say the list was cut.
+  url.searchParams.set("limit", "100");
+
+  let response: Response;
+  try {
+    response = await call(url.toString(), {
+      headers: { authorization: `Bearer ${userAccessToken}` },
+    });
+  } catch (error: unknown) {
+    throw new RuntimeError(
+      "NETWORK",
+      "Không gọi được Facebook để đọc danh sách Page.",
+      {
+        retryable: true,
+        cause: error,
+      },
+    );
+  }
+
+  const text = await response.text();
+  if (!response.ok) {
+    // A Page token pasted into a user-token box is the single most likely
+    // mistake here, and Facebook answers it with "Tried accessing nonexisting
+    // field (accounts)" — true, and no use at all to whoever pasted it. Found
+    // by trying a real Page token against the real Graph.
+    const reason = graphError(text);
+    throw new RuntimeError(
+      "PROVIDER",
+      /nonexisting field \(accounts\)/.test(reason)
+        ? "Đây là Page access token, không phải user access token. Token của Page chỉ nói được về chính Page đó, không liệt kê được danh sách Page."
+        : `Facebook từ chối token này: ${reason}`,
+      {
+        retryable: response.status >= 500,
+        context: { status: response.status },
+      },
+    );
+  }
+
+  const payload = JSON.parse(text) as {
+    data?: { id?: string; name?: string; access_token?: string }[];
+  };
+
+  return (payload.data ?? [])
+    .filter(
+      (page): page is { id: string; name?: string; access_token: string } =>
+        typeof page.id === "string" && typeof page.access_token === "string",
+    )
+    .map((page) => ({
+      externalId: page.id,
+      displayName: page.name ?? page.id,
+      accessToken: page.access_token,
+    }));
+}
+
+/**
  * Post to a Facebook Page.
  *
  * The first thing in this system that reaches somebody's real audience, which

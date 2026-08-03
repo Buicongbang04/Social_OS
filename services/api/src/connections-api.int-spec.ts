@@ -34,6 +34,8 @@ const hasInfra = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 type Seen = {
   tokenBody?: URLSearchParams;
   identityAuth?: string | null;
+  pagesAuth?: string | null;
+  pagesUrl?: string | null;
 };
 
 /** How the fake platform should behave on the next exchange. */
@@ -60,6 +62,10 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
   /** What the fake Page has posted, for the stats read. */
   let feedPosts: unknown[];
   let statsStatus: number;
+  /** Every Page the fake user token manages. */
+  let pages: unknown[];
+  let pagesStatus: number;
+  let echoIdentity: boolean;
 
   const as = (user: RegisteredUser, workspaceId: string) => ({
     Authorization: `Bearer ${user.accessToken}`,
@@ -138,10 +144,37 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
         return;
       }
 
+      // `/me/accounts` — every Page one user token can manage. Matched before
+      // the `/graph/` prefix below, which would otherwise answer it with a
+      // single identity.
+      if (url.pathname === "/graph/me/accounts") {
+        seen.pagesAuth = request.headers.authorization ?? null;
+        seen.pagesUrl = request.url ?? null;
+        response.writeHead(pagesStatus, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify(
+            pagesStatus === 200
+              ? { data: pages }
+              : { error: { message: "Invalid OAuth access token" } },
+          ),
+        );
+        return;
+      }
+
       // `/{page-id}` — how a pasted token is checked before anything is
       // stored.
       if (url.pathname.startsWith("/graph/")) {
         seen.identityAuth = request.headers.authorization ?? null;
+        // Bulk attach checks each Page it is about to store, so the fake has
+        // to answer for whichever id was asked about rather than for one fixed
+        // Page. Off by default, because the single-token tests turn on the
+        // mismatch between the id asked for and the id answered.
+        if (echoIdentity) {
+          const id = url.pathname.slice("/graph/".length);
+          response.writeHead(200, { "content-type": "application/json" });
+          response.end(JSON.stringify({ id, name: `Trang ${id}` }));
+          return;
+        }
         response.writeHead(behaviour.identityStatus, {
           "content-type": "application/json",
         });
@@ -187,6 +220,15 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
     inboxStatus = 200;
     feedPosts = [];
     statsStatus = 200;
+    pages = [
+      { id: "page-1", name: "Trang một", access_token: "page-tok-1" },
+      { id: "page-2", name: "Trang hai", access_token: "page-tok-2" },
+      { id: "page-3", name: "Trang ba", access_token: "page-tok-3" },
+    ];
+    pagesStatus = 200;
+    echoIdentity = false;
+    delete seen.pagesAuth;
+    delete seen.pagesUrl;
 
     behaviour = {
       tokenStatus: 200,
@@ -834,6 +876,173 @@ describe.skipIf(!hasInfra)("connections API (integration)", () => {
       .http()
       .post("/api/v1/connections/myspace/start")
       .set(as(alice, aliceWorkspace))
+      .expect(404);
+  });
+
+  it("lists every Page one user token manages", async () => {
+    // The point of the whole flow: connecting ten Pages by hand means hunting
+    // down ten ids and ten tokens from Facebook's own tooling.
+    const response = await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages")
+      .set(as(alice, aliceWorkspace))
+      .send({ userAccessToken: "user-token-abcdefghijklmnop" })
+      .expect(200);
+
+    expect(
+      response.body.data.map(
+        (page: { displayName: string }) => page.displayName,
+      ),
+    ).toEqual(["Trang một", "Trang hai", "Trang ba"]);
+  });
+
+  it("never puts a Page token in the listing", async () => {
+    // The tokens come back from Facebook with the list. Passing them to the
+    // browser so it could send them back would put a live credential for
+    // somebody's audience into a JSON response and whatever logs sit between.
+    const response = await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages")
+      .set(as(alice, aliceWorkspace))
+      .send({ userAccessToken: "user-token-abcdefghijklmnop" })
+      .expect(200);
+
+    expect(JSON.stringify(response.body)).not.toContain("page-tok-1");
+  });
+
+  it("sends the user token in a header, not the query string", async () => {
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages")
+      .set(as(alice, aliceWorkspace))
+      .send({ userAccessToken: "user-token-abcdefghijklmnop" })
+      .expect(200);
+
+    expect(seen.pagesAuth).toBe("Bearer user-token-abcdefghijklmnop");
+    expect(seen.pagesUrl).not.toContain("user-token");
+  });
+
+  it("marks what is already connected rather than hiding it", async () => {
+    // Somebody looking for a Page they connected last week should find it in
+    // the list, not wonder whether the token is wrong.
+    echoIdentity = true;
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages/attach")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        userAccessToken: "user-token-abcdefghijklmnop",
+        externalIds: ["page-2"],
+      })
+      .expect(201);
+
+    const response = await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages")
+      .set(as(alice, aliceWorkspace))
+      .send({ userAccessToken: "user-token-abcdefghijklmnop" })
+      .expect(200);
+
+    const marked = response.body.data.filter(
+      (page: { alreadyConnected: boolean }) => page.alreadyConnected,
+    );
+    expect(
+      marked.map((page: { externalId: string }) => page.externalId),
+    ).toEqual(["page-2"]);
+  });
+
+  it("connects several Pages at once, and only the chosen ones", async () => {
+    echoIdentity = true;
+
+    const response = await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages/attach")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        userAccessToken: "user-token-abcdefghijklmnop",
+        externalIds: ["page-1", "page-3"],
+      })
+      .expect(201);
+
+    expect(response.body.data.connected).toHaveLength(2);
+    expect(response.body.data.failed).toEqual([]);
+
+    const listed = await testApp
+      .http()
+      .get("/api/v1/connections")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+    expect(
+      listed.body.data
+        .map((account: { externalId: string }) => account.externalId)
+        .sort(),
+    ).toEqual(["page-1", "page-3"]);
+  });
+
+  it("says which Page a token does not manage, and connects the rest", async () => {
+    // Eight of ten connected with two named is more use than one error that
+    // leaves the caller unsure whether anything was stored.
+    echoIdentity = true;
+
+    const response = await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages/attach")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        userAccessToken: "user-token-abcdefghijklmnop",
+        externalIds: ["page-1", "page-999"],
+      })
+      .expect(201);
+
+    expect(response.body.data.connected).toHaveLength(1);
+    expect(response.body.data.failed).toEqual([
+      { externalId: "page-999", reason: "Token này không quản lý Page đó." },
+    ]);
+  });
+
+  it("keeps no Page token readable after connecting", async () => {
+    echoIdentity = true;
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages/attach")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        userAccessToken: "user-token-abcdefghijklmnop",
+        externalIds: ["page-1"],
+      })
+      .expect(201);
+
+    const secrets = await testApp
+      .http()
+      .get("/api/v1/secrets")
+      .set(as(alice, aliceWorkspace))
+      .expect(200);
+
+    expect(JSON.stringify(secrets.body)).not.toContain("page-tok-1");
+  });
+
+  it("turns a refused user token into a 4xx, not a 500", async () => {
+    pagesStatus = 400;
+
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages")
+      .set(as(alice, aliceWorkspace))
+      .send({ userAccessToken: "wrong-token-abcdefghijklmnop" })
+      .expect(400);
+  });
+
+  it("will not connect Pages into another workspace", async () => {
+    echoIdentity = true;
+
+    await testApp
+      .http()
+      .post("/api/v1/connections/facebook/pages/attach")
+      .set(as(bob, aliceWorkspace))
+      .send({
+        userAccessToken: "user-token-abcdefghijklmnop",
+        externalIds: ["page-1"],
+      })
       .expect(404);
   });
 });

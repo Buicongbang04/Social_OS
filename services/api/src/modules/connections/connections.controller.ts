@@ -35,6 +35,31 @@ import { ConnectionsService, returnUrl } from "./connections.service";
  * flow produces go straight into the vault, and the connection rows carry only
  * a reference — same rule as the secrets controller, for the same reason.
  */
+const pagesSchema = z.object({
+  /**
+   * A user access token, not a Page one.
+   *
+   * The upper bound is generous because Facebook's long-lived user tokens are
+   * long, and a limit that cut a valid one would look like the token being
+   * wrong.
+   */
+  userAccessToken: z.string().trim().min(20).max(8_000),
+});
+
+const attachPagesSchema = pagesSchema.extend({
+  externalIds: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(200)
+        .regex(/^[A-Za-z0-9_.-]+$/, "Chỉ chữ, số, . _ -"),
+    )
+    .min(1)
+    .max(50),
+});
+
 const attachSchema = z.object({
   /** The Page's own id, as Facebook shows it. Digits, and long. */
   externalId: z
@@ -116,6 +141,48 @@ export class ConnectionsController {
     @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
   ) {
     return this.connections.attachToken(
+      requireWorkspace(workspaceHeader),
+      user.userId,
+      connectorId,
+      body,
+    );
+  }
+
+  /**
+   * List the Pages a user token can manage.
+   *
+   * A POST, though it reads: the token goes in the body because a GET would put
+   * a live credential in the query string, and query strings end up in access
+   * logs and browser history.
+   */
+  @RequirePermission("workspace.connector.manage")
+  @ApiZodBody(pagesSchema)
+  @HttpCode(HttpStatus.OK)
+  @Post(":connectorId/pages")
+  async pages(
+    @Param("connectorId") connectorId: string,
+    @Body(new ZodValidationPipe(pagesSchema)) body: z.infer<typeof pagesSchema>,
+    @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
+  ) {
+    return this.connections.listPages(
+      requireWorkspace(workspaceHeader),
+      connectorId,
+      body.userAccessToken,
+    );
+  }
+
+  /** Connect the chosen Pages, reporting each that could not be. */
+  @RequirePermission("workspace.connector.manage")
+  @ApiZodBody(attachPagesSchema)
+  @Post(":connectorId/pages/attach")
+  async attachPages(
+    @Param("connectorId") connectorId: string,
+    @Body(new ZodValidationPipe(attachPagesSchema))
+    body: z.infer<typeof attachPagesSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
+  ) {
+    return this.connections.attachPages(
       requireWorkspace(workspaceHeader),
       user.userId,
       connectorId,
