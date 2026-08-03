@@ -85,6 +85,8 @@ async function main(): Promise<void> {
   // Last, and never earlier. It connects a live Page, and every Goal submitted
   // while that connection exists will publish for real — which is exactly how
   // an earlier version of this file left five posts on somebody's Page.
+  await calendarFlow(client);
+  await trendFlow(client);
   await socialFlow(client);
 
   console.log(
@@ -349,6 +351,98 @@ function withoutPublish(tasks: readonly Task[]): readonly Task[] {
  * publishing needs a credential nobody should have to supply just to check the
  * rest of the stack works.
  */
+/**
+ * Plan something, put it on the calendar, then take it off.
+ *
+ * What a repository test cannot reach: the window filter reads dates off a
+ * query string, a PATCH sent from a client leaves untouched fields alone, and
+ * archiving a campaign does not take its content with it.
+ */
+async function calendarFlow(client: ApiClient): Promise<void> {
+  console.log("\n→ Chiến dịch và lịch");
+
+  const campaign = await client.createCampaign({
+    name: `verify-stack ${Date.now()}`,
+  });
+  check("tạo được chiến dịch", campaign.status === "DRAFT", campaign.name);
+
+  const when = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const piece = await client.createContentPiece({
+    campaignId: campaign.id,
+    title: "Bài kiểm tra",
+    body: "Nội dung kiểm tra.",
+    channel: "facebook",
+    scheduledAt: when,
+  });
+  check(
+    "hẹn được lịch đăng",
+    piece.scheduledAt === when,
+    piece.scheduledAt ?? "không có lịch",
+  );
+
+  const window = await client.listContentPieces({
+    from: new Date(Date.now() - 60_000).toISOString(),
+    to: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+  });
+  check(
+    "đọc được cửa sổ thời gian",
+    window.some((item) => item.id === piece.id),
+    `${window.length} bài`,
+  );
+
+  const renamed = await client.updateContentPiece(piece.id, {
+    title: "Bài đã đổi tên",
+  });
+  check(
+    "đổi tên không mất lịch",
+    renamed.title === "Bài đã đổi tên" && renamed.scheduledAt === when,
+    renamed.scheduledAt ?? "mất rồi",
+  );
+
+  await client.archiveCampaign(campaign.id);
+  const survivors = await client.listContentPieces();
+  check(
+    "lưu trữ chiến dịch không xoá bài",
+    survivors.some((item) => item.id === piece.id),
+  );
+
+  await client.archiveContentPiece(piece.id);
+  check(
+    "dọn sạch sau khi kiểm tra",
+    !(await client.listContentPieces()).some((item) => item.id === piece.id),
+  );
+}
+
+/**
+ * Read what the country is searching for.
+ *
+ * The one check no fixture can make: Google's RSS feed still has the shape the
+ * parser expects. YouTube is only checked when a key exists — without one the
+ * useful assertion is that the platform says which key is missing.
+ */
+async function trendFlow(client: ApiClient): Promise<void> {
+  console.log("\n→ Xu hướng");
+
+  const google = await client.listTrends({ source: "google", limit: 5 });
+  check(
+    "đọc được xu hướng Google",
+    google.length > 0 && google.every((item) => item.title.length > 0),
+    google[0]?.title,
+  );
+
+  try {
+    const youtube = await client.listTrends({ source: "youtube", limit: 5 });
+    check("đọc được xu hướng YouTube", youtube.length > 0, youtube[0]?.title);
+  } catch (error: unknown) {
+    const message = isApiError(error) ? error.message : String(error);
+    check(
+      "bỏ qua YouTube: chưa có khoá, và nói rõ thiếu khoá nào",
+      message.includes("sources/youtube"),
+      message,
+    );
+  }
+}
+
 async function socialFlow(client: ApiClient): Promise<void> {
   console.log("\n→ Đăng bài thật");
 

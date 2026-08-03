@@ -26,6 +26,7 @@ import { AuthorizationModule } from "./modules/authorization/authorization.modul
 import { ChatModule } from "./modules/chat/chat.module";
 import { MemoryModule } from "./modules/memory/memory.module";
 import { CampaignsModule } from "./modules/campaigns/campaigns.module";
+import { TrendsModule } from "./modules/trends/trends.module";
 import { ConnectionsModule } from "./modules/connections/connections.module";
 import { ContentModule } from "./modules/content/content.module";
 import { MetricsModule } from "./infra/metrics/metrics.module";
@@ -77,6 +78,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     ConnectionsModule,
     ContentModule,
     CampaignsModule,
+    TrendsModule,
     MetricsModule,
   ],
   controllers: [HealthController],

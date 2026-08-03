@@ -37,6 +37,7 @@ COPY packages/secrets/package.json packages/secrets/
 COPY packages/shared/package.json packages/shared/
 COPY packages/storage/package.json packages/storage/
 COPY packages/testing/package.json packages/testing/
+COPY packages/trends/package.json packages/trends/
 COPY packages/ui/package.json packages/ui/
 COPY services/api/package.json services/api/
 COPY services/runtime/package.json services/runtime/

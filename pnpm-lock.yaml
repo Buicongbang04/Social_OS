@@ -676,6 +676,9 @@ importers:
       "@repo/storage":
         specifier: workspace:^
         version: link:../../packages/storage
+      "@repo/trends":
+        specifier: workspace:*
+        version: link:../../packages/trends
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1
