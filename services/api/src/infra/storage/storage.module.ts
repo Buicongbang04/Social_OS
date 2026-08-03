@@ -25,6 +25,7 @@ export const OBJECT_STORE = Symbol("OBJECT_STORE");
 
         return new S3ObjectStore({
           endpoint: options.url,
+          publicEndpoint: options.publicUrl,
           region: options.region,
           bucket: options.bucket,
           accessKeyId: options.accessKeyId,

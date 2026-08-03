@@ -1421,6 +1421,21 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 
 ---
 
+### Đóng gói và chạy cả cụm
+
+Ba service có Dockerfile chung, một compose chạy cả cụm kèm bước migrate riêng.
+Chi tiết ở `docker/README.md`. Điều đáng ghi ở đây là **cái giá của việc trước
+đó chưa từng đóng gói**: 65 commit, 814 test, kiểm chứng với Facebook thật — và
+lần đầu chạy trong container lộ ra ba lỗi mà không thứ nào trong số đó bắt
+được, trong đó **một là lỗi sản phẩm thật**: link tải file được ký bằng host
+nội bộ, nên mọi triển khai có MinIO trong mạng riêng đều hỏng nút tải. Chữ ký
+SigV4 phủ cả host, nên không sửa URL sau khi ký được — phải ký bằng host công
+khai, và đó là `MINIO_PUBLIC_URL`.
+
+Migration chạy như một **job riêng**, không phải một bước trong API: hai bản
+API khởi động cùng lúc sẽ cùng migrate, và Postgres quyết định ai thắng bằng
+cách deadlock.
+
 ## 14. Khoảng cách so với stack dự kiến
 
 `docs/05_TECH_STACK.md` mô tả stack đầy đủ của sản phẩm. Những phần **chưa làm**:

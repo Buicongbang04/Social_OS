@@ -71,6 +71,15 @@ export const envSchema = z.object({
    * works without storage, and failing to start would be a worse trade.
    */
   MINIO_URL: z.string().url().optional(),
+  /**
+   * The storage host a browser can reach, when it is not the one this process
+   * uses.
+   *
+   * They differ the moment storage is on an internal network — in Docker the
+   * API talks to `http://minio:9000`, and a download link signed for that host
+   * is one nobody outside can open. Unset means they are the same.
+   */
+  MINIO_PUBLIC_URL: z.string().url().optional(),
   MINIO_REGION: z.string().default("us-east-1"),
   MINIO_BUCKET: z.string().default("ai-social-os"),
   MINIO_ROOT_USER: z.string().optional(),

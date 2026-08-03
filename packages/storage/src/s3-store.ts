@@ -23,6 +23,19 @@ import {
 export type S3StoreOptions = {
   /** e.g. http://localhost:9000 for MinIO. Omit for real AWS S3. */
   endpoint?: string;
+  /**
+   * The host a browser can reach, when it differs from the one this process
+   * uses.
+   *
+   * They differ whenever storage is on an internal network: in Docker the API
+   * talks to `http://minio:9000`, and a presigned URL signed against that host
+   * is one no browser can resolve. The signature covers the host, so this
+   * cannot be fixed by rewriting the URL afterwards — it has to be signed for
+   * the host the client will actually use.
+   *
+   * Defaults to `endpoint`, so a single-host installation needs nothing.
+   */
+  publicEndpoint?: string;
   region: string;
   bucket: string;
   accessKeyId: string;
@@ -45,20 +58,35 @@ export type S3StoreOptions = {
  */
 export class S3ObjectStore implements ObjectStore {
   private readonly client: S3Client;
+  /**
+   * A second client, differing only in the host it signs for.
+   *
+   * Two clients rather than one, because the endpoint is part of what SigV4
+   * signs: a URL signed for `minio:9000` and then string-replaced to a public
+   * host arrives with a signature that does not match, and MinIO rejects it
+   * with an error about credentials rather than about the host.
+   */
+  private readonly signer: S3Client;
   private readonly bucket: string;
   private ensured: Promise<void> | null = null;
 
   constructor(private readonly options: S3StoreOptions) {
     this.bucket = options.bucket;
-    this.client = new S3Client({
-      endpoint: options.endpoint,
+
+    const shared = {
       region: options.region,
       credentials: {
         accessKeyId: options.accessKeyId,
         secretAccessKey: options.secretAccessKey,
       },
       forcePathStyle: options.forcePathStyle ?? Boolean(options.endpoint),
-    });
+    };
+
+    this.client = new S3Client({ ...shared, endpoint: options.endpoint });
+    this.signer =
+      options.publicEndpoint && options.publicEndpoint !== options.endpoint
+        ? new S3Client({ ...shared, endpoint: options.publicEndpoint })
+        : this.client;
   }
 
   /**
@@ -184,7 +212,7 @@ export class S3ObjectStore implements ObjectStore {
     expiresInSeconds = DEFAULT_PRESIGN_SECONDS,
   ): Promise<string> {
     return getSignedUrl(
-      this.client,
+      this.signer,
       new GetObjectCommand({ Bucket: this.bucket, Key: keyFor(location) }),
       { expiresIn: expiresInSeconds },
     );
@@ -217,9 +245,7 @@ function isNotFound(error: unknown): boolean {
 
 function isAlreadyOwned(error: unknown): boolean {
   const name = (error as { name?: string }).name;
-  return (
-    name === "BucketAlreadyOwnedByYou" || name === "BucketAlreadyExists"
-  );
+  return name === "BucketAlreadyOwnedByYou" || name === "BucketAlreadyExists";
 }
 
 /**
