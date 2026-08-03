@@ -18,12 +18,23 @@ Chi tiết đầy đủ: `docs/06_MONOREPO_STRUCTURE.md`. Công nghệ sử dụ
 
 ## Quickstart
 
+Chạy cả nền tảng bằng Docker — không cần cài gì ngoài Docker và pnpm:
+
 ```bash
 pnpm install
+pnpm stack:up      # lần đầu tự sinh khoá; xong thì mở http://localhost:3200
+```
+
+Hoặc chạy ở chế độ phát triển, sửa code là thấy ngay:
+
+```bash
 cp .env.example .env
-pnpm docker:up      # PostgreSQL, Redis, MinIO, Qdrant
+pnpm docker:up     # chỉ hạ tầng: PostgreSQL, Redis, MinIO, Qdrant
 pnpm dev
 ```
+
+Hai cách dùng chung volume nên dữ liệu không mất khi đổi qua lại, nhưng **đừng
+chạy cả hai cùng lúc** — chúng tranh cổng 3100 và 3200.
 
 ## Scripts
 
@@ -33,6 +44,7 @@ pnpm dev
 | `pnpm build`                                     | Build toàn bộ                                           |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test`     | Kiểm tra chất lượng code                                |
 | `pnpm docker:up` / `docker:down` / `docker:logs` | Quản lý hạ tầng local dev                               |
+| `pnpm stack:up` / `stack:down` / `stack:logs`    | Chạy cả nền tảng trong Docker — xem `docker/README.md`  |
 
 ## Đóng góp
 
