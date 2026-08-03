@@ -370,6 +370,55 @@ export type SpendReport = {
   byModel: (SpendSummary & { provider: string; model: string })[];
 };
 
+export const CONTENT_CHANNELS = [
+  "facebook",
+  "tiktok",
+  "threads",
+  "blog",
+  "email",
+] as const;
+export type ContentChannel = (typeof CONTENT_CHANNELS)[number];
+
+export const CONTENT_TONES = [
+  "than-thien",
+  "chuyen-nghiep",
+  "hai-huoc",
+  "khan-truong",
+  "gan-gui",
+] as const;
+export type ContentTone = (typeof CONTENT_TONES)[number];
+
+export const CONTENT_LENGTHS = ["ngan", "vua", "dai"] as const;
+export type ContentLength = (typeof CONTENT_LENGTHS)[number];
+
+/** What every studio operation reports alongside its own payload. */
+export type ContentMeta = {
+  provider: string;
+  model: string;
+  promptVersion: string;
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  costUsd: string;
+};
+
+export type WrittenContent = ContentMeta & {
+  object: { title: string; body: string; hashtags: string[] };
+};
+
+/**
+ * A rewrite or a translation.
+ *
+ * `notes` is where the instruction could not be followed without changing a
+ * fact — shown rather than dropped, because a rewrite that quietly loses a
+ * delivery time is worse than one that says it could not keep it.
+ */
+export type RevisedContent = ContentMeta & {
+  object: { body: string; notes: string[] };
+};
+
+export type SeoContent = ContentMeta & {
+  object: { titles: string[]; metaDescription: string; keywords: string[] };
+};
+
 /**
  * One waiting conversation, as the inbox shows it.
  *

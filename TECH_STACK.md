@@ -1421,6 +1421,32 @@ preset ESLint, Prettier và tsconfig dùng chung cho toàn repo.)
 
 ---
 
+### Studio nội dung (Phase 4)
+
+Bốn thao tác thay cho một, vì chúng **hỏng theo những cách khác nhau** và cần
+canh những thứ khác nhau. Một lời gọi "làm cho tôi ít nội dung" không thể thực
+thi bốn hợp đồng khác nhau — đó là lý do `content.generate` cũ chỉ mãi là bản
+nháp đầu.
+
+| Thao tác     | Ràng buộc riêng                                                                                                                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Viết**     | Được sáng tạo, nhưng không được thêm số liệu, cam kết hay khuyến mãi mà brief không nói — người đọc sẽ tin đó là thật                                |
+| **Viết lại** | **Không được đổi dữ kiện.** Đổi cách nói, không đổi nội dung. Chỗ nào làm theo yêu cầu sẽ phải đổi dữ kiện thì ghi vào `notes` chứ không im lặng     |
+| **Dịch**     | Giữ nguyên số liệu, ngày tháng, tên riêng. **Không quy đổi tiền tệ** — quy đổi cần tỉ giá, mà một bài hứa sai giá còn tệ hơn một bài sai đơn vị tiền |
+| **SEO**      | Từ khoá rút từ chính bài. Bịa từ khoá kéo về đúng loại người đọc sẽ rời đi ngay                                                                      |
+
+**Độ dài gửi cho model bằng số từ**, không bằng tính từ: "ngắn" với một caption
+TikTok khác hẳn "ngắn" với một bài blog, và đó là thứ khiến mọi bản nháp phải
+sửa lại lần hai chỉ vì độ dài.
+
+**Ghi nhớ thương hiệu của workspace đi thành một khối riêng, đặt trước brief.**
+Dán nó vào cuối brief thì model viết một bài _về_ giọng văn thương hiệu chứ
+không viết _bằng_ giọng đó.
+
+Máy chủ tự đọc ghi nhớ mỗi lần gọi — client không truyền, nên một màn hình
+không thể quên. Mọi lời gọi đều vào sổ `ai_usage`; sổ hỏng thì **vẫn trả bản
+nháp về**, vì provider đã trả lời và tiền đã tiêu rồi.
+
 ### Đóng gói và chạy cả cụm
 
 Ba service có Dockerfile chung, một compose chạy cả cụm kèm bước migrate riêng.

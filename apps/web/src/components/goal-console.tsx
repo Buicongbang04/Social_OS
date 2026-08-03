@@ -11,6 +11,7 @@ import { KeysPanel } from "./keys-panel";
 import { MemoryPanel } from "./memory-panel";
 import { SpendPanel } from "./spend-panel";
 import { StatsPanel } from "./stats-panel";
+import { StudioPanel } from "./studio-panel";
 import { ExecutionView } from "./execution-view";
 import { RunList } from "./run-list";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
@@ -179,6 +180,10 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
           A workspace running on the platform's key without knowing it finds
           out from a bill, which is the wrong place to find out. */}
       <KeysPanel />
+
+      {/* First of the working panels: most sessions start with somebody
+          wanting to write something, not with a Goal. */}
+      <StudioPanel />
 
       {/* Under the keys, because both answer the same question — what this
           workspace is connected to and on whose authority. */}
