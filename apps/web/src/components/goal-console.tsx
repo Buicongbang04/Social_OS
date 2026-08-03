@@ -12,7 +12,7 @@ import { KeysPanel } from "./keys-panel";
 import { MemoryPanel } from "./memory-panel";
 import { SpendPanel } from "./spend-panel";
 import { StatsPanel } from "./stats-panel";
-import { StudioPanel } from "./studio-panel";
+import { StudioPanel, type SeededBrief } from "./studio-panel";
 import { TrendsPanel } from "./trends-panel";
 import { ExecutionView } from "./execution-view";
 import { RunList } from "./run-list";
@@ -42,6 +42,8 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
+  /** A brief handed down from the trends panel, if somebody clicked one. */
+  const [seed, setSeed] = useState<SeededBrief | undefined>(undefined);
   const [executionId, setExecutionId] = useState<string | null>(null);
   /** Bumped so the run list picks up a freshly submitted run immediately. */
   const [listToken, setListToken] = useState(0);
@@ -185,11 +187,18 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
 
       {/* Above the studio, because it is what people write from. Deciding what
           to post starts with what people are already looking for. */}
-      <TrendsPanel />
+      <TrendsPanel
+        onUseAsBrief={(text) =>
+          // A counter, not a boolean or the text itself: clicking the same
+          // trend twice has to work, and it would not if the value were
+          // unchanged.
+          setSeed({ text, nonce: (seed?.nonce ?? 0) + 1 })
+        }
+      />
 
       {/* First of the working panels: most sessions start with somebody
           wanting to write something, not with a Goal. */}
-      <StudioPanel />
+      <StudioPanel seed={seed} />
 
       {/* Directly under the studio, because that is where its output lands.
           A draft saved with nowhere visible to land is a draft nobody finds

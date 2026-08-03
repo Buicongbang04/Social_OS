@@ -1499,6 +1499,30 @@ Một bài mang **kênh**, không mang tài khoản. Nối hai Page thì "đăng
 Facebook" là một câu thiếu tân ngữ, nên nó dừng và nói ra tên cả hai — chọn hộ
 là nền tảng tự quyết định khán giả của người khác.
 
+### Xu hướng nối thẳng sang Studio (Phase 4)
+
+Mỗi dòng xu hướng có nút **Viết bài**, đưa một câu brief sang Studio.
+
+Brief là **một câu, không phải từ khoá thô**. "sân bay" đứng một mình không nói
+cho model biết phải viết gì; dòng tin bên dưới nó mới là lý do từ đó đang nóng
+— và nó vốn đã hiện trên màn hình, nên brief chỉ nói lại đúng thứ người bấm đã
+nhìn thấy. Ghi vào ô brief để sửa được, không gửi thẳng đi đâu.
+
+Nó **thay** nội dung đang có trong ô chứ không nối thêm. Nối thêm sẽ lặng lẽ
+ghép ba xu hướng chẳng liên quan thành một brief, còn hỏi "có ghi đè không?"
+mỗi lần thì lại là một hộp thoại chắn ngang một thao tác đáng ra chỉ một cú
+bấm.
+
+Trạng thái truyền xuống mang theo một **`nonce` đếm lên**, không phải chỉ đoạn
+text. Bấm lại đúng xu hướng đó lần thứ hai phải chạy — mà nếu chỉ so text thì
+giá trị không đổi, effect không chạy, và cú bấm thứ hai trông như hỏng. Đó
+chính là lúc người ta cần nó nhất: vừa sửa brief xong và muốn lấy lại bản gốc.
+
+**Chưa có test tự động cho phần này.** `apps/web` hiện không có test runner
+nào, và dựng cả một bộ khung test chỉ cho một hàm ghép chuỗi thì không cân
+xứng. Đã kiểm bằng typecheck, lint, build và xác nhận chuỗi mới nằm trong
+bundle được phục vụ — không phải bằng một cú bấm thật.
+
 ### Nối nhiều Page bằng một user token (Phase 4)
 
 Nối mười Page bằng tay nghĩa là đi tìm mười Page ID và mười Page token trong
