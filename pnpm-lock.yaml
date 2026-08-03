@@ -561,6 +561,31 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)(terser@5.49.0)
 
+  packages/trends:
+    dependencies:
+      "@repo/core":
+        specifier: workspace:*
+        version: link:../core
+      fast-xml-parser:
+        specifier: ^4.5.0
+        version: 4.5.7
+    devDependencies:
+      "@repo/config":
+        specifier: workspace:*
+        version: link:../config
+      "@types/node":
+        specifier: ^22.10.0
+        version: 22.20.1
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.5(jiti@1.21.7)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(terser@5.49.0)
+
   packages/ui:
     dependencies:
       clsx:
@@ -5015,6 +5040,13 @@ packages:
         integrity: sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw==,
       }
 
+  fast-xml-parser@4.5.7:
+    resolution:
+      {
+        integrity: sha512-a6Qh1RMCNbSrU1+sAyAAZH3rTe+OaWJbNZIq0S+ifZciUUOQtlVxBJwoTUE2bYhysmG/RYyI5WJFIKdBahJdrQ==,
+      }
+    hasBin: true
+
   fastq@1.20.1:
     resolution:
       {
@@ -7493,6 +7525,12 @@ packages:
         integrity: sha512-1tB5mhVo7U+ETBKNf92xT4hrQa3pm0MZ0PQvuDnWgAAGHDsfp4lPSpiS6psrSiet87wyGPh9ft6wmhOMQ0hDiw==,
       }
     engines: { node: ">=14.16" }
+
+  strnum@1.1.2:
+    resolution:
+      {
+        integrity: sha512-vrN+B7DBIoTTZjnPNewwhx6cBA/H+IS7rfW68n7XxC1y7uoiGQBxaKzqucGUgavX15dJgiGztLJ8vxuEzwqBdA==,
+      }
 
   strtok3@10.3.5:
     resolution:
@@ -10793,6 +10831,10 @@ snapshots:
 
   fast-uri@3.1.4: {}
 
+  fast-xml-parser@4.5.7:
+    dependencies:
+      strnum: 1.1.2
+
   fastq@1.20.1:
     dependencies:
       reusify: 1.1.0
@@ -12345,6 +12387,8 @@ snapshots:
   strip-json-comments@3.1.1: {}
 
   strip-json-comments@5.0.3: {}
+
+  strnum@1.1.2: {}
 
   strtok3@10.3.5:
     dependencies:
