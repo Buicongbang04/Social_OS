@@ -78,6 +78,13 @@
       "when": 1785225850254,
       "tag": "0010_mature_maximus",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785733549360,
+      "tag": "0011_brave_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

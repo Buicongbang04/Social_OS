@@ -3,6 +3,7 @@
 import { isApiError, type Workspace } from "@repo/sdk";
 import { useState } from "react";
 import { getClient } from "../lib/api";
+import { CalendarPanel } from "./calendar-panel";
 import { ChatPanel } from "./chat-panel";
 import { DocumentList } from "./document-list";
 import { ConnectionsPanel } from "./connections-panel";
@@ -184,6 +185,11 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
       {/* First of the working panels: most sessions start with somebody
           wanting to write something, not with a Goal. */}
       <StudioPanel />
+
+      {/* Directly under the studio, because that is where its output lands.
+          A draft saved with nowhere visible to land is a draft nobody finds
+          again. */}
+      <CalendarPanel />
 
       {/* Under the keys, because both answer the same question — what this
           workspace is connected to and on whose authority. */}

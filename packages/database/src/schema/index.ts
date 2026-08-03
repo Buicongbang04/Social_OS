@@ -1,6 +1,7 @@
 export * from "./_enums";
 export * from "./_shared";
 export * from "./ai-usage";
+export * from "./campaigns";
 export * from "./conversations";
 export * from "./documents";
 export * from "./execution-events";

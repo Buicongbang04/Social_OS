@@ -69,6 +69,8 @@ export function StudioPanel() {
   const [instruction, setInstruction] = useState("");
   const [language, setLanguage] = useState("English");
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,6 +94,7 @@ export function StudioPanel() {
         tone,
         length,
       });
+      setSaved(false);
       setDraft({
         title: result.object.title,
         body: result.object.body,
@@ -141,6 +144,29 @@ export function StudioPanel() {
       if (!draft) return;
       const result = await getClient().suggestSeo({ content: draft.body });
       setDraft({ ...draft, seo: result.object, cost: result.costUsd });
+    });
+
+  /**
+   * Put the draft on the calendar.
+   *
+   * `datetime-local` gives a wall-clock string with no zone. `new Date(...)`
+   * reads it in the browser's own zone, which is the one the person typing it
+   * meant, and `toISOString()` turns that into the instant the server stores.
+   * Left empty it saves with no date at all rather than defaulting to now —
+   * "written, not scheduled yet" is a real state and the calendar shows it.
+   */
+  const save = () =>
+    guard("save", async () => {
+      if (!draft) return;
+      await getClient().createContentPiece({
+        title: draft.title ?? draft.body.slice(0, 80),
+        body: draft.body,
+        hashtags: draft.hashtags ?? [],
+        channel,
+        scheduledAt:
+          scheduledAt === "" ? undefined : new Date(scheduledAt).toISOString(),
+      });
+      setSaved(true);
     });
 
   return (
@@ -235,6 +261,27 @@ export function StudioPanel() {
             <PrimaryButton busy={busy === "seo"} onClick={() => void seo()}>
               Gợi ý SEO
             </PrimaryButton>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(event) => setScheduledAt(event.target.value)}
+              className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"
+            />
+            <PrimaryButton busy={busy === "save"} onClick={() => void save()}>
+              Lưu vào lịch
+            </PrimaryButton>
+            {saved ? (
+              <span className="text-xs text-emerald-700">
+                Đã lưu. Xem ở Lịch nội dung bên dưới.
+              </span>
+            ) : (
+              <span className="text-xs text-neutral-400">
+                Bỏ trống ngày giờ nếu chưa quyết định khi nào đăng.
+              </span>
+            )}
           </div>
 
           {draft.seo ? (

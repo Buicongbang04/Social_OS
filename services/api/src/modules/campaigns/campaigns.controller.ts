@@ -1,0 +1,284 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
+import { NotFoundError, ValidationError, isId } from "@repo/core";
+import type { CampaignId, ContentPieceId, WorkspaceId } from "@repo/core";
+import {
+  CAMPAIGN_STATUSES,
+  CONTENT_PIECE_STATUSES,
+  type CampaignRepository,
+  type ContentPieceRepository,
+} from "@repo/domain";
+import { z } from "zod";
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from "../../common/decorators/public.decorator";
+import { RequirePermission } from "../../common/decorators/require-permission.decorator";
+import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
+import {
+  CAMPAIGN_REPOSITORY,
+  CONTENT_PIECE_REPOSITORY,
+} from "../../infra/database/database.module";
+import { ApiZodBody } from "../../common/openapi/zod-body";
+import { parseRouteId } from "../../common/parse-id";
+import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
+
+/**
+ * An instant, sent as ISO 8601.
+ *
+ * Refused rather than coerced when unparseable: `new Date("thứ ba")` is
+ * `Invalid Date`, which Postgres rejects with a message about a bind parameter
+ * that names nothing the caller sent.
+ */
+const instant = z
+  .string()
+  .datetime({ offset: true })
+  .transform((value) => new Date(value));
+
+const createCampaignSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  objective: z.string().trim().max(2_000).optional(),
+  startsAt: instant.optional(),
+  endsAt: instant.optional(),
+});
+
+const updateCampaignSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  objective: z.string().trim().max(2_000).nullable().optional(),
+  status: z.enum(CAMPAIGN_STATUSES).optional(),
+  startsAt: instant.nullable().optional(),
+  endsAt: instant.nullable().optional(),
+});
+
+/**
+ * The calendar window, off the query string.
+ *
+ * Validated with zod like every body is, so a date nobody can read fails the
+ * same way and with the same status wherever it arrives — rather than 400 from
+ * a hand-written check on the query and 422 from the pipe on the body.
+ */
+const calendarQuerySchema = z.object({
+  campaignId: z.string().optional(),
+  from: instant.optional(),
+  to: instant.optional(),
+});
+
+const createPieceSchema = z.object({
+  campaignId: z.string().optional(),
+  title: z.string().trim().min(1).max(300),
+  body: z.string().trim().min(1).max(20_000),
+  hashtags: z.array(z.string().trim().max(40)).max(12).optional(),
+  channel: z.string().trim().min(1).max(40),
+  scheduledAt: instant.optional(),
+});
+
+const updatePieceSchema = z.object({
+  campaignId: z.string().nullable().optional(),
+  title: z.string().trim().min(1).max(300).optional(),
+  body: z.string().trim().min(1).max(20_000).optional(),
+  hashtags: z.array(z.string().trim().max(40)).max(12).optional(),
+  channel: z.string().trim().min(1).max(40).optional(),
+  scheduledAt: instant.nullable().optional(),
+  status: z.enum(CONTENT_PIECE_STATUSES).optional(),
+});
+
+/**
+ * Campaigns, and the pieces that go out.
+ *
+ * Read is `workspace.workflow.read` and write is `workspace.workflow.create`:
+ * planning what a workspace will publish is the same kind of authority as
+ * defining what it will do, and inventing a separate resource for it would give
+ * two names to one decision.
+ */
+@Controller("campaigns")
+export class CampaignsController {
+  constructor(
+    @Inject(CAMPAIGN_REPOSITORY)
+    private readonly campaigns: CampaignRepository,
+  ) {}
+
+  @RequirePermission("workspace.workflow.read")
+  @Get()
+  async list(@Headers(WORKSPACE_ID_HEADER) header: string) {
+    return this.campaigns.list(requireWorkspace(header));
+  }
+
+  @RequirePermission("workspace.workflow.create")
+  @ApiZodBody(createCampaignSchema)
+  @Post()
+  async create(
+    @Body(new ZodValidationPipe(createCampaignSchema))
+    body: z.infer<typeof createCampaignSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    return this.campaigns.create(
+      { workspaceId: requireWorkspace(header), ...body },
+      user.userId,
+    );
+  }
+
+  @RequirePermission("workspace.workflow.create")
+  @ApiZodBody(updateCampaignSchema)
+  @Patch(":id")
+  async update(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updateCampaignSchema))
+    body: z.infer<typeof updateCampaignSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    const updated = await this.campaigns.update(
+      requireWorkspace(header),
+      parseRouteId("campaign", id),
+      body,
+      user.userId,
+    );
+    // 404 rather than 403 for something in another workspace: 403 would
+    // confirm the campaign exists.
+    if (!updated) throw new NotFoundError("Không tìm thấy chiến dịch.");
+    return updated;
+  }
+
+  @RequirePermission("workspace.workflow.delete")
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async archive(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ): Promise<void> {
+    const archived = await this.campaigns.archive(
+      requireWorkspace(header),
+      parseRouteId("campaign", id),
+      user.userId,
+    );
+    if (!archived) throw new NotFoundError("Không tìm thấy chiến dịch.");
+  }
+}
+
+/**
+ * The content itself, and the calendar over it.
+ *
+ * A separate controller because a piece does not need a campaign — routing it
+ * under `/campaigns/:id/pieces` would make the common case, a draft belonging
+ * to nothing, unreachable.
+ */
+@Controller("content-pieces")
+export class ContentPiecesController {
+  constructor(
+    @Inject(CONTENT_PIECE_REPOSITORY)
+    private readonly pieces: ContentPieceRepository,
+  ) {}
+
+  /**
+   * The calendar.
+   *
+   * `from`/`to` narrow it to a window; without them everything comes back,
+   * scheduled first. A window with no matches is an empty list, not a 404 — a
+   * quiet week is an answer.
+   */
+  @RequirePermission("workspace.workflow.read")
+  @Get()
+  async list(
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+    @Query(new ZodValidationPipe(calendarQuerySchema))
+    query: z.infer<typeof calendarQuerySchema>,
+  ) {
+    const { campaignId, ...window } = query;
+    return this.pieces.list(requireWorkspace(header), {
+      ...window,
+      ...(campaignId
+        ? { campaignId: parseRouteId("campaign", campaignId) }
+        : {}),
+    });
+  }
+
+  @RequirePermission("workspace.workflow.create")
+  @ApiZodBody(createPieceSchema)
+  @Post()
+  async create(
+    @Body(new ZodValidationPipe(createPieceSchema))
+    body: z.infer<typeof createPieceSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    return this.pieces.create(
+      {
+        workspaceId: requireWorkspace(header),
+        ...body,
+        campaignId: body.campaignId
+          ? parseRouteId("campaign", body.campaignId)
+          : null,
+      },
+      user.userId,
+    );
+  }
+
+  @RequirePermission("workspace.workflow.create")
+  @ApiZodBody(updatePieceSchema)
+  @Patch(":id")
+  async update(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updatePieceSchema))
+    body: z.infer<typeof updatePieceSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    const { campaignId, ...rest } = body;
+    const updated = await this.pieces.update(
+      requireWorkspace(header),
+      parseRouteId("contentPiece", id),
+      {
+        ...rest,
+        // `undefined` leaves it alone, `null` takes it out of its campaign.
+        // Collapsing the two would move a piece every time somebody renamed it.
+        ...(campaignId === undefined
+          ? {}
+          : {
+              campaignId: campaignId
+                ? (parseRouteId("campaign", campaignId) as CampaignId)
+                : null,
+            }),
+      },
+      user.userId,
+    );
+    if (!updated) throw new NotFoundError("Không tìm thấy nội dung.");
+    return updated;
+  }
+
+  @RequirePermission("workspace.workflow.delete")
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async archive(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ): Promise<void> {
+    const archived = await this.pieces.archive(
+      requireWorkspace(header),
+      parseRouteId("contentPiece", id) as ContentPieceId,
+      user.userId,
+    );
+    if (!archived) throw new NotFoundError("Không tìm thấy nội dung.");
+  }
+}
+
+function requireWorkspace(header: string | undefined): WorkspaceId {
+  if (!header || !isId("workspace", header)) {
+    throw new ValidationError(`Thiếu hoặc sai header ${WORKSPACE_ID_HEADER}.`);
+  }
+  return header;
+}
