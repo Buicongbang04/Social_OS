@@ -1499,6 +1499,33 @@ Một bài mang **kênh**, không mang tài khoản. Nối hai Page thì "đăng
 Facebook" là một câu thiếu tân ngữ, nên nó dừng và nói ra tên cả hai — chọn hộ
 là nền tảng tự quyết định khán giả của người khác.
 
+### Nối nhiều Page bằng một user token (Phase 4)
+
+Nối mười Page bằng tay nghĩa là đi tìm mười Page ID và mười Page token trong
+công cụ của Facebook. Một **user token** trả lời cho tất cả cùng lúc qua
+`/me/accounts`.
+
+**Hai lời gọi, cố ý.** Lời gọi đầu chỉ trả về tên và id — **không có Page
+token**. Lời gọi thứ hai nhận danh sách id được chọn và **máy chủ tự đọc lại
+token**. Trả token về cho trình duyệt để nó gửi ngược lên sẽ đặt một credential
+sống của khán giả ai đó vào một response JSON, một tab devtools, và mọi log nằm
+giữa — chỉ để tiết kiệm một vòng gọi.
+
+**Một Page hỏng không làm hỏng cả mẻ.** Nối được 8 trên 10 và nói rõ 2 cái nào
+thì có ích hơn một lỗi duy nhất khiến người gọi không biết đã lưu được gì chưa.
+
+`limit=100` được ghi rõ: mặc định của Facebook là 25, và người có nhiều Page hơn
+thế sẽ thấy một danh sách bị cắt mà **không có gì trên màn hình nói rằng nó bị
+cắt**.
+
+Page đã nối rồi thì **hiện mờ chứ không ẩn**. Người đi tìm một Page họ nối tuần
+trước phải thấy nó kèm lý do, chứ không phải ngồi nghi token sai.
+
+Một chi tiết tìm được khi thử với Graph thật: dán **Page token** vào ô user
+token thì Facebook trả về `Tried accessing nonexisting field (accounts)` —
+đúng, và vô dụng với người vừa dán. Thông báo đó được dịch lại thành đúng điều
+cần biết.
+
 ### Nhiều Page: bài tự chọn kênh (Phase 4)
 
 `content_pieces.social_account_id` **để trống được**, và đó là một trạng thái

@@ -2,6 +2,7 @@ import { RuntimeError } from "@repo/runtime";
 import { describe, expect, it } from "vitest";
 import {
   credentialVerdict,
+  listManageablePages,
   publishToFacebook,
   verifyPageToken,
 } from "./publish";
@@ -91,6 +92,114 @@ describe("verifyPageToken", () => {
 
     expect(failure.retryable).toBe(false);
     expect(failure.message).toContain("Invalid OAuth access token");
+  });
+});
+
+describe("listManageablePages", () => {
+  const PAGES = JSON.stringify({
+    data: [
+      { id: "page-1", name: "Trang một", access_token: "tok-1" },
+      { id: "page-2", name: "Trang hai", access_token: "tok-2" },
+    ],
+  });
+
+  it("returns every page with its own token", async () => {
+    const pages = await listManageablePages("user-tok", {
+      fetch: answering(200, PAGES),
+      env: ENV,
+    });
+
+    expect(pages).toEqual([
+      { externalId: "page-1", displayName: "Trang một", accessToken: "tok-1" },
+      { externalId: "page-2", displayName: "Trang hai", accessToken: "tok-2" },
+    ]);
+  });
+
+  it("asks for more than one page of results", async () => {
+    // Facebook's default is 25. Somebody with more Pages than that would see a
+    // subset with nothing on screen to say the list was cut.
+    const seen: Seen = {};
+    await listManageablePages("user-tok", {
+      fetch: answering(200, PAGES, seen),
+      env: ENV,
+    });
+
+    expect(seen.url).toContain("limit=100");
+  });
+
+  it("puts the token in a header, never the query string", async () => {
+    const seen: Seen = {};
+    await listManageablePages("user-tok", {
+      fetch: answering(200, PAGES, seen),
+      env: ENV,
+    });
+
+    expect(seen.auth).toBe("Bearer user-tok");
+    expect(seen.url).not.toContain("user-tok");
+  });
+
+  it("skips an entry with no page token rather than inventing one", async () => {
+    // A Page the user can see but not manage comes back without
+    // `access_token`. Offering it to connect would fail at the first publish.
+    const pages = await listManageablePages("user-tok", {
+      fetch: answering(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "page-1", name: "Quản được", access_token: "tok-1" },
+            { id: "page-9", name: "Chỉ xem được" },
+          ],
+        }),
+      ),
+      env: ENV,
+    });
+
+    expect(pages.map((page) => page.externalId)).toEqual(["page-1"]);
+  });
+
+  it("does not retry a token the platform refused", async () => {
+    const error = await caught(
+      listManageablePages("wrong", {
+        fetch: answering(
+          400,
+          JSON.stringify({ error: { message: "Invalid OAuth access token" } }),
+        ),
+        env: ENV,
+      }),
+    );
+
+    expect(error.retryable).toBe(false);
+    expect(error.message).toContain("Invalid OAuth access token");
+  });
+
+  it("names the mistake when a Page token is pasted instead of a user one", async () => {
+    // The likeliest mistake, and Facebook answers it with "Tried accessing
+    // nonexisting field (accounts)" — true, and no use to whoever pasted it.
+    const error = await caught(
+      listManageablePages("page-token", {
+        fetch: answering(
+          400,
+          JSON.stringify({
+            error: {
+              message: "(#100) Tried accessing nonexisting field (accounts)",
+            },
+          }),
+        ),
+        env: ENV,
+      }),
+    );
+
+    expect(error.message).toContain("Page access token");
+    expect(error.message).not.toContain("nonexisting field");
+  });
+
+  it("says nothing rather than failing when there are no pages", async () => {
+    const pages = await listManageablePages("user-tok", {
+      fetch: answering(200, JSON.stringify({ data: [] })),
+      env: ENV,
+    });
+
+    expect(pages).toEqual([]);
   });
 });
 

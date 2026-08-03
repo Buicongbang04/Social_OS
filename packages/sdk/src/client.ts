@@ -21,6 +21,7 @@ import type {
   Campaign,
   CampaignStatus,
   ConnectorSummary,
+  ManageablePage,
   ContentChannel,
   ContentLength,
   ContentPiece,
@@ -633,6 +634,37 @@ export class ApiClient {
    * approved takes weeks, and someone with a Page token should not be blocked
    * from using their own Page until then.
    */
+  /**
+   * Every Page a user access token can manage.
+   *
+   * A POST though it reads: the token travels in the body, because a query
+   * string carrying a live credential ends up in access logs and history.
+   */
+  async listManageablePages(
+    connectorId: string,
+    userAccessToken: string,
+  ): Promise<ManageablePage[]> {
+    return this.request<ManageablePage[]>(
+      "POST",
+      `/connections/${connectorId}/pages`,
+      { body: { userAccessToken }, workspaceScoped: true },
+    );
+  }
+
+  /** Connect the chosen Pages; each that could not be is named. */
+  async attachPages(
+    connectorId: string,
+    input: { userAccessToken: string; externalIds: string[] },
+  ): Promise<{
+    connected: SocialConnection[];
+    failed: { externalId: string; reason: string }[];
+  }> {
+    return this.request("POST", `/connections/${connectorId}/pages/attach`, {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
   async attachConnection(
     connectorId: string,
     input: { externalId: string; accessToken: string },

@@ -3,6 +3,7 @@
 import {
   isApiError,
   type ConnectorSummary,
+  type ManageablePage,
   type SocialConnection,
 } from "@repo/sdk";
 import { useCallback, useEffect, useState } from "react";
@@ -30,6 +31,10 @@ export function ConnectionsPanel() {
   const [manualOpen, setManualOpen] = useState(false);
   const [pageId, setPageId] = useState("");
   const [pageToken, setPageToken] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [userToken, setUserToken] = useState("");
+  const [pages, setPages] = useState<ManageablePage[] | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -108,6 +113,68 @@ export function ConnectionsPanel() {
     }
   };
 
+  /**
+   * Read every Page one user token manages.
+   *
+   * The token stays in state until the Pages are actually connected, because
+   * the second call needs it again — the list carries no Page tokens, so the
+   * server re-reads them rather than trusting anything the browser sends back.
+   */
+  const discover = async () => {
+    if (userToken.trim() === "") return;
+    setBusy("discover");
+    setError(null);
+    try {
+      const found = await getClient().listManageablePages(
+        "facebook",
+        userToken.trim(),
+      );
+      setPages(found);
+      setPicked(
+        found.filter((page) => !page.alreadyConnected).map((p) => p.externalId),
+      );
+    } catch (caught) {
+      setError(describe(caught));
+      setPages(null);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const attachPicked = async () => {
+    if (picked.length === 0) return;
+    setBusy("attach");
+    try {
+      const result = await getClient().attachPages("facebook", {
+        userAccessToken: userToken.trim(),
+        externalIds: picked,
+      });
+
+      // Cleared the moment it is no longer needed. A live token sitting in an
+      // input is one shared screen away from being someone else's.
+      setUserToken("");
+      setPages(null);
+      setPicked([]);
+      setBulkOpen(false);
+
+      // Both halves, always. Saying "connected 8" while two failed silently is
+      // how somebody finds out weeks later, from a post that never went out.
+      setNotice(
+        `Đã nối ${result.connected.length} trang.` +
+          (result.failed.length > 0
+            ? ` Không nối được ${result.failed.length}: ${result.failed
+                .map((entry) => `${entry.externalId} (${entry.reason})`)
+                .join("; ")}`
+            : ""),
+      );
+      await load();
+    } catch (caught) {
+      setError(describe(caught));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const remove = async (connection: SocialConnection) => {
     try {
       await getClient().disconnect(connection.id);
@@ -144,6 +211,109 @@ export function ConnectionsPanel() {
               : `${platform.name} (chưa cấu hình)`}
           </PrimaryButton>
         ))}
+      </div>
+
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={() => setBulkOpen((open) => !open)}
+          className="text-xs text-neutral-500 underline hover:text-neutral-900"
+        >
+          {bulkOpen
+            ? "Ẩn"
+            : "Quản nhiều Page? Dán một user token, chọn trang để nối"}
+        </button>
+
+        {bulkOpen ? (
+          <div className="mt-2 rounded-md border border-neutral-200 p-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <input
+                type="password"
+                autoComplete="off"
+                value={userToken}
+                onChange={(event) => setUserToken(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void discover();
+                }}
+                placeholder="User access token"
+                className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+              />
+              <PrimaryButton
+                busy={busy === "discover"}
+                onClick={() => void discover()}
+                disabled={userToken.trim() === ""}
+              >
+                Xem danh sách Page
+              </PrimaryButton>
+            </div>
+
+            <p className="mt-2 text-xs text-neutral-500">
+              Đây là user token, không phải Page token. Nền tảng đọc danh sách
+              Page bạn quản, bạn tick trang nào thì chỉ trang đó được nối. Token
+              của từng Page do máy chủ tự đọc lại — nó không bao giờ đi qua
+              trình duyệt.
+            </p>
+
+            {pages !== null ? (
+              pages.length === 0 ? (
+                <p className="mt-3 text-sm text-neutral-500">
+                  Token này không quản Page nào.
+                </p>
+              ) : (
+                <div className="mt-3">
+                  <ul className="flex flex-col gap-1">
+                    {pages.map((page) => (
+                      <li key={page.externalId} className="text-sm">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            disabled={page.alreadyConnected}
+                            checked={picked.includes(page.externalId)}
+                            onChange={(event) =>
+                              setPicked((current) =>
+                                event.target.checked
+                                  ? [...current, page.externalId]
+                                  : current.filter(
+                                      (id) => id !== page.externalId,
+                                    ),
+                              )
+                            }
+                          />
+                          <span
+                            className={
+                              page.alreadyConnected ? "text-neutral-400" : ""
+                            }
+                          >
+                            {page.displayName}
+                          </span>
+                          {/* Shown rather than filtered out: somebody looking
+                              for a Page they connected last week should find
+                              it here with a reason, not wonder whether the
+                              token is wrong. */}
+                          {page.alreadyConnected ? (
+                            <span className="text-xs text-neutral-400">
+                              đã nối rồi
+                            </span>
+                          ) : null}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-3">
+                    <PrimaryButton
+                      busy={busy === "attach"}
+                      onClick={() => void attachPicked()}
+                      disabled={picked.length === 0}
+                    >
+                      Nối {picked.length} trang đã chọn
+                    </PrimaryButton>
+                  </div>
+                </div>
+              )
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-3">

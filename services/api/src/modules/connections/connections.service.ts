@@ -10,6 +10,7 @@ import {
   findConnector,
   startAuthorization,
   tokenSecretName,
+  listManageablePages,
   verifyPageToken,
   type ConnectorDescriptor,
 } from "@repo/connectors";
@@ -243,6 +244,114 @@ export class ConnectionsService {
       },
       userId,
     );
+  }
+
+  /**
+   * Every Page a user token can manage, by name.
+   *
+   * Two calls rather than one, and deliberately: this returns names and ids
+   * only, and the second call re-reads the Page tokens server-side. Handing the
+   * tokens to the browser so it could send them back would put a live
+   * credential for somebody's audience into a JSON response, a devtools panel
+   * and whatever logs sit in between — to save one round trip.
+   *
+   * Pages already connected are marked rather than hidden. Somebody looking for
+   * a Page they connected last week should see it in the list with a reason it
+   * is not selectable, not wonder whether the token is wrong.
+   */
+  async listPages(
+    workspaceId: WorkspaceId,
+    connectorId: string,
+    userAccessToken: string,
+  ): Promise<
+    { externalId: string; displayName: string; alreadyConnected: boolean }[]
+  > {
+    const connector = this.requireFacebook(connectorId);
+    const pages = await this.readPages(userAccessToken);
+
+    const connected = new Set(
+      (await this.accounts.list(workspaceId))
+        .filter((account) => account.connectorId === connector.id)
+        .map((account) => account.externalId),
+    );
+
+    return pages.map((page) => ({
+      externalId: page.externalId,
+      displayName: page.displayName,
+      alreadyConnected: connected.has(page.externalId),
+    }));
+  }
+
+  /**
+   * Connect the Pages that were chosen, and only those.
+   *
+   * One Page failing does not fail the others. Connecting eight of ten and
+   * saying which two did not is more use than a single error that leaves the
+   * caller unsure whether anything was stored.
+   */
+  async attachPages(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    connectorId: string,
+    input: { userAccessToken: string; externalIds: string[] },
+  ): Promise<{
+    connected: SocialAccount[];
+    failed: { externalId: string; reason: string }[];
+  }> {
+    const connector = this.requireFacebook(connectorId);
+    const pages = await this.readPages(input.userAccessToken);
+    const wanted = new Set(input.externalIds);
+
+    const chosen = pages.filter((page) => wanted.has(page.externalId));
+    const missing = [...wanted].filter(
+      (id) => !pages.some((page) => page.externalId === id),
+    );
+
+    const connected: SocialAccount[] = [];
+    const failed = missing.map((externalId) => ({
+      externalId,
+      // Named separately from a failed attach: this one the token cannot
+      // manage at all, which is a different thing to fix.
+      reason: "Token này không quản lý Page đó.",
+    }));
+
+    for (const page of chosen) {
+      try {
+        connected.push(
+          await this.attachToken(workspaceId, userId, connector.id, {
+            externalId: page.externalId,
+            accessToken: page.accessToken,
+          }),
+        );
+      } catch (error: unknown) {
+        failed.push({
+          externalId: page.externalId,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return { connected, failed };
+  }
+
+  private requireFacebook(connectorId: string) {
+    const connector = this.requireConnector(connectorId);
+    if (connector.id !== "facebook") {
+      throw new ValidationError(
+        `${connector.name} chưa hỗ trợ nối nhiều trang bằng một token.`,
+      );
+    }
+    return connector;
+  }
+
+  /** Ask Facebook, and turn its refusal into something with a status code. */
+  private async readPages(userAccessToken: string) {
+    return listManageablePages(userAccessToken).catch((error: unknown) => {
+      if (error instanceof RuntimeError && error.errorClass === "PROVIDER") {
+        throw new ValidationError(error.message);
+      }
+      throw error;
+    });
   }
 
   /**
