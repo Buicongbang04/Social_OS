@@ -1,4 +1,7 @@
+import type { WorkspaceId } from "@repo/core";
+import type { SocialAccountRepository } from "@repo/domain";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { SOCIAL_ACCOUNT_REPOSITORY } from "./infra/database/database.module";
 import {
   createTenant,
   createTestApp,
@@ -55,6 +58,26 @@ describe.skipIf(!hasInfra)("campaigns API (integration)", () => {
       .expect(201);
     return response.body.data;
   };
+
+  /**
+   * A connected Page, written straight to the repository.
+   *
+   * The HTTP path verifies the token against Graph, which these tests have no
+   * business calling — what is under test is whether a piece may point at a
+   * connection, not how the connection got made.
+   */
+  const connectPage = async (workspaceId: string, externalId: string) =>
+    testApp.app.get<SocialAccountRepository>(SOCIAL_ACCOUNT_REPOSITORY).connect(
+      {
+        workspaceId: workspaceId as WorkspaceId,
+        connectorId: "facebook",
+        externalId,
+        displayName: externalId,
+        scopes: [],
+        secretName: `connections/facebook/${externalId}`,
+      },
+      null,
+    );
 
   beforeAll(async () => {
     testApp = await createTestApp();
@@ -178,6 +201,42 @@ describe.skipIf(!hasInfra)("campaigns API (integration)", () => {
       .send({ status: "DRAFT" })
       .expect(200);
     expect(withdrawn.body.data.status).toBe("DRAFT");
+  });
+
+  it("will not let a piece point at another workspace's channel", async () => {
+    // 404, not stored-and-ignored: the sweep would never publish there, but a
+    // row pointing across a tenant boundary turns into an error message about
+    // a disconnected channel rather than one that was never theirs.
+    const bobsAccount = await connectPage(bobWorkspace, "page-bob");
+
+    await testApp
+      .http()
+      .post("/api/v1/content-pieces")
+      .set(as(alice, aliceWorkspace))
+      .send({
+        title: "Bài viết",
+        body: "Nội dung.",
+        channel: "facebook",
+        socialAccountId: bobsAccount.id,
+      })
+      .expect(404);
+  });
+
+  it("keeps a piece pointed at the channel it was given", async () => {
+    const account = await connectPage(aliceWorkspace, "page-alice");
+
+    const piece = await newPiece({ socialAccountId: account.id });
+    expect(piece.socialAccountId).toBe(account.id);
+
+    // null puts it back to "the only channel", which is a different thing from
+    // leaving the field out.
+    const cleared = await testApp
+      .http()
+      .patch(`/api/v1/content-pieces/${piece.id}`)
+      .set(as(alice, aliceWorkspace))
+      .send({ socialAccountId: null })
+      .expect(200);
+    expect(cleared.body.data.socialAccountId).toBeNull();
   });
 
   it("filters the calendar to one campaign", async () => {

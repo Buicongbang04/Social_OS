@@ -3,10 +3,11 @@
 import {
   isApiError,
   type ContentChannel,
+  type SocialConnection,
   type ContentLength,
   type ContentTone,
 } from "@repo/sdk";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getClient } from "../lib/api";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
 
@@ -70,9 +71,27 @@ export function StudioPanel() {
   const [language, setLanguage] = useState("English");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [scheduledAt, setScheduledAt] = useState("");
+  const [accounts, setAccounts] = useState<SocialConnection[]>([]);
+  const [accountId, setAccountId] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Loaded once. Which Pages exist is not something that changes while
+  // somebody is writing a post, and re-reading it on every keystroke would be
+  // a request per character.
+  useEffect(() => {
+    void getClient()
+      .listConnections()
+      .then((connected) =>
+        setAccounts(connected.filter((account) => account.status === "ACTIVE")),
+      )
+      .catch(() => setAccounts([]));
+  }, []);
+
+  const onChannel = accounts.filter(
+    (account) => account.connectorId === channel,
+  );
 
   const guard = async (what: string, run: () => Promise<void>) => {
     setBusy(what);
@@ -163,6 +182,10 @@ export function StudioPanel() {
         body: draft.body,
         hashtags: draft.hashtags ?? [],
         channel,
+        // Left out when nothing is picked, which the server reads as "the only
+        // account on this channel". Sending an empty string instead would be a
+        // channel id that matches nothing.
+        ...(accountId === "" ? {} : { socialAccountId: accountId }),
         scheduledAt:
           scheduledAt === "" ? undefined : new Date(scheduledAt).toISOString(),
       });
@@ -270,7 +293,32 @@ export function StudioPanel() {
               onChange={(event) => setScheduledAt(event.target.value)}
               className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"
             />
-            <PrimaryButton busy={busy === "save"} onClick={() => void save()}>
+            {/* Only when there is a choice to make. One Page connected means
+                there is nothing to pick, and a select with a single option is
+                a decision the screen is pretending to offer. */}
+            {onChannel.length > 1 ? (
+              <select
+                value={accountId}
+                onChange={(event) => setAccountId(event.target.value)}
+                className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"
+              >
+                <option value="">Chọn trang đăng…</option>
+                {onChannel.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.displayName}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+
+            <PrimaryButton
+              busy={busy === "save"}
+              onClick={() => void save()}
+              // With several Pages on this channel the post has to name one:
+              // the publisher refuses to choose an audience, so saving without
+              // one only defers the same question to a failed post later.
+              disabled={onChannel.length > 1 && accountId === ""}
+            >
               Lưu vào lịch
             </PrimaryButton>
             {saved ? (

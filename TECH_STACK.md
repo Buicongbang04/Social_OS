@@ -1499,6 +1499,29 @@ Một bài mang **kênh**, không mang tài khoản. Nối hai Page thì "đăng
 Facebook" là một câu thiếu tân ngữ, nên nó dừng và nói ra tên cả hai — chọn hộ
 là nền tảng tự quyết định khán giả của người khác.
 
+### Nhiều Page: bài tự chọn kênh (Phase 4)
+
+`content_pieces.social_account_id` **để trống được**, và đó là một trạng thái
+thật chứ không phải chưa làm xong: nối đúng một Page thì không có gì để chọn,
+bắt chọn nghĩa là mọi bản nháp phải nêu tên kênh mới lưu được. Trống = "kênh
+duy nhất trên channel này", và publisher từ chối ngay khi điều đó thôi đúng.
+
+Bài **có nêu tên kênh thì chỉ đi đúng kênh đó**. Kênh đó bị ngắt kết nối thì
+báo hỏng, không lùi về kênh còn lại — một bài viết cho tệp khán giả này không
+được rơi sang tệp khác vì ai đó vừa ngắt một kết nối.
+
+API **kiểm tra kênh có thuộc workspace không**, trả 404 nếu không. Nếu chỉ lưu
+nguyên id thì bài vẫn không bao giờ đăng nhầm (vòng quét chỉ đọc kết nối của
+chính workspace đó), nhưng dòng dữ liệu sẽ trỏ ngang qua ranh giới tenant, và
+lỗi người dùng thấy sau này sẽ là "kênh đã ngắt kết nối" thay vì "kênh này chưa
+bao giờ là của bạn".
+
+Trên giao diện, ô chọn trang **chỉ hiện khi có từ hai Page trở lên** trên cùng
+channel. Một Page thì không có gì để quyết, và một select chỉ có một lựa chọn
+là màn hình giả vờ đang hỏi. Bài đã đăng thì ô chọn thành chữ tĩnh: trang đã
+đăng là một sự thật, để dropdown lên trên một sự thật khiến người ta tưởng đang
+chuyển được bài đi chỗ khác.
+
 ### Xu hướng: Google Trends và YouTube (Phase 4)
 
 **Google Trends không có API dùng được.** API chính thức có tồn tại — công bố

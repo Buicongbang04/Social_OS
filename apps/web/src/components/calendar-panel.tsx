@@ -5,6 +5,7 @@ import {
   type Campaign,
   type ContentPiece,
   type ContentPieceStatus,
+  type SocialConnection,
 } from "@repo/sdk";
 import { useCallback, useEffect, useState } from "react";
 import { getClient } from "../lib/api";
@@ -36,6 +37,7 @@ const STATUS_STYLES: Record<ContentPieceStatus, string> = {
 export function CalendarPanel() {
   const [pieces, setPieces] = useState<ContentPiece[] | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [accounts, setAccounts] = useState<SocialConnection[]>([]);
   const [campaignName, setCampaignName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,12 +45,14 @@ export function CalendarPanel() {
   const load = useCallback(async () => {
     try {
       const client = getClient();
-      const [content, plans] = await Promise.all([
+      const [content, plans, connected] = await Promise.all([
         client.listContentPieces(),
         client.listCampaigns(),
+        client.listConnections(),
       ]);
       setPieces(content);
       setCampaigns(plans);
+      setAccounts(connected.filter((account) => account.status === "ACTIVE"));
       setError(null);
     } catch (caught) {
       setError(describe(caught));
@@ -70,6 +74,17 @@ export function CalendarPanel() {
       setError(describe(caught));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const setAccount = async (piece: ContentPiece, accountId: string) => {
+    try {
+      await getClient().updateContentPiece(piece.id, {
+        socialAccountId: accountId === "" ? null : accountId,
+      });
+      await load();
+    } catch (caught) {
+      setError(describe(caught));
     }
   };
 
@@ -145,7 +160,9 @@ export function CalendarPanel() {
                   <Row
                     key={piece.id}
                     piece={piece}
+                    accounts={accounts}
                     onStatus={setStatus}
+                    onAccount={setAccount}
                     onRemove={remove}
                   />
                 ))}
@@ -163,7 +180,9 @@ export function CalendarPanel() {
                   <Row
                     key={piece.id}
                     piece={piece}
+                    accounts={accounts}
                     onStatus={setStatus}
+                    onAccount={setAccount}
                     onRemove={remove}
                   />
                 ))}
@@ -180,13 +199,25 @@ export function CalendarPanel() {
 
 function Row({
   piece,
+  accounts,
   onStatus,
+  onAccount,
   onRemove,
 }: {
   piece: ContentPiece;
+  accounts: SocialConnection[];
   onStatus: (piece: ContentPiece, status: ContentPieceStatus) => Promise<void>;
+  onAccount: (piece: ContentPiece, accountId: string) => Promise<void>;
   onRemove: (piece: ContentPiece) => Promise<void>;
 }) {
+  const onChannel = accounts.filter(
+    (account) => account.connectorId === piece.channel,
+  );
+  // Editable only while it can still change anything. Once a post is out, the
+  // Page it went to is a fact, and a dropdown over a fact invites somebody to
+  // think they are moving it.
+  const settled = piece.status === "PUBLISHED" || piece.status === "PUBLISHING";
+
   return (
     <li className="flex flex-wrap items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm">
       {piece.scheduledAt ? (
@@ -195,9 +226,25 @@ function Row({
         </span>
       ) : null}
       <span className="min-w-0 flex-1 font-medium">{piece.title}</span>
-      <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
-        {piece.channel}
-      </span>
+      {onChannel.length > 1 && !settled ? (
+        <select
+          value={piece.socialAccountId ?? ""}
+          onChange={(event) => void onAccount(piece, event.target.value)}
+          className="shrink-0 rounded border border-neutral-300 px-1 py-0.5 text-xs focus:border-neutral-900 focus:outline-none"
+        >
+          <option value="">Chưa chọn trang</option>
+          {onChannel.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.displayName}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
+          {onChannel.find((account) => account.id === piece.socialAccountId)
+            ?.displayName ?? piece.channel}
+        </span>
+      )}
       <span
         className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${STATUS_STYLES[piece.status]}`}
       >

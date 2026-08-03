@@ -421,6 +421,8 @@ export type Campaign = {
 export type ContentPiece = {
   id: string;
   campaignId: string | null;
+  /** Which connected account it goes to; null means the only one on its channel. */
+  socialAccountId: string | null;
   title: string;
   body: string;
   hashtags: string[];

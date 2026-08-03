@@ -92,6 +92,13 @@
       "when": 1785741289559,
       "tag": "0012_light_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785744382969,
+      "tag": "0013_cynical_juggernaut",
+      "breakpoints": true
     }
   ]
 }

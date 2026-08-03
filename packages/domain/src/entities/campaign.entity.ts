@@ -2,6 +2,7 @@ import type {
   CampaignId,
   ContentPieceId,
   Metadata,
+  SocialAccountId,
   SoftDeletableEntity,
   WorkspaceId,
 } from "@repo/core";
@@ -71,6 +72,8 @@ export type Campaign = SoftDeletableEntity<CampaignId> & {
 export type ContentPiece = SoftDeletableEntity<ContentPieceId> & {
   workspaceId: WorkspaceId;
   campaignId: CampaignId | null;
+  /** Which connected account it goes to; null means the only one on its channel. */
+  socialAccountId: SocialAccountId | null;
   title: string;
   body: string;
   hashtags: readonly string[];
@@ -113,6 +116,7 @@ export type UpdateCampaignInput = {
 export type CreateContentPieceInput = {
   workspaceId: WorkspaceId;
   campaignId?: CampaignId | null;
+  socialAccountId?: SocialAccountId | null;
   title: string;
   body: string;
   hashtags?: readonly string[];
@@ -123,6 +127,7 @@ export type CreateContentPieceInput = {
 
 export type UpdateContentPieceInput = {
   campaignId?: CampaignId | null;
+  socialAccountId?: SocialAccountId | null;
   title?: string;
   body?: string;
   hashtags?: readonly string[];
