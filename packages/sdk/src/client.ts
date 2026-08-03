@@ -507,6 +507,7 @@ export class ApiClient {
 
   async createContentPiece(input: {
     campaignId?: string;
+    socialAccountId?: string;
     title: string;
     body: string;
     hashtags?: string[];
@@ -523,6 +524,7 @@ export class ApiClient {
     id: string,
     input: {
       campaignId?: string | null;
+      socialAccountId?: string | null;
       title?: string;
       body?: string;
       hashtags?: string[];

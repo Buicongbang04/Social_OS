@@ -45,6 +45,8 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
   let userId: UserId;
 
   let posted: { message: string }[];
+  /** Which Page each post was addressed to, read off the request path. */
+  let sentTo: string[];
   let behaviour: { status: number; body: string };
 
   const connect = async (externalId: string, displayName: string) => {
@@ -86,12 +88,14 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
       body?: string;
       hashtags?: string[];
       channel?: string;
+      socialAccountId?: string | null;
     } = {},
   ) => {
     const piece = await pieces.create(
       {
         workspaceId,
         campaignId: null,
+        socialAccountId: (overrides.socialAccountId ?? null) as never,
         title: "Bài kiểm tra",
         body: overrides.body ?? "Nội dung kiểm tra.",
         hashtags: overrides.hashtags ?? [],
@@ -128,6 +132,7 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
 
         const body = new URLSearchParams(Buffer.concat(chunks).toString());
         posted.push({ message: body.get("message") ?? "" });
+        sentTo.push(request.url?.split("/")[2]?.split("?")[0] ?? "");
         response.writeHead(behaviour.status, {
           "content-type": "application/json",
         });
@@ -161,6 +166,7 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
   beforeEach(async () => {
     await truncateTenantData(db);
     posted = [];
+    sentTo = [];
     behaviour = { status: 200, body: JSON.stringify({ id: "page-1_777" }) };
 
     const organizationId = newId("organization");
@@ -265,6 +271,40 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
     await publisher.tick();
 
     expect(posted).toHaveLength(1);
+  });
+
+  it("sends to the page the piece names, with several connected", async () => {
+    // The whole point of naming one: a post written for this audience must not
+    // land on another because it happens to be first in the list.
+    const first = await connect("page-1", "Trang một");
+    const second = await connect("page-2", "Trang hai");
+    void first;
+    const piece = await schedule({ socialAccountId: second.id });
+
+    await publisher.tick();
+
+    expect(posted).toHaveLength(1);
+    expect(sentTo).toEqual(["page-2"]);
+    expect((await pieces.find(workspaceId, piece.id))?.status).toBe(
+      "PUBLISHED",
+    );
+  });
+
+  it("refuses when the page a piece named has gone away", async () => {
+    // Different from "nothing connected": this one was chosen and has since
+    // been disconnected, and falling back to whatever is left would post to an
+    // audience nobody picked.
+    const account = await connect("page-1", "Trang một");
+    await connect("page-2", "Trang hai");
+    const piece = await schedule({ socialAccountId: account.id });
+    await accounts.disconnect(workspaceId, account.id, userId);
+
+    await publisher.tick();
+
+    expect(posted).toEqual([]);
+    const settled = await pieces.find(workspaceId, piece.id);
+    expect(settled?.status).toBe("FAILED");
+    expect(settled?.lastError).toContain("không còn kết nối");
   });
 
   it("stops rather than guessing when two pages are connected", async () => {

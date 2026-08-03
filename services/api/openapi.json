@@ -2744,6 +2744,9 @@
                   "campaignId": {
                     "type": "string"
                   },
+                  "socialAccountId": {
+                    "type": "string"
+                  },
                   "title": {
                     "type": "string",
                     "minLength": 1,
@@ -2825,6 +2828,10 @@
                 "type": "object",
                 "properties": {
                   "campaignId": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "socialAccountId": {
                     "type": "string",
                     "nullable": true
                   },

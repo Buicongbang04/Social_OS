@@ -3,6 +3,7 @@ import type {
   CampaignId,
   ContentPieceId,
   Metadata,
+  SocialAccountId,
   WorkspaceId,
 } from "@repo/core";
 import { newId } from "@repo/core";
@@ -47,6 +48,7 @@ function toPiece(row: PieceRow): ContentPiece {
     id: row.id as ContentPieceId,
     workspaceId: row.workspaceId as WorkspaceId,
     campaignId: (row.campaignId as CampaignId | null) ?? null,
+    socialAccountId: (row.socialAccountId as SocialAccountId | null) ?? null,
     title: row.title,
     body: row.body,
     hashtags: row.hashtags,
@@ -271,6 +273,7 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
         id: newId("contentPiece"),
         workspaceId: input.workspaceId,
         campaignId: input.campaignId ?? null,
+        socialAccountId: input.socialAccountId ?? null,
         title: input.title,
         body: input.body,
         hashtags: [...(input.hashtags ?? [])],

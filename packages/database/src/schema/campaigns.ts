@@ -14,6 +14,7 @@ import {
   metadataColumn,
   softDeleteColumns,
 } from "./_shared";
+import { socialAccounts } from "./social-accounts";
 import { workspaces } from "./workspaces";
 
 /** A named grouping of content, with a period. */
@@ -56,6 +57,18 @@ export const contentPieces = pgTable(
       .notNull()
       .references(() => workspaces.id),
     campaignId: idRef("campaign_id").references(() => campaigns.id),
+    /**
+     * Which connected account this goes to.
+     *
+     * Nullable, and that is a real state rather than an unfinished one: with a
+     * single Page connected there is nothing to choose, and forcing a choice
+     * would mean every draft had to name an account before it could be saved.
+     * Null means "the only one on this channel", and the publisher refuses if
+     * that stops being true.
+     */
+    socialAccountId: idRef("social_account_id").references(
+      () => socialAccounts.id,
+    ),
 
     title: varchar("title", { length: 300 }).notNull(),
     body: text("body").notNull(),
@@ -94,6 +107,7 @@ export const contentPieces = pgTable(
       table.scheduledAt,
     ),
     index("content_pieces_campaign_idx").on(table.campaignId),
+    index("content_pieces_account_idx").on(table.socialAccountId),
     /** For whatever eventually sends these: what is due and not yet out. */
     index("content_pieces_due_idx").on(table.status, table.scheduledAt),
   ],

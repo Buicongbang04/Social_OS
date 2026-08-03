@@ -1,0 +1,3 @@
+ALTER TABLE "content_pieces" ADD COLUMN "social_account_id" varchar(40);--> statement-breakpoint
+ALTER TABLE "content_pieces" ADD CONSTRAINT "content_pieces_social_account_id_social_accounts_id_fk" FOREIGN KEY ("social_account_id") REFERENCES "public"."social_accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "content_pieces_account_idx" ON "content_pieces" USING btree ("social_account_id");

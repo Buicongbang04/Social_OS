@@ -409,6 +409,16 @@ async function calendarFlow(client: ApiClient): Promise<void> {
     renamed.scheduledAt ?? "mất rồi",
   );
 
+  // A piece may name which connection it goes to; naming one that is not this
+  // workspace's is a 404 rather than a row pointing across a tenant boundary.
+  check(
+    "không trỏ được sang kênh của workspace khác",
+    await client
+      .updateContentPiece(piece.id, { socialAccountId: "sac_notmine" })
+      .then(() => false)
+      .catch(() => true),
+  );
+
   await client.archiveCampaign(campaign.id);
   const survivors = await client.listContentPieces();
   check(

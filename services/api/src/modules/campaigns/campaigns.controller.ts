@@ -13,11 +13,17 @@ import {
   Query,
 } from "@nestjs/common";
 import { NotFoundError, ValidationError, isId } from "@repo/core";
-import type { CampaignId, ContentPieceId, WorkspaceId } from "@repo/core";
+import type {
+  CampaignId,
+  ContentPieceId,
+  SocialAccountId,
+  WorkspaceId,
+} from "@repo/core";
 import {
   CAMPAIGN_STATUSES,
   type CampaignRepository,
   type ContentPieceRepository,
+  type SocialAccountRepository,
 } from "@repo/domain";
 import { z } from "zod";
 import {
@@ -29,6 +35,7 @@ import { WORKSPACE_ID_HEADER } from "../../common/guards/permission.guard";
 import {
   CAMPAIGN_REPOSITORY,
   CONTENT_PIECE_REPOSITORY,
+  SOCIAL_ACCOUNT_REPOSITORY,
 } from "../../infra/database/database.module";
 import { ApiZodBody } from "../../common/openapi/zod-body";
 import { parseRouteId } from "../../common/parse-id";
@@ -76,6 +83,14 @@ const calendarQuerySchema = z.object({
 
 const createPieceSchema = z.object({
   campaignId: z.string().optional(),
+  /**
+   * Which connected account to post to.
+   *
+   * Optional, and left out means "the only one on this channel" — with a single
+   * Page connected there is nothing to choose, and requiring one would make a
+   * draft unsavable until somebody picked.
+   */
+  socialAccountId: z.string().optional(),
   title: z.string().trim().min(1).max(300),
   body: z.string().trim().min(1).max(20_000),
   hashtags: z.array(z.string().trim().max(40)).max(12).optional(),
@@ -85,6 +100,7 @@ const createPieceSchema = z.object({
 
 const updatePieceSchema = z.object({
   campaignId: z.string().nullable().optional(),
+  socialAccountId: z.string().nullable().optional(),
   title: z.string().trim().min(1).max(300).optional(),
   body: z.string().trim().min(1).max(20_000).optional(),
   hashtags: z.array(z.string().trim().max(40)).max(12).optional(),
@@ -189,7 +205,29 @@ export class ContentPiecesController {
   constructor(
     @Inject(CONTENT_PIECE_REPOSITORY)
     private readonly pieces: ContentPieceRepository,
+    @Inject(SOCIAL_ACCOUNT_REPOSITORY)
+    private readonly accounts: SocialAccountRepository,
   ) {}
+
+  /**
+   * The account, checked against the workspace that asked for it.
+   *
+   * Without this the id is stored as given, so a workspace can name another
+   * one's Page. It would never actually publish there — the sweep only ever
+   * looks at connections belonging to the piece's own workspace — but the row
+   * would carry a pointer across a tenant boundary, and the failure a person
+   * eventually sees would say the channel was disconnected rather than that it
+   * was never theirs.
+   */
+  private async requireAccount(
+    workspaceId: WorkspaceId,
+    raw: string,
+  ): Promise<SocialAccountId> {
+    const id = parseRouteId("socialAccount", raw) as SocialAccountId;
+    const account = await this.accounts.find(workspaceId, id);
+    if (!account) throw new NotFoundError("Không tìm thấy kênh đã chọn.");
+    return id;
+  }
 
   /**
    * The calendar.
@@ -230,6 +268,12 @@ export class ContentPiecesController {
         campaignId: body.campaignId
           ? parseRouteId("campaign", body.campaignId)
           : null,
+        socialAccountId: body.socialAccountId
+          ? await this.requireAccount(
+              requireWorkspace(header),
+              body.socialAccountId,
+            )
+          : null,
       },
       user.userId,
     );
@@ -245,7 +289,7 @@ export class ContentPiecesController {
     @CurrentUser() user: AuthenticatedUser,
     @Headers(WORKSPACE_ID_HEADER) header: string,
   ) {
-    const { campaignId, ...rest } = body;
+    const { campaignId, socialAccountId, ...rest } = body;
     const updated = await this.pieces.update(
       requireWorkspace(header),
       parseRouteId("contentPiece", id),
@@ -258,6 +302,18 @@ export class ContentPiecesController {
           : {
               campaignId: campaignId
                 ? (parseRouteId("campaign", campaignId) as CampaignId)
+                : null,
+            }),
+        // Same rule: absent leaves the target alone, null goes back to "the
+        // only account on this channel".
+        ...(socialAccountId === undefined
+          ? {}
+          : {
+              socialAccountId: socialAccountId
+                ? await this.requireAccount(
+                    requireWorkspace(header),
+                    socialAccountId,
+                  )
                 : null,
             }),
       },

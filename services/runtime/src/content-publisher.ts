@@ -167,36 +167,60 @@ export class ContentPublisher {
   /**
    * The connected account this piece goes to.
    *
-   * Stops rather than guesses when there is more than one, the same rule the
-   * Goal path follows. A piece carries a channel, not an account, so with two
-   * Pages connected "post it to Facebook" is a sentence missing its object —
-   * and choosing one would be the platform picking somebody's audience.
+   * A piece that names one gets that one, and nothing else — a post written for
+   * a Korean-goods Page must not land on a Japanese-goods Page because somebody
+   * disconnected the first. When it names none, the only account on its channel
+   * is unambiguous and is used; two are not, and it stops. Choosing for someone
+   * is choosing their audience, and there is no undo for that.
    */
   private async resolveAccount(piece: ContentPiece) {
-    const connected = (await this.deps.accounts.list(piece.workspaceId)).filter(
-      (account) => {
-        if (account.status !== "ACTIVE") return false;
-        if (account.connectorId !== piece.channel) return false;
-        const connector = findConnector(account.connectorId);
-        return connector !== null && canPublish(connector);
-      },
+    const publishable = (
+      await this.deps.accounts.list(piece.workspaceId)
+    ).filter((account) => {
+      const connector = findConnector(account.connectorId);
+      return connector !== null && canPublish(connector);
+    });
+
+    if (piece.socialAccountId !== null) {
+      const named = publishable.find(
+        (account) => account.id === piece.socialAccountId,
+      );
+
+      if (!named) {
+        // Said separately from "not connected at all", because the fix is
+        // different: this one was chosen and has since gone away.
+        throw new Error(
+          "Kênh đã chọn cho bài này không còn kết nối. Nối lại, hoặc chọn kênh khác.",
+        );
+      }
+      if (named.status !== "ACTIVE") {
+        throw new Error(
+          `Kênh "${named.displayName}" đang ở trạng thái ${named.status}. Nối lại rồi duyệt lại bài.`,
+        );
+      }
+      return named;
+    }
+
+    const onChannel = publishable.filter(
+      (account) =>
+        account.status === "ACTIVE" && account.connectorId === piece.channel,
     );
 
-    if (connected.length === 0) {
+    if (onChannel.length === 0) {
       throw new Error(
         `Chưa có kênh ${piece.channel} nào đang kết nối và đăng được. Vào phần Kênh mạng xã hội để nối.`,
       );
     }
 
-    if (connected.length > 1) {
+    if (onChannel.length > 1) {
       throw new Error(
-        `Có ${connected.length} kênh ${piece.channel} đang nối nên không tự chọn được: ${connected
+        `Có ${onChannel.length} kênh ${piece.channel} đang nối mà bài chưa chọn kênh nào: ${onChannel
           .map((account) => account.displayName)
-          .join(", ")}.`,
+          .join(", ")}. Mở bài và chọn kênh rồi duyệt lại.`,
       );
     }
 
-    return connected[0]!;
+    return onChannel[0]!;
   }
 
   /**
