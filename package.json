@@ -10,17 +10,22 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
-    "docker:up": "docker compose --env-file .env -f docker/docker-compose.yml up -d",
+    "dev": "turbo run dev",
     "docker:down": "docker compose --env-file .env -f docker/docker-compose.yml down",
     "docker:logs": "docker compose --env-file .env -f docker/docker-compose.yml logs -f",
+    "docker:up": "docker compose --env-file .env -f docker/docker-compose.yml up -d",
     "format": "prettier --write \"**/*.{ts,tsx,md,json,yml,yaml}\" --ignore-path .gitignore",
-    "prepare": "husky"
+    "lint": "turbo run lint",
+    "prepare": "husky",
+    "stack:down": "bash scripts/stack.sh down",
+    "stack:logs": "bash scripts/stack.sh logs",
+    "stack:ps": "bash scripts/stack.sh ps",
+    "stack:restart": "bash scripts/stack.sh restart",
+    "stack:up": "bash scripts/stack.sh up",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.1.0",

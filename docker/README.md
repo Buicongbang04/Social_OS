@@ -22,6 +22,41 @@ Dừng: `pnpm docker:down`. Xem log: `pnpm docker:logs`.
 
 ---
 
+## Chạy cả nền tảng bằng một lệnh
+
+```bash
+pnpm stack:up      # lần đầu tự tạo docker/.env.compose và sinh sẵn khoá
+```
+
+Xong là mở http://localhost:3200.
+
+| Lệnh                     | Làm gì                                                      |
+| ------------------------ | ----------------------------------------------------------- |
+| `pnpm stack:up`          | Bật cả cụm, build lại phần nào đã đổi                       |
+| `pnpm stack:ps`          | Xem container nào đang chạy                                 |
+| `pnpm stack:logs`        | Xem nhật ký. Thêm tên service để lọc: `pnpm stack:logs api` |
+| `pnpm stack:restart api` | Build và khởi động lại một service                          |
+| `pnpm stack:down`        | Dừng. **Không xoá dữ liệu** — volume vẫn còn                |
+
+Cổng giữ đúng như khi chạy `pnpm dev`: 5433, 6380, 9000, 6333, và 3100 / 3200.
+Dữ liệu nằm trong volume Docker nên chuyển qua lại giữa hai cách chạy không mất
+gì.
+
+`pnpm stack:down` cố ý **không** xoá volume. Muốn xoá sạch phải gõ tay
+`docker compose ... down -v`, để việc mất dữ liệu không bao giờ là hệ quả của
+một lệnh nghe như "dừng lại".
+
+### Chạy Docker hay chạy `pnpm dev`
+
+Hai cách dùng chung volume, nên chọn cái nào cũng được — nhưng **đừng chạy cả
+hai cùng lúc**: cả hai sẽ tranh cổng 3100 và 3200.
+
+`pnpm dev` sửa code là thấy ngay. `pnpm stack:up` chạy đúng như khi triển khai,
+và là cách duy nhất phát hiện những lỗi chỉ xuất hiện trong container — đã có ba
+lỗi như vậy, ghi ở phần dưới.
+
+---
+
 ## Chạy cả cụm (API + runtime + web trong container)
 
 Hai file compose, tách nhau có chủ ý. `docker-compose.yml` chỉ chạy bốn thứ
