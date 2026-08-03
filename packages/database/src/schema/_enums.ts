@@ -5,6 +5,8 @@ import {
   MEMORY_SOURCES,
   SECRET_SCOPES,
   SOCIAL_ACCOUNT_STATUSES,
+  CAMPAIGN_STATUSES,
+  CONTENT_PIECE_STATUSES,
   MESSAGE_ROLES,
   ENTITY_STATUSES,
   MEMBERSHIP_STATUSES,
@@ -48,6 +50,11 @@ export const secretScopeEnum = pgEnum("secret_scope", SECRET_SCOPES);
 export const socialAccountStatusEnum = pgEnum(
   "social_account_status",
   SOCIAL_ACCOUNT_STATUSES,
+);
+export const campaignStatusEnum = pgEnum("campaign_status", CAMPAIGN_STATUSES);
+export const contentPieceStatusEnum = pgEnum(
+  "content_piece_status",
+  CONTENT_PIECE_STATUSES,
 );
 export const permissionScopeEnum = pgEnum(
   "permission_scope",

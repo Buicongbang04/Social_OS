@@ -2,6 +2,7 @@ export * from "./entities/conversation.entity";
 export * from "./entities/document.entity";
 export * from "./entities/membership.entity";
 export * from "./entities/organization.entity";
+export * from "./entities/campaign.entity";
 export * from "./entities/secret.entity";
 export * from "./entities/social-account.entity";
 export * from "./entities/session.entity";

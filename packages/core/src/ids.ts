@@ -43,6 +43,9 @@ export const ID_PREFIXES = {
    * (docs/03_DOMAIN_MODEL.md, Integration Domain).
    */
   socialAccount: "sac",
+  /** A marketing campaign, and one piece of content inside one. */
+  campaign: "cmp",
+  contentPiece: "cnt",
 } as const;
 
 export type IdPrefixName = keyof typeof ID_PREFIXES;
@@ -83,6 +86,8 @@ export type WorkspaceMemoryId = Branded<"workspaceMemory">;
 export type SecretId = Branded<"secret">;
 export type SecretVersionId = Branded<"secretVersion">;
 export type SocialAccountId = Branded<"socialAccount">;
+export type CampaignId = Branded<"campaign">;
+export type ContentPieceId = Branded<"contentPiece">;
 
 export type IdOf<TName extends IdPrefixName> = Branded<TName>;
 
