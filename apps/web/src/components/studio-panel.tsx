@@ -322,6 +322,7 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
                 a decision the screen is pretending to offer. */}
             {onChannel.length > 1 ? (
               <select
+                aria-label="Trang đăng"
                 value={accountId}
                 onChange={(event) => setAccountId(event.target.value)}
                 className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"

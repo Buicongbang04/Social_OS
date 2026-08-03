@@ -1499,6 +1499,31 @@ Một bài mang **kênh**, không mang tài khoản. Nối hai Page thì "đăng
 Facebook" là một câu thiếu tân ngữ, nên nó dừng và nói ra tên cả hai — chọn hộ
 là nền tảng tự quyết định khán giả của người khác.
 
+### Test cho giao diện: vitest + Testing Library `16.1` (Phase 4)
+
+Trước đợt này `apps/web` **không có một test nào**, trong khi ba lát cắt gần
+nhất đều dồn quyết định thật vào màn hình: nút nào hiện với trạng thái nào, có
+đưa ô chọn trang ra hay không, brief được ghép từ cái gì. Sai ở đó nghĩa là một
+bài không duyệt được, hoặc một bài đi nhầm tệp khán giả.
+
+Chạy trong `jsdom` và thao tác qua `@testing-library/user-event` — tức là bấm
+và chọn như người dùng, không gọi thẳng hàm xử lý sự kiện. Truy vấn theo
+**role** chứ không theo class: một test tìm phần tử bằng tên class sẽ đỏ khi
+đổi màu nút, và vẫn xanh khi nút biến mất.
+
+`cleanup()` sau mỗi test là bắt buộc, không phải dọn dẹp cho gọn: Testing
+Library render vào cùng một document, nên thiếu nó thì một truy vấn "Duyệt" sẽ
+bắt được nút còn sót lại của test trước và **xanh vì lý do sai**.
+
+`scrollIntoView` được stub trong setup vì jsdom không có layout nên không có gì
+cuộn. Stub ở đó chứ không `?.()` trong component: lời gọi đó đúng ở mọi trình
+duyệt thật, và để một dấu hỏi trong mã chạy production chỉ để chiều môi trường
+test là để lại giàn giáo ở chỗ người dùng đứng.
+
+Hai thứ tìm ra ngay khi viết test đầu tiên: hai thẻ `<select>` chọn trang
+**không có nhãn**, nên trình đọc màn hình không đọc được chúng — chính điều đó
+làm truy vấn theo role bị nhập nhằng. Đã thêm `aria-label`.
+
 ### Xu hướng nối thẳng sang Studio (Phase 4)
 
 Mỗi dòng xu hướng có nút **Viết bài**, đưa một câu brief sang Studio.

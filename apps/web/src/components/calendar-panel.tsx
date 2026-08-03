@@ -228,6 +228,7 @@ function Row({
       <span className="min-w-0 flex-1 font-medium">{piece.title}</span>
       {onChannel.length > 1 && !settled ? (
         <select
+          aria-label={`Trang đăng cho "${piece.title}"`}
           value={piece.socialAccountId ?? ""}
           onChange={(event) => void onAccount(piece, event.target.value)}
           className="shrink-0 rounded border border-neutral-300 px-1 py-0.5 text-xs focus:border-neutral-900 focus:outline-none"
