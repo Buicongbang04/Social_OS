@@ -12,6 +12,7 @@ import { KeysPanel } from "./keys-panel";
 import { MemoryPanel } from "./memory-panel";
 import { SpendPanel } from "./spend-panel";
 import { StatsPanel } from "./stats-panel";
+import { ReportPanel } from "./report-panel";
 import { StudioPanel, type SeededBrief } from "./studio-panel";
 import { TrendsPanel } from "./trends-panel";
 import { ExecutionView } from "./execution-view";
@@ -213,6 +214,11 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
           anything below, and burying it under the run history would mean
           finding out days later. */}
       <InboxPanel />
+
+      {/* Above the per-post numbers, because it answers the bigger question
+          first: whether any of this is working. StatsPanel is the detail
+          underneath it. */}
+      <ReportPanel />
 
       {/* After the inbox: what went out, and what came back of it. */}
       <StatsPanel />

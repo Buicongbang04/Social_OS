@@ -2696,6 +2696,37 @@
         "tags": ["Campaigns"]
       }
     },
+    "/api/v1/campaigns/report": {
+      "get": {
+        "operationId": "CampaignsController_report",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Campaigns"]
+      }
+    },
     "/api/v1/campaigns/{id}": {
       "patch": {
         "operationId": "CampaignsController_update",

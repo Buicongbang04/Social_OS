@@ -10,6 +10,7 @@ import { newId } from "@repo/core";
 import type {
   Campaign,
   CampaignRepository,
+  CampaignSummary,
   ContentPiece,
   ContentPieceRepository,
   CreateCampaignInput,
@@ -19,6 +20,20 @@ import type {
 } from "@repo/domain";
 import type { DatabaseClient } from "../client";
 import { campaigns, contentPieces } from "../schema";
+
+/**
+ * How many pieces sit in one status.
+ *
+ * `count(*) filter (where ...)` rather than five separate queries: one pass
+ * over the rows answers all of them, and five would each re-read the same
+ * index.
+ *
+ * PUBLISHING is deliberately absent from the report. It lasts a second or two,
+ * and a column that is almost always zero teaches a reader to ignore it.
+ */
+function countWhere(status: string) {
+  return sql<number>`count(*) filter (where ${contentPieces.status} = ${status})`;
+}
 
 type CampaignRow = typeof campaigns.$inferSelect;
 type PieceRow = typeof contentPieces.$inferSelect;
@@ -422,6 +437,42 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
         version: sql`${contentPieces.version} + 1`,
       })
       .where(eq(contentPieces.id, id));
+  }
+
+  async summariseByCampaign(
+    workspaceId: WorkspaceId,
+  ): Promise<CampaignSummary[]> {
+    const rows = await this.db
+      .select({
+        campaignId: contentPieces.campaignId,
+        drafts: countWhere("DRAFT"),
+        approved: countWhere("APPROVED"),
+        published: countWhere("PUBLISHED"),
+        failed: countWhere("FAILED"),
+        // Only the ids that exist. `filter (where ...)` rather than a plain
+        // aggregate, because array_agg over a column full of nulls returns an
+        // array of nulls rather than an empty one.
+        publishedPostIds: sql<
+          string[] | null
+        >`array_agg(${contentPieces.publishedPostId}) filter (where ${contentPieces.publishedPostId} is not null)`,
+      })
+      .from(contentPieces)
+      .where(
+        and(
+          eq(contentPieces.workspaceId, workspaceId),
+          isNull(contentPieces.deletedAt),
+        ),
+      )
+      .groupBy(contentPieces.campaignId);
+
+    return rows.map((row) => ({
+      campaignId: (row.campaignId as CampaignId | null) ?? null,
+      drafts: Number(row.drafts),
+      approved: Number(row.approved),
+      published: Number(row.published),
+      failed: Number(row.failed),
+      publishedPostIds: row.publishedPostIds ?? [],
+    }));
   }
 
   async listStuck(olderThan: Date, limit: number): Promise<ContentPiece[]> {

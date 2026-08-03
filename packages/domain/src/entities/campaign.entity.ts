@@ -136,6 +136,24 @@ export type UpdateContentPieceInput = {
   status?: ContentPieceStatus;
 };
 
+/**
+ * What a campaign has produced, before anything is asked of a platform.
+ *
+ * `campaignId` is null for the pieces belonging to no campaign. They are a real
+ * row in this report rather than being dropped: for most workspaces they are
+ * most of the posts, and a report that silently excluded them would show a
+ * fraction of the work and call it the total.
+ */
+export type CampaignSummary = {
+  campaignId: CampaignId | null;
+  drafts: number;
+  approved: number;
+  published: number;
+  failed: number;
+  /** Platform ids of everything that actually went out. */
+  publishedPostIds: string[];
+};
+
 export type CampaignRepository = {
   list(workspaceId: WorkspaceId): Promise<Campaign[]>;
   find(workspaceId: WorkspaceId, id: CampaignId): Promise<Campaign | null>;
@@ -198,6 +216,16 @@ export type ContentPieceRepository = {
       | { status: "PUBLISHED"; postId: string; publishedAt: Date }
       | { status: "FAILED"; error: string },
   ): Promise<void>;
+
+  /**
+   * How each campaign is doing, counted in the database.
+   *
+   * Counted in SQL rather than by reading every piece and tallying in
+   * TypeScript: a workspace running for a year has thousands of pieces, and
+   * pulling them all across to add up five numbers is a page load that gets
+   * slower every week.
+   */
+  summariseByCampaign(workspaceId: WorkspaceId): Promise<CampaignSummary[]>;
 
   /**
    * Pieces stuck mid-send, so a person can be told.

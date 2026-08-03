@@ -1499,6 +1499,34 @@ Một bài mang **kênh**, không mang tài khoản. Nối hai Page thì "đăng
 Facebook" là một câu thiếu tân ngữ, nên nó dừng và nói ra tên cả hai — chọn hộ
 là nền tảng tự quyết định khán giả của người khác.
 
+### Báo cáo chiến dịch (Phase 4)
+
+Hai nguồn không join được trong cơ sở dữ liệu: bài viết là của mình, còn tương
+tác là của Facebook. Ghép bằng **post id của chính nền tảng** — thứ duy nhất
+hai bên cùng công nhận.
+
+Đếm bằng SQL (`count(*) filter (where ...)`), không kéo hết bài về rồi cộng
+trong TypeScript: một workspace chạy một năm có hàng nghìn bài, và kéo tất cả
+sang chỉ để cộng ra năm con số là một trang mỗi tuần một chậm hơn.
+
+**Bài không thuộc chiến dịch nào là một dòng thật trong báo cáo.** Với phần lớn
+workspace, đó mới là đa số bài. Bỏ chúng đi là hiện một phần công việc rồi gọi
+đó là tổng.
+
+`postsWithoutStats` được mang tới tận màn hình chứ không gộp mất, cùng lý do
+với `unpricedCalls` ở bảng chi tiêu: tương tác chỉ đọc được trong một cửa sổ
+bài gần đây, nên bài cũ hơn đóng góp số 0 vào tổng — một con số đưa ra mà không
+kèm số này là con số bị hụt, và người đọc không có cách nào biết hụt bao nhiêu.
+Cảnh báo đặt **ngay trên dòng đó**, không phải một câu chung ở cuối bảng.
+
+Kênh không đọc được số liệu thì **nêu tên**, không giấu. Mỗi kênh như vậy làm
+mọi tổng bên dưới hụt đi, và người đọc không có đường nào khác để biết.
+
+**Không báo cáo chi phí AI theo chiến dịch, và không thể làm cho trung thực.**
+`ai_usage` không có cột chiến dịch, mà cũng không nên có: một bản nháp được
+viết ở Studio trước khi ai đó quyết định nó thuộc chiến dịch nào, nên mọi cách
+quy kết đều là phỏng đoán được trình bày như một con số kế toán.
+
 ### Test cho giao diện: vitest + Testing Library `16.1` (Phase 4)
 
 Trước đợt này `apps/web` **không có một test nào**, trong khi ba lát cắt gần

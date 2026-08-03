@@ -19,6 +19,7 @@ import type {
   Task,
   UploadedDocument,
   Campaign,
+  CampaignReportRow,
   CampaignStatus,
   ConnectorSummary,
   ManageablePage,
@@ -441,6 +442,16 @@ export class ApiClient {
 
   async listCampaigns(): Promise<Campaign[]> {
     return this.request<Campaign[]>("GET", "/campaigns", {
+      workspaceScoped: true,
+    });
+  }
+
+  /** How each campaign is doing: what was written, what went out, what it got. */
+  async campaignReport(): Promise<{
+    rows: CampaignReportRow[];
+    unreadable: { account: string; reason: string }[];
+  }> {
+    return this.request("GET", "/campaigns/report", {
       workspaceScoped: true,
     });
   }

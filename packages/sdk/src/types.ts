@@ -401,6 +401,27 @@ export type TrendItem = {
   context: string | null;
 };
 
+/**
+ * One row of the campaign report.
+ *
+ * `postsWithoutStats` is carried rather than folded away: engagement is read
+ * from a window of recent posts, so an older one contributes nothing to the
+ * totals — a number shown without this count is quietly understated.
+ */
+export type CampaignReportRow = {
+  campaignId: string | null;
+  name: string;
+  status: CampaignStatus | null;
+  drafts: number;
+  approved: number;
+  published: number;
+  failed: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  postsWithoutStats: number;
+};
+
 export const CAMPAIGN_STATUSES = ["DRAFT", "ACTIVE", "DONE"] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 
