@@ -26,6 +26,8 @@ import type {
   ContentPiece,
   ContentPieceStatus,
   ContentTone,
+  TrendItem,
+  TrendSourceName,
   Inbox,
   RevisedContent,
   SeoContent,
@@ -403,6 +405,35 @@ export class ApiClient {
     return this.request<SpendReport>("GET", `/usage?days=${days}`, {
       workspaceScoped: true,
     });
+  }
+
+  // --- Trend discovery ------------------------------------------------------
+
+  /**
+   * What people are searching for, or watching.
+   *
+   * `google` needs nothing. `youtube` needs a key — the workspace's own under
+   * the name `sources/youtube`, or the operator's `YOUTUBE_API_KEY` — and says
+   * which is missing when there is none.
+   */
+  async listTrends(
+    filter: {
+      source?: TrendSourceName;
+      geo?: string;
+      limit?: number;
+    } = {},
+  ): Promise<TrendItem[]> {
+    const query = new URLSearchParams(
+      Object.entries(filter)
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => [key, String(value)]),
+    ).toString();
+
+    return this.request<TrendItem[]>(
+      "GET",
+      `/trends${query ? `?${query}` : ""}`,
+      { workspaceScoped: true },
+    );
   }
 
   // --- Campaigns and the calendar -------------------------------------------

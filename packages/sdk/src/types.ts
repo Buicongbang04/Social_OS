@@ -370,6 +370,25 @@ export type SpendReport = {
   byModel: (SpendSummary & { provider: string; model: string })[];
 };
 
+export const TREND_SOURCES = ["google", "youtube"] as const;
+export type TrendSourceName = (typeof TREND_SOURCES)[number];
+
+/**
+ * One thing people are looking at right now.
+ *
+ * `volume` is a string because Google publishes a band — "200+", "20K+" — not
+ * a number, and YouTube publishes a real view count. Keeping both as text is
+ * what stops a screen adding a search volume to a view count.
+ */
+export type TrendItem = {
+  source: TrendSourceName;
+  title: string;
+  volume: string | null;
+  url: string | null;
+  at: string | null;
+  context: string | null;
+};
+
 export const CAMPAIGN_STATUSES = ["DRAFT", "ACTIVE", "DONE"] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 

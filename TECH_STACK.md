@@ -1406,6 +1406,12 @@ chạy bù sẽ đăng ba ngày bài trong một phút.
 
 ---
 
+### fast-xml-parser `4.5`
+
+Google Trends chỉ phát RSS, và RSS là XML. Dùng cho đúng một việc đó.
+**Tắt `parseTagValue`** — lý do ở mục xu hướng bên trên: nó là khác biệt giữa
+"0888" và 888.
+
 ## 13. Đã cài nhưng chưa dùng
 
 Không còn dịch vụ nào trong `docker-compose` ở trạng thái này. Qdrant `:6333`
@@ -1446,6 +1452,43 @@ không viết _bằng_ giọng đó.
 Máy chủ tự đọc ghi nhớ mỗi lần gọi — client không truyền, nên một màn hình
 không thể quên. Mọi lời gọi đều vào sổ `ai_usage`; sổ hỏng thì **vẫn trả bản
 nháp về**, vì provider đã trả lời và tiền đã tiêu rồi.
+
+### Xu hướng: Google Trends và YouTube (Phase 4)
+
+**Google Trends không có API dùng được.** API chính thức có tồn tại — công bố
+tháng 7/2025 — nhưng đến giờ vẫn là alpha phải nộp đơn xin quyền, nên không
+xây nền tảng lên nó được. Nguồn ở đây đọc **RSS công khai**
+(`trends.google.com/trending/rss?geo=VN`): không cần khoá, không quota, không
+phải xin ai.
+
+Cái giá phải nói rõ, không giấu: **chỉ có xu hướng tìm kiếm của hôm nay.**
+Không có biểu đồ theo thời gian, không so sánh được hai từ khoá, không có lịch
+sử 5 năm — đó chính là phần API bị khoá kia bổ sung. Nó trả lời "bây giờ đang
+nóng cái gì", không trả lời "tháng trước có nóng hơn không".
+
+YouTube dùng Data API v3 với `chart=mostPopular` chứ không phải `search`: đó là
+thứ chính YouTube gọi là trending, tốn **1 đơn vị quota** thay vì 100, và không
+cần từ khoá — mà "tìm từ khoá nào" chính là câu hỏi đang cần trả lời chứ không
+phải câu trả lời.
+
+`volume` là **chuỗi**, cố ý. Google công bố một khoảng — "200+", "20K+" — chứ
+không phải một con số; đọc nó thành 200 là biến một cận dưới thành một phép đo.
+YouTube trả về lượt xem thật, nhưng cũng để dạng chuỗi, để không chỗ nào phía
+sau cộng được lượt xem với lượt tìm kiếm.
+
+**Trình đọc XML bị tắt đoán kiểu.** Để mặc định, nó đọc "0888" thành số 888 và
+"1.50" thành 1.5 — mà người ta tìm số điện thoại và tìm giá. Số 0 mất trước khi
+bất kỳ dòng code nào ở đây nhìn thấy từ khoá, nên ép về chuỗi sau đó không cứu
+lại được.
+
+Kết quả cache trong Redis 15 phút. **Khoá cache không chứa workspace**: cả nước
+tìm gì thì là cùng một câu hỏi bất kể ai hỏi, và thêm workspace vào khoá là
+nhân số lời gọi giống hệt nhau lên đúng bằng số tenant. Chỉ ghi cache sau khi
+gọi thành công — cache một lần hỏng là kéo dài một phút xấu thành mười lăm.
+
+Khoá YouTube lấy theo cùng thứ tự như khoá AI: khoá riêng của workspace
+(`sources/youtube` trong Kho khoá) trước, `YOUTUBE_API_KEY` của máy chủ sau.
+Không có cả hai thì thông báo nói rõ phải sửa cái nào.
 
 ### Chiến dịch và lịch nội dung (Phase 4)
 
