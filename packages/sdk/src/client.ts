@@ -19,8 +19,14 @@ import type {
   Task,
   UploadedDocument,
   ConnectorSummary,
+  ContentChannel,
+  ContentLength,
+  ContentTone,
   Inbox,
+  RevisedContent,
+  SeoContent,
   SpendReport,
+  WrittenContent,
   PostStatsReport,
   ProviderKeyStatus,
   SocialConnection,
@@ -391,6 +397,56 @@ export class ApiClient {
    */
   async spend(days = 30): Promise<SpendReport> {
     return this.request<SpendReport>("GET", `/usage?days=${days}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  // --- Content studio -------------------------------------------------------
+
+  /**
+   * Write a draft.
+   *
+   * The workspace's remembered brand voice is applied server-side — the caller
+   * does not pass it, so a screen cannot forget to.
+   */
+  async writeContent(input: {
+    brief: string;
+    channel: ContentChannel;
+    tone: ContentTone;
+    length: ContentLength;
+    language?: string;
+  }): Promise<WrittenContent> {
+    return this.request<WrittenContent>("POST", "/content/write", {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  /** Change how something is said. Never what it says — see `notes`. */
+  async rewriteContent(input: {
+    original: string;
+    instruction: string;
+    language?: string;
+  }): Promise<RevisedContent> {
+    return this.request<RevisedContent>("POST", "/content/rewrite", {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  async translateContent(input: {
+    original: string;
+    targetLanguage: string;
+  }): Promise<RevisedContent> {
+    return this.request<RevisedContent>("POST", "/content/translate", {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  async suggestSeo(input: { content: string }): Promise<SeoContent> {
+    return this.request<SeoContent>("POST", "/content/seo", {
+      body: input,
       workspaceScoped: true,
     });
   }
