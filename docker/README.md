@@ -1,4 +1,4 @@
-# docker/ — Infra (Phase 0-2, local dev)
+# docker/ — Hạ tầng và cả cụm ứng dụng
 
 4 service hạ tầng MVP theo `docs/05_TECH_STACK.md#mvp-stack-phase-0-2`: PostgreSQL, Redis, MinIO, Qdrant. Không có Meilisearch/NATS/Kubernetes ở đây — đúng quyết định MVP-first (xem `docs/infrastructure/05_KUBERNETES_ARCHITECTURE.md`, `docs/infrastructure/02_CLOUD_ARCHITECTURE.md`).
 
@@ -19,3 +19,74 @@ pnpm docker:up          # tương đương: docker compose --env-file .env -f do
 > Port host được cố tình lệch khỏi mặc định thông dụng (5432/6379) để stack này chạy song song với các project khác trên cùng máy mà không tranh port. Port bên trong container vẫn là chuẩn. Đổi lại được qua `.env`.
 
 Dừng: `pnpm docker:down`. Xem log: `pnpm docker:logs`.
+
+---
+
+## Chạy cả cụm (API + runtime + web trong container)
+
+Hai file compose, tách nhau có chủ ý. `docker-compose.yml` chỉ chạy bốn thứ
+phụ thuộc — đó là cách làm việc hằng ngày: hạ tầng trong Docker, ba service
+bằng `pnpm dev`. Gộp chúng lại sẽ khiến mỗi lần `docker compose up` phải build
+lại ứng dụng.
+
+`docker-compose.app.yml` chạy đúng cách nó sẽ được triển khai:
+
+```bash
+cp docker/.env.compose.example docker/.env.compose   # rồi điền giá trị bắt buộc
+docker compose --env-file docker/.env.compose \
+  -f docker/docker-compose.yml -f docker/docker-compose.app.yml up -d --build
+```
+
+**Đừng dùng chung `.env` ở gốc repo.** `.env` dành cho `pnpm dev`, nơi service
+chạy trên máy và gọi vào cổng đã publish (`localhost:5433`). Trong compose
+chúng gọi nhau bằng **tên service** và cổng gốc (`postgres:5432`). Dùng nhầm
+file cho lỗi "connection refused" trong khi mọi thứ trông đều đúng.
+
+### Cạm bẫy: hai file dùng chung một project
+
+Cả hai file khai `name: ai-social-os`, nên chúng là **một project Docker Compose
+duy nhất**. Đó là điều kiện để xếp lớp `-f a.yml -f b.yml` hoạt động — nhưng nó
+cũng có nghĩa: bật cụm ứng dụng với một `--env-file` đặt cổng khác sẽ **cấu hình
+lại luôn bốn container hạ tầng đang phục vụ `pnpm dev`**.
+
+Tôi đã mắc đúng lỗi này khi làm phần này: chọn cổng lệch để "khỏi đụng dev", và
+chính việc đó đẩy Postgres từ 5433 sang 5434. Dữ liệu còn nguyên (chung volume),
+nhưng `.env` vẫn trỏ 5433 nên **toàn bộ 105 test tích hợp hỏng cùng lúc** với
+lỗi kết nối — trông như code vỡ tan trong khi chẳng có dòng nào sai.
+
+Muốn một cụm tách hẳn thì đặt project khác, đừng đổi cổng:
+
+```bash
+docker compose -p social-os-thu --env-file docker/.env.compose \
+  -f docker/docker-compose.yml -f docker/docker-compose.app.yml up -d --build
+```
+
+### Một Dockerfile cho ba service
+
+Một file cho mỗi service sẽ trôi: bước cài và build giống hệt nhau, nên ba bản
+sao là ba cơ hội để một bản tụt lại. Image là service nào do
+`--build-arg PACKAGE` quyết định, ngoài ra không khác gì.
+
+Lớp cài phụ thuộc chép **từng `package.json` một** thay vì chép cả cây nguồn —
+chép nguồn ở đó sẽ làm lớp này mất cache mỗi lần sửa code. Cái giá là một danh
+sách phải theo kịp workspace, nên có test canh: thêm package mà quên khai báo
+thì test đỏ, thay vì image build hỏng với thông báo về checksum.
+
+**Image hiện 1,5GB** vì mang theo cả `node_modules` gồm devDependencies.
+`pnpm deploy --prod` sẽ nhỏ hơn nhiều và đáng làm — nhưng một image đúng và
+chạy được là điểm xuất phát tốt hơn một image nhỏ chưa ai chạy, và đây là lần
+đầu thứ này rời khỏi máy phát triển.
+
+### Ba lỗi chỉ lộ ra khi chạy trong container
+
+Không lỗi nào bị lint, typecheck hay 814 test bắt được:
+
+| Lỗi                                    | Bản chất                                                                                                                                                                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host.docker.internal` không phân giải | Quy ước của Docker Desktop; trên Linux phải khai `extra_hosts: host-gateway`. Ollama chạy trên máy chủ nên **mọi lời gọi AI** đi qua đường này                                                                                            |
+| `OLLAMA_BASE_URL` thiếu `/v1`          | Adapter dùng giao thức tương thích OpenAI. Thiếu nó trả "Not Found" — thông báo không hề nhắc tới đường dẫn                                                                                                                               |
+| Link tải ký bằng host nội bộ           | **Lỗi sản phẩm, không phải lỗi cấu hình.** API ký link bằng `http://minio:9000`; trình duyệt bên ngoài không mở được. Chữ ký SigV4 phủ cả host nên không thể sửa URL sau khi ký — phải ký bằng host công khai. Đã thêm `MINIO_PUBLIC_URL` |
+
+`NEXT_PUBLIC_API_URL` là **build arg**, không phải biến môi trường: Next.js
+nhúng nó vào bundle lúc build, nên đặt lúc chạy không có tác dụng gì. Đổi nó
+phải build lại image web.

@@ -1,0 +1,182 @@
+# The application itself, on top of the dependencies.
+#
+# Kept apart from `docker-compose.yml` on purpose. Day-to-day development runs
+# the four dependencies in Docker and the three services with `pnpm dev`, and
+# folding the services into that file would make every `docker compose up`
+# rebuild them. This one is for running the whole thing the way it would be
+# deployed:
+#
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.app.yml up -d --build
+#
+# Every value comes from the environment, and none of it has a secret as its
+# default. A compose file that boots with a working password is a compose file
+# somebody will deploy with that password.
+
+name: ai-social-os
+
+services:
+  # Migrations before anything reads the schema, and as a job rather than a
+  # step inside the API: two API replicas starting together would otherwise
+  # both migrate, and Postgres would decide which one wins by deadlocking.
+  migrate:
+    build:
+      context: ..
+      args:
+        PACKAGE: "@repo/database"
+        WORKDIR: packages/database
+    command: ["node", "dist/migrate.js"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      args:
+        PACKAGE: "@repo/api"
+        WORKDIR: services/api
+    environment:
+      NODE_ENV: production
+      API_PORT: 3100
+      API_PREFIX: ${API_PREFIX:-api/v1}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3200}
+      # Everything below is optional: the API boots without them and the
+      # features that need them say so, rather than the process refusing to
+      # start over a credential most of the platform does not use.
+      SECRET_KEYS: ${SECRET_KEYS:-}
+      SECRET_PRIMARY_KEY: ${SECRET_PRIMARY_KEY:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      QDRANT_URL: ${QDRANT_URL:-}
+      MINIO_URL: ${MINIO_URL:-}
+      # Where a browser reaches storage. Download links are signed for this
+      # host, and a link signed for `minio:9000` is one nobody outside the
+      # compose network can open.
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
+      MINIO_REGION: ${MINIO_REGION:-}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-}
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-}
+      WEB_APP_URL: ${WEB_APP_URL:-}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    # `host.docker.internal` is a Docker Desktop convention and does not exist
+    # on Linux, where it fails as a DNS lookup rather than as anything that
+    # names the real problem. Mapping it explicitly makes the same URL work on
+    # both — which matters because Ollama runs on the host, not in this
+    # network, and every AI call goes through it.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${API_PORT:-3100}:3100"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # The app's own health route, which checks the database and Redis rather
+      # than only that the process is alive. A container that answers while its
+      # database is gone is a container that stays in the load balancer.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  runtime:
+    build:
+      context: ..
+      args:
+        PACKAGE: "@repo/runtime-service"
+        WORKDIR: services/runtime
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      SECRET_KEYS: ${SECRET_KEYS:-}
+      SECRET_PRIMARY_KEY: ${SECRET_PRIMARY_KEY:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      QDRANT_URL: ${QDRANT_URL:-}
+      MINIO_URL: ${MINIO_URL:-}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
+      MINIO_REGION: ${MINIO_REGION:-}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-}
+      INDEX_INTERVAL_MS: ${INDEX_INTERVAL_MS:-}
+      # Both default to off. Turning either on changes what every Goal already
+      # in the system does the next time it runs, which is not something a
+      # deploy should decide.
+      SOCIAL_PUBLISH_LIVE: ${SOCIAL_PUBLISH_LIVE:-false}
+      SOCIAL_PUBLISH_UNATTENDED: ${SOCIAL_PUBLISH_UNATTENDED:-false}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      RUNTIME_METRICS_PORT: 3101
+    # `host.docker.internal` is a Docker Desktop convention and does not exist
+    # on Linux, where it fails as a DNS lookup rather than as anything that
+    # names the real problem. Mapping it explicitly makes the same URL work on
+    # both — which matters because Ollama runs on the host, not in this
+    # network, and every AI call goes through it.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${RUNTIME_METRICS_PORT:-3101}:3101"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      args:
+        PACKAGE: web
+        WORKDIR: apps/web
+        # A build argument, not an environment variable. Next.js inlines
+        # `NEXT_PUBLIC_*` into the client bundle at build time, so setting it at
+        # run time changes nothing — the browser would keep calling whatever URL
+        # was compiled in. Changing this means rebuilding the image, which is
+        # worth knowing before a deploy points at the wrong host.
+        #
+        # It is the URL a *person's browser* must reach, never a compose service
+        # name: the request comes from outside this network.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3100/api/v1}
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${WEB_PORT:-3200}:3200"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

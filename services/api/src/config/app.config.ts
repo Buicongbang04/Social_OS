@@ -81,6 +81,8 @@ export class AppConfig {
   /** Null when object storage is not configured; uploads are then refused. */
   get storage(): {
     url: string;
+    /** Where a browser reaches storage. Same as `url` unless configured. */
+    publicUrl: string;
     region: string;
     bucket: string;
     accessKeyId: string;
@@ -99,6 +101,7 @@ export class AppConfig {
 
     return {
       url,
+      publicUrl: this.config.get("MINIO_PUBLIC_URL", { infer: true }) ?? url,
       region: this.config.get("MINIO_REGION", { infer: true }),
       bucket: this.config.get("MINIO_BUCKET", { infer: true }),
       accessKeyId,

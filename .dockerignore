@@ -1,0 +1,13 @@
+# Never into an image: the local secrets, the local build output, and the
+# 1.5GB of node_modules that the image installs for itself anyway.
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+.git
+docker/volumes
+*.log
