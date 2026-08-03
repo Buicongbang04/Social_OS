@@ -18,9 +18,13 @@ import type {
   PublicUser,
   Task,
   UploadedDocument,
+  Campaign,
+  CampaignStatus,
   ConnectorSummary,
   ContentChannel,
   ContentLength,
+  ContentPiece,
+  ContentPieceStatus,
   ContentTone,
   Inbox,
   RevisedContent,
@@ -397,6 +401,113 @@ export class ApiClient {
    */
   async spend(days = 30): Promise<SpendReport> {
     return this.request<SpendReport>("GET", `/usage?days=${days}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  // --- Campaigns and the calendar -------------------------------------------
+
+  async listCampaigns(): Promise<Campaign[]> {
+    return this.request<Campaign[]>("GET", "/campaigns", {
+      workspaceScoped: true,
+    });
+  }
+
+  async createCampaign(input: {
+    name: string;
+    objective?: string;
+    startsAt?: string;
+    endsAt?: string;
+  }): Promise<Campaign> {
+    return this.request<Campaign>("POST", "/campaigns", {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  async updateCampaign(
+    id: string,
+    input: {
+      name?: string;
+      objective?: string | null;
+      status?: CampaignStatus;
+      startsAt?: string | null;
+      endsAt?: string | null;
+    },
+  ): Promise<Campaign> {
+    return this.request<Campaign>("PATCH", `/campaigns/${id}`, {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  async archiveCampaign(id: string): Promise<void> {
+    await this.request<void>("DELETE", `/campaigns/${id}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  /**
+   * The calendar.
+   *
+   * `from`/`to` are instants. Without them everything comes back, scheduled
+   * first and undated last.
+   */
+  async listContentPieces(
+    filter: {
+      campaignId?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ): Promise<ContentPiece[]> {
+    const query = new URLSearchParams(
+      Object.entries(filter).filter(([, value]) => value !== undefined) as [
+        string,
+        string,
+      ][],
+    ).toString();
+
+    return this.request<ContentPiece[]>(
+      "GET",
+      `/content-pieces${query ? `?${query}` : ""}`,
+      { workspaceScoped: true },
+    );
+  }
+
+  async createContentPiece(input: {
+    campaignId?: string;
+    title: string;
+    body: string;
+    hashtags?: string[];
+    channel: string;
+    scheduledAt?: string;
+  }): Promise<ContentPiece> {
+    return this.request<ContentPiece>("POST", "/content-pieces", {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  async updateContentPiece(
+    id: string,
+    input: {
+      campaignId?: string | null;
+      title?: string;
+      body?: string;
+      hashtags?: string[];
+      channel?: string;
+      scheduledAt?: string | null;
+      status?: ContentPieceStatus;
+    },
+  ): Promise<ContentPiece> {
+    return this.request<ContentPiece>("PATCH", `/content-pieces/${id}`, {
+      body: input,
+      workspaceScoped: true,
+    });
+  }
+
+  async archiveContentPiece(id: string): Promise<void> {
+    await this.request<void>("DELETE", `/content-pieces/${id}`, {
       workspaceScoped: true,
     });
   }

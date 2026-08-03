@@ -2478,6 +2478,439 @@
         "tags": ["Content"]
       }
     },
+    "/api/v1/campaigns": {
+      "get": {
+        "operationId": "CampaignsController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Campaigns"]
+      },
+      "post": {
+        "operationId": "CampaignsController_create",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "objective": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["Campaigns"]
+      }
+    },
+    "/api/v1/campaigns/{id}": {
+      "patch": {
+        "operationId": "CampaignsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "objective": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["DRAFT", "ACTIVE", "DONE"]
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Campaigns"]
+      },
+      "delete": {
+        "operationId": "CampaignsController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["Campaigns"]
+      }
+    },
+    "/api/v1/content-pieces": {
+      "get": {
+        "operationId": "ContentPiecesController_list",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["ContentPieces"]
+      },
+      "post": {
+        "operationId": "ContentPiecesController_create",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "campaignId": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
+                  },
+                  "hashtags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "maxItems": 12
+                  },
+                  "channel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "scheduledAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": ["title", "body", "channel"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": ["ContentPieces"]
+      }
+    },
+    "/api/v1/content-pieces/{id}": {
+      "patch": {
+        "operationId": "ContentPiecesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "campaignId": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
+                  },
+                  "hashtags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "maxItems": 12
+                  },
+                  "channel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "scheduledAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["DRAFT", "APPROVED", "PUBLISHED", "FAILED"]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["ContentPieces"]
+      },
+      "delete": {
+        "operationId": "ContentPiecesController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["ContentPieces"]
+      }
+    },
     "/metrics": {
       "get": {
         "operationId": "MetricsController_scrape",

@@ -370,6 +370,48 @@ export type SpendReport = {
   byModel: (SpendSummary & { provider: string; model: string })[];
 };
 
+export const CAMPAIGN_STATUSES = ["DRAFT", "ACTIVE", "DONE"] as const;
+export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
+
+export const CONTENT_PIECE_STATUSES = [
+  "DRAFT",
+  "APPROVED",
+  "PUBLISHED",
+  "FAILED",
+] as const;
+export type ContentPieceStatus = (typeof CONTENT_PIECE_STATUSES)[number];
+
+export type Campaign = {
+  id: string;
+  name: string;
+  objective: string | null;
+  status: CampaignStatus;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+};
+
+/**
+ * One piece of content.
+ *
+ * `scheduledAt` is an absolute instant. The screen turns it into a local time
+ * to show, and back into an instant to send — the server never sees a
+ * wall-clock time without a zone attached to it.
+ */
+export type ContentPiece = {
+  id: string;
+  campaignId: string | null;
+  title: string;
+  body: string;
+  hashtags: string[];
+  channel: string;
+  scheduledAt: string | null;
+  status: ContentPieceStatus;
+  publishedPostId: string | null;
+  publishedAt: string | null;
+  lastError: string | null;
+};
+
 export const CONTENT_CHANNELS = [
   "facebook",
   "tiktok",

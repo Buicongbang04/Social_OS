@@ -1447,6 +1447,36 @@ Máy chủ tự đọc ghi nhớ mỗi lần gọi — client không truyền, n
 không thể quên. Mọi lời gọi đều vào sổ `ai_usage`; sổ hỏng thì **vẫn trả bản
 nháp về**, vì provider đã trả lời và tiền đã tiêu rồi.
 
+### Chiến dịch và lịch nội dung (Phase 4)
+
+Hai bảng, `campaigns` và `content_pieces`, và **`campaign_id` được để trống
+được** — vì đó là thứ tự công việc diễn ra thật: bài được viết trước, sau đó
+mới có người quyết định nó thuộc chiến dịch nào. Bắt buộc phải có chiến dịch
+đồng nghĩa với việc phải bịa ra một chiến dịch rỗng chỉ để chứa một bản nháp.
+
+`scheduled_at` là **một thời điểm tuyệt đối**, không phải giờ treo tường kèm
+múi giờ. Client tự quy từ múi giờ của người dùng rồi gửi thời điểm đi. Lưu
+"09:00" kèm tên múi giờ nghĩa là phải trả lời câu hỏi "bài đã hẹn sẽ ra sao khi
+workspace đổi quốc gia" — mà chưa ai trả lời. API vì thế **từ chối** chuỗi
+không có múi giờ (`2026-08-15T09:00:00`): đó là chín giờ ở đâu đó, và nhận nó
+nghĩa là máy chủ tự đoán ở đâu.
+
+Bốn trạng thái, với `APPROVED` nằm giữa `DRAFT` và `PUBLISHED`: **"sẵn sàng
+đăng" không phải là "đã đăng"**. Gộp hai cái đó lại là cách một bản nháp được
+duyệt trở thành một bài đã ra ngoài mà không ai bấm nút nào.
+
+`PATCH` phân biệt **thiếu trường** với **trường bằng `null`**: thiếu là "để
+nguyên", `null` là "xoá đi". Gộp lại thì mỗi lần đổi tên một bài là một lần nó
+mất lịch đăng — và không gì bắt được, vì người gọi chưa từng nhắc tới trường
+đó. Có test giữ đúng chỗ này ở cả tầng repository lẫn tầng HTTP.
+
+Chỉ mục lịch để `(workspace_id, scheduled_at)` chứ không phải ngày trước: mọi
+lượt đọc đều thuộc về một workspace, và chỉ mục theo ngày trước sẽ quét ngang
+qua các tenant khác rồi mới lọc.
+
+Lưu trữ chiến dịch **không đụng vào các bài của nó**. Một chiến dịch bị huỷ vẫn
+để lại những bài ai đó đã viết và có thể muốn dùng ở chỗ khác.
+
 ### Đóng gói và chạy cả cụm
 
 Ba service có Dockerfile chung, một compose chạy cả cụm kèm bước migrate riêng.
