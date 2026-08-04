@@ -1591,6 +1591,34 @@ biến mất" sau khi nối Page — nhưng ô đó biến mất vì cả panel 
 không phải vì token bị xoá. Break-check bỏ dòng `setUserToken("")` đi mà test
 vẫn xanh. Giờ nó mở lại panel và kiểm ô rỗng.
 
+### Chọn model: Gemini cho chữ, chưa có gì cho ảnh (Phase 4)
+
+Nền tảng chạy `qwen2.5:7b` cục bộ từ Phase 2 — miễn phí, không cần khoá, và
+viết tiếng Việt ở mức phải sửa lại gần hết. Một khoá Google AI Studio (miễn
+phí, không cần thẻ) đổi được điều đó.
+
+**Đã thử thật, tháng 8/2026:**
+
+| Model                                                                    | Bậc miễn phí                              |
+| ------------------------------------------------------------------------ | ----------------------------------------- |
+| `gemini-2.5-flash`                                                       | chạy được                                 |
+| `gemini-2.5-pro`                                                         | `RESOURCE_EXHAUSTED`                      |
+| `gemini-2.5-flash-image`, `gemini-3.1-flash-image`, `gemini-3-pro-image` | `RESOURCE_EXHAUSTED`                      |
+| `imagen-4.0-*`                                                           | `NOT_FOUND` — không mở cho người dùng mới |
+
+Nên **sinh ảnh vẫn chưa làm được** dù có khoá: Google cắt hạn mức ảnh miễn phí
+về 0 từ đợt 12/2025, phải bật thanh toán mới gọi được. Phần Media vì thế vẫn
+dừng ở ảnh bìa vẽ từ chữ.
+
+Khoá AI Studio đời mới có dạng `AQ.Ab8…` chứ không còn `AIza…`. Ghi ra vì nhìn
+nó **không giống** một khoá API và dễ bị tưởng là dán nhầm — chính tôi đã tưởng
+vậy trước khi thử.
+
+**Chi phí ghi trong sổ là giá phải trả nếu ở bậc trả tiền**, không phải số tiền
+thật tiêu ở bậc miễn phí. Bảng giá biết model đắt bao nhiêu, không biết tài
+khoản đang ở bậc nào — nên `$0.0024` cho một bài là con số đúng về model và cao
+hơn thực tế khi còn trong hạn mức miễn phí.
+
 ### Sao lưu và phục hồi (Phase 4)
 
 Đến giờ hệ thống đang giữ thứ **không dựng lại được**: token của Page thật, lịch

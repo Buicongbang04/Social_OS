@@ -48,7 +48,7 @@ tên nó là một thành phần sẽ ngụ ý có thứ để cấu hình, mà 
 
 | Mục                                          |     | Ghi chú                                                                                                                                                          |
 | -------------------------------------------- | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude, OpenAI, Gemini, Ollama, OpenRouter   | ✅  | Qua Vercel AI SDK                                                                                                                                                |
+| Claude, OpenAI, Gemini, Ollama, OpenRouter   | ✅  | Qua Vercel AI SDK. Đang chạy `gemini-2.5-flash` (bậc miễn phí), trước đó là `qwen2.5:7b` cục bộ                                                                  |
 | Prompt Versioning, Template                  | ✅  | Hằng số có gắn version, trong code                                                                                                                               |
 | **Prompt Registry**                          | ⛔  | Bản trong DB, sửa được lúc chạy. Không làm: nó chồng lên Workspace Memory (đã có), và bản cho operator sẽ biến 6 hằng số module thành 6 lượt đọc DB mỗi lời gọi. |
 | Document Upload, Chunking, Embedding, Search | ✅  |                                                                                                                                                                  |
@@ -85,17 +85,17 @@ cùng lúc.
 
 ## Phase 4 — Marketing Platform ⚠️
 
-| Nhóm                                          |     | Ghi chú                                                                                                                  |
-| --------------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------ |
-| Content: AI Writer, SEO, Rewrite, Translation | ✅  |                                                                                                                          |
-| Trend: Google Trend                           | ✅  | Qua RSS công khai. **API chính thức không dùng được** — công bố 7/2025, đến nay vẫn là alpha phải xin quyền.             |
-| Trend: YouTube Trend                          | ✅  | Data API v3, cần khoá                                                                                                    |
-| Trend: Competitor Analysis                    | ✅  | Đọc một trang, tôn trọng robots.txt                                                                                      |
-| Trend: Facebook Trend, TikTok Trend           | ⛔  | Cần app của hai nền tảng đó. Cùng lý do với OAuth.                                                                       |
-| Media: Thumbnail, Banner                      | ✅  | Vẽ từ chữ đã viết, không cần model                                                                                       |
-| Media: Image Generation, Video Generation     | ❌  | Cần khoá model ảnh chưa có. **Không phải cùng một thứ với Banner** — cái này sinh ra thứ không tồn tại, rủi ro khác hẳn. |
-| Campaign, Approval, Calendar                  | ✅  |                                                                                                                          |
-| Scheduler: Cron, Retry, Queue, Auto Publish   | ✅  | Đã chạy đầu-cuối với Page thật: `pnpm verify:loop`                                                                       |
+| Nhóm                                          |     | Ghi chú                                                                                                                                                                                                                                 |
+| --------------------------------------------- | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Content: AI Writer, SEO, Rewrite, Translation | ✅  |                                                                                                                                                                                                                                         |
+| Trend: Google Trend                           | ✅  | Qua RSS công khai. **API chính thức không dùng được** — công bố 7/2025, đến nay vẫn là alpha phải xin quyền.                                                                                                                            |
+| Trend: YouTube Trend                          | ✅  | Data API v3, cần khoá                                                                                                                                                                                                                   |
+| Trend: Competitor Analysis                    | ✅  | Đọc một trang, tôn trọng robots.txt                                                                                                                                                                                                     |
+| Trend: Facebook Trend, TikTok Trend           | ⛔  | Cần app của hai nền tảng đó. Cùng lý do với OAuth.                                                                                                                                                                                      |
+| Media: Thumbnail, Banner                      | ✅  | Vẽ từ chữ đã viết, không cần model                                                                                                                                                                                                      |
+| Media: Image Generation, Video Generation     | ❌  | Đã có khoá Google AI Studio, nhưng **mọi model ảnh đều `RESOURCE_EXHAUSTED`** — hạn mức ảnh miễn phí về 0 từ 12/2025, phải bật thanh toán. **Không phải cùng một thứ với Banner** — cái này sinh ra thứ không tồn tại, rủi ro khác hẳn. |
+| Campaign, Approval, Calendar                  | ✅  |                                                                                                                                                                                                                                         |
+| Scheduler: Cron, Retry, Queue, Auto Publish   | ✅  | Đã chạy đầu-cuối với Page thật: `pnpm verify:loop`                                                                                                                                                                                      |
 
 ---
 
