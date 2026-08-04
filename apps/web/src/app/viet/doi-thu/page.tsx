@@ -22,7 +22,7 @@ export default function CompetitorPage() {
           <CompetitorPanel
             onUseAsBrief={(text) => {
               handOffBrief(text);
-              router.push("/viet/soan");
+              router.push("/viet/bien-soan");
             }}
           />
         </>

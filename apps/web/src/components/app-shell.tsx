@@ -33,12 +33,12 @@ type Section = {
 export const SECTIONS: Section[] = [
   { href: "/", label: "Tổng quan", hint: "Có gì hỏng, và mọi thứ đang ra sao" },
   {
-    href: "/viet/soan",
+    href: "/viet/bien-soan",
     label: "Viết bài",
-    hint: "Phân tích đối thủ rồi soạn nội dung",
+    hint: "Phân tích đối thủ rồi biên soạn",
     children: [
       { href: "/viet/doi-thu", label: "Phân tích đối thủ" },
-      { href: "/viet/soan", label: "Soạn nội dung" },
+      { href: "/viet/bien-soan", label: "Biên soạn" },
     ],
   },
   { href: "/lich", label: "Lịch đăng", hint: "Bài nào đi lúc nào" },
