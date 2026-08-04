@@ -1,0 +1,36 @@
+{
+  "name": "@repo/notify",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Telling somebody when the platform could not do what it promised.",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@repo/core": "workspace:*",
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "@types/nodemailer": "^6.4.17",
+    "eslint": "^9.15.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

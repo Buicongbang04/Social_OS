@@ -32,7 +32,8 @@
     "@repo/sdk": "workspace:*",
     "@repo/secrets": "workspace:*",
     "@repo/storage": "workspace:*",
-    "ioredis": "^5.4.2"
+    "ioredis": "^5.4.2",
+    "@repo/notify": "workspace:*"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",

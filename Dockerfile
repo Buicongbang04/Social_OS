@@ -30,6 +30,7 @@ COPY packages/event/package.json packages/event/
 COPY packages/knowledge/package.json packages/knowledge/
 COPY packages/logger/package.json packages/logger/
 COPY packages/media/package.json packages/media/
+COPY packages/notify/package.json packages/notify/
 COPY packages/observability/package.json packages/observability/
 COPY packages/queue/package.json packages/queue/
 COPY packages/runtime/package.json packages/runtime/
