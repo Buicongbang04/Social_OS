@@ -1591,6 +1591,33 @@ biến mất" sau khi nối Page — nhưng ô đó biến mất vì cả panel 
 không phải vì token bị xoá. Break-check bỏ dòng `setUserToken("")` đi mà test
 vẫn xanh. Giờ nó mở lại panel và kiểm ô rỗng.
 
+### Dải cảnh báo trên đầu màn hình (Phase 4)
+
+Mọi thứ nó báo **đều đã hiện ở đâu đó**: bài `FAILED` trên lịch, kênh `EXPIRED`
+trong danh sách kênh. Vấn đề là muốn thấy thì phải cuộn xuống đúng panel giữ nó
+và phải biết mà nhìn. Token chết thì chặn **mọi** bài đã hẹn trên kênh đó, mà
+cách hiện tại để biết là vài ngày sau nhận ra chẳng có bài nào ra cả.
+
+Email nói đúng những điều này và nói được cả khi không ai mở ứng dụng — nhưng
+nó cần một máy chủ mail chịu trả lời. Chừng nào chưa có, đây là thứ duy nhất
+nói cho ai đó biết.
+
+**Kênh chết xếp trên bài hỏng**, vì kênh là _nguyên nhân_ của bài. Đọc hệ quả
+trước sẽ khiến người ta đi duyệt lại mấy bài rồi chúng lại hỏng tiếp.
+
+**Nhiều bài hỏng gộp một dòng.** Mười bài hỏng vì một token hết hạn là _một_
+vấn đề; mười dải giống nhau sẽ chôn mất dòng cảnh báo kênh vốn giải thích tất
+cả.
+
+Không có gì hỏng thì **không hiện gì cả** — một dải lúc nào cũng ở đó là một
+dải không ai đọc.
+
+Tự đọc lại mỗi phút, vì những thứ nó báo xảy ra lúc không ai đang thao tác:
+token hết hạn, bài 8 giờ sáng hỏng trên một trang ai đó để mở từ hôm trước.
+
+Đọc hỏng thì **im lặng**, không biến thành một dải cảnh báo về chính nó — mỗi
+panel bên dưới đã tự nói lỗi đọc của nó rồi.
+
 ### Canh kênh còn sống, trước khi mất một bài (Phase 4)
 
 Trước đợt này, token chết chỉ lộ ra **một cách duy nhất**: bài đăng tiếp theo
