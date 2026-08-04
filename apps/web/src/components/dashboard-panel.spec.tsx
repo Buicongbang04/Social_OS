@@ -24,7 +24,13 @@ const report = (overrides: Partial<DashboardReport> = {}): DashboardReport => ({
     todayUsd: "0.31",
     todayCalls: 12,
   },
-  queue: { unfinished: 3, awaitingApproval: 1, running: 2, failed: 0 },
+  queue: {
+    unfinished: 3,
+    awaitingApproval: 1,
+    running: 2,
+    failed: 0,
+    byStatus: { WAITING: 1, RUNNING: 2, COMPLETED: 8 },
+  },
   content: {
     drafts: 5,
     approved: 2,
@@ -162,17 +168,59 @@ describe("DashboardPanel", () => {
     await waitFor(() => expect(client.dashboard).toHaveBeenCalledWith(30));
   });
 
-  it("says so rather than showing an empty chart when nothing has run", async () => {
-    await show(
+  it("draws no chart at all when there is nothing to draw", async () => {
+    // Not an empty frame with a colour key, a date axis and a table toggle
+    // around a sentence saying there is nothing. The tiles report the zero.
+    client.dashboard.mockResolvedValue(
       report({
         requestsByDay: [
           { day: "2026-08-03", calls: 0, costUsd: "0" },
           { day: "2026-08-04", calls: 0, costUsd: "0" },
         ],
+        spend: {
+          calls: 0,
+          costUsd: "0",
+          unpricedCalls: 0,
+          todayUsd: "0",
+          todayCalls: 0,
+        },
       }),
     );
+    render(<DashboardPanel />);
+    await screen.findByText("Request hôm nay");
 
-    expect(screen.getByText(/Chưa có request nào/)).toBeVisible();
+    expect(screen.queryByText("Request mỗi ngày")).toBeNull();
+    expect(screen.queryByText("Tiền đã dùng, cộng dồn")).toBeNull();
+    expect(screen.queryByText("Xem dạng bảng")).toBeNull();
+  });
+
+  it("draws the running total as a line, not another row of bars", async () => {
+    // Requests are a count in a bucket; money spent is one quantity that only
+    // goes up. The slope between two points is the information a line carries
+    // and a row of bars hides.
+    await show();
+
+    expect(screen.getByTestId("spend-line")).toBeInTheDocument();
+    expect(screen.getByText("Tiền đã dùng, cộng dồn")).toBeVisible();
+  });
+
+  it("names the execution statuses instead of showing them raw", async () => {
+    // "VALIDATING" means nothing to somebody waiting for a post.
+    await show();
+
+    expect(screen.getByText("Chờ duyệt")).toBeVisible();
+    expect(screen.queryByText("WAITING")).toBeNull();
+  });
+
+  it("leaves out the statuses nothing is sitting in", async () => {
+    // Fourteen rows of zero in front of the two that matter is a list nobody
+    // reads.
+    await show();
+
+    // Three execution statuses carry a count, and three content ones — the
+    // fixture leaves PUBLISHING and FAILED at zero.
+    expect(screen.getAllByTestId("status-bar")).toHaveLength(6);
+    expect(screen.queryByText("Đang đăng")).toBeNull();
   });
 
   it("reports a failure instead of leaving the numbers at zero", async () => {

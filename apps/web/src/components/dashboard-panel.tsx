@@ -108,6 +108,26 @@ export function DashboardPanel() {
           </div>
 
           <RequestsChart days={report.requestsByDay} />
+          <SpendChart days={report.requestsByDay} />
+
+          {/* Side by side: they are the two halves of "what is in the pipe",
+              and reading one under the other makes them look sequential. */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <StatusBars
+              title="Việc theo trạng thái"
+              rows={queueRows(report.queue.byStatus)}
+            />
+            <StatusBars
+              title="Nội dung theo trạng thái"
+              rows={[
+                { label: "Nháp", count: report.content.drafts },
+                { label: "Chờ đăng", count: report.content.approved },
+                { label: "Đang đăng", count: report.content.publishing },
+                { label: "Đã đăng", count: report.content.published },
+                { label: "Hỏng", count: report.content.failed, bad: true },
+              ]}
+            />
+          </div>
         </div>
       )}
     </Panel>
@@ -197,8 +217,12 @@ function Tile({
  */
 function RequestsChart({ days }: { days: DashboardDay[] }) {
   const busiest = Math.max(...days.map((day) => day.calls), 1);
-  const nothing = days.every((day) => day.calls === 0);
   const today = days.at(-1)?.day;
+
+  // Nothing to draw means nothing on screen — not an empty frame with a key,
+  // an axis and a table toggle around a sentence saying there is nothing. The
+  // tiles above already report the zero.
+  if (days.every((day) => day.calls === 0)) return null;
 
   return (
     <figure className="m-0">
@@ -217,47 +241,41 @@ function RequestsChart({ days }: { days: DashboardDay[] }) {
         </span>
       </figcaption>
 
-      {nothing ? (
-        <p className="mt-2 text-sm text-neutral-500">
-          Chưa có request nào trong khoảng này.
-        </p>
-      ) : (
-        <div
-          // A baseline the bars sit on: without one, a short bar floats and the
-          // eye has nothing to measure it against.
-          className="mt-3 flex h-32 items-end gap-0.5 border-b border-neutral-200"
-          role="img"
-          aria-label={`Số request mỗi ngày, cao nhất ${busiest} lượt`}
-        >
-          {days.map((day) => (
+      <div
+        // A baseline the bars sit on: without one, a short bar floats and the
+        // eye has nothing to measure it against.
+        className="mt-3 flex h-32 items-end gap-0.5 border-b border-neutral-200"
+        role="img"
+        aria-label={`Số request mỗi ngày, cao nhất ${busiest} lượt`}
+      >
+        {days.map((day) => (
+          <div
+            key={day.day}
+            className="group relative flex h-full flex-1 flex-col justify-end"
+            // The hit target is the whole column, not the bar: a quiet day is
+            // three pixels tall and otherwise unhoverable.
+            title={`${vnDay(day.day)}: ${day.calls} request · ${usd(day.costUsd)}`}
+          >
+            {day.calls === busiest ? (
+              <span className="mb-0.5 text-center text-[10px] tabular-nums text-neutral-500">
+                {day.calls}
+              </span>
+            ) : null}
             <div
-              key={day.day}
-              className="group relative flex h-full flex-1 flex-col justify-end"
-              // The hit target is the whole column, not the bar: a quiet day is
-              // three pixels tall and otherwise unhoverable.
-              title={`${vnDay(day.day)}: ${day.calls} request · ${usd(day.costUsd)}`}
-            >
-              {day.calls === busiest ? (
-                <span className="mb-0.5 text-center text-[10px] tabular-nums text-neutral-500">
-                  {day.calls}
-                </span>
-              ) : null}
-              <div
-                data-testid="bar"
-                data-today={day.day === today ? "true" : undefined}
-                style={{
-                  height: `${Math.max((day.calls / busiest) * 100, day.calls > 0 ? 3 : 0)}%`,
-                }}
-                className={`rounded-t ${
-                  day.day === today
-                    ? "bg-amber-600 group-hover:bg-amber-700"
-                    : "bg-blue-600 group-hover:bg-blue-700"
-                }`}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+              data-testid="bar"
+              data-today={day.day === today ? "true" : undefined}
+              style={{
+                height: `${Math.max((day.calls / busiest) * 100, day.calls > 0 ? 3 : 0)}%`,
+              }}
+              className={`rounded-t ${
+                day.day === today
+                  ? "bg-amber-600 group-hover:bg-amber-700"
+                  : "bg-blue-600 group-hover:bg-blue-700"
+              }`}
+            />
+          </div>
+        ))}
+      </div>
 
       <div className="mt-1 flex justify-between text-[10px] text-neutral-400">
         <span>{vnDay(days[0]?.day ?? "")}</span>
@@ -295,6 +313,189 @@ function RequestsChart({ days }: { days: DashboardDay[] }) {
       </details>
     </figure>
   );
+}
+
+/**
+ * Money spent, running total.
+ *
+ * A line, where the requests are bars, because the two answer different
+ * questions. Requests are a count in a bucket: each day stands alone and the
+ * height is the whole story. A running total is one quantity that only ever
+ * goes up, measured at points along the way — the slope between two points is
+ * real information (how fast it is being spent), which is exactly what a line
+ * shows and a row of bars hides.
+ *
+ * Drawn as an SVG with a viewBox rather than sized in pixels, so it fits
+ * whatever width it is given.
+ */
+function SpendChart({ days }: { days: DashboardDay[] }) {
+  let running = 0;
+  const points = days.map((day) => {
+    running += Number(day.costUsd) || 0;
+    return { day: day.day, total: running, spent: Number(day.costUsd) || 0 };
+  });
+
+  const highest = points.at(-1)?.total ?? 0;
+  // Nothing spent means a flat line along zero, which says less than the tile
+  // above it already does.
+  if (highest <= 0) return null;
+
+  const width = 100;
+  const height = 32;
+  const x = (index: number) =>
+    points.length === 1 ? 0 : (index / (points.length - 1)) * width;
+  const y = (total: number) => height - (total / highest) * height;
+
+  const line = points
+    .map((point, index) => `${x(index)},${y(point.total)}`)
+    .join(" ");
+
+  return (
+    <figure className="m-0">
+      <figcaption className="text-sm font-medium text-neutral-700">
+        Tiền đã dùng, cộng dồn
+      </figcaption>
+
+      <div className="relative mt-3">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
+          className="h-28 w-full border-b border-neutral-200"
+          role="img"
+          aria-label={`Tiền đã dùng cộng dồn, tổng ${usd(String(highest))}`}
+        >
+          {/* Filled underneath, faintly: it says "this is an accumulation"
+              without the fill competing with the line for attention. */}
+          <polygon
+            points={`0,${height} ${line} ${width},${height}`}
+            className="fill-amber-600/10"
+          />
+          <polyline
+            points={line}
+            className="fill-none stroke-amber-600"
+            strokeWidth={2}
+            // Scaled by the viewBox otherwise, which would make the line
+            // thicker on a wide screen than a narrow one.
+            vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            data-testid="spend-line"
+          />
+        </svg>
+
+        {/* Hit targets, one per day, over the whole height. A point on a line
+            is four pixels wide and unhoverable; a column is not. */}
+        <div className="absolute inset-0 flex">
+          {points.map((point) => (
+            <div
+              key={point.day}
+              className="flex-1"
+              title={`${vnDay(point.day)}: +${usd(String(point.spent))} · cộng dồn ${usd(String(point.total))}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-1 flex justify-between text-[10px] text-neutral-400">
+        <span>{vnDay(days[0]?.day ?? "")}</span>
+        {/* The end of the line is the number anyone came for, so it is written
+            out rather than left to be read off an axis. */}
+        <span className="tabular-nums text-neutral-500">
+          {usd(String(highest))}
+        </span>
+      </div>
+    </figure>
+  );
+}
+
+/**
+ * How many things are sitting in each status.
+ *
+ * Horizontal bars, not a pie: these are counts to be compared, and a length
+ * along a common baseline is read accurately where an angle is not. Horizontal
+ * rather than vertical because the labels are words — sideways text is the
+ * usual price of a vertical bar chart of named categories.
+ */
+function StatusBars({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { label: string; count: number; bad?: boolean }[];
+}) {
+  const present = rows.filter((row) => row.count > 0);
+  if (present.length === 0) return null;
+
+  const most = Math.max(...present.map((row) => row.count));
+
+  return (
+    <figure className="m-0">
+      <figcaption className="text-sm font-medium text-neutral-700">
+        {title}
+      </figcaption>
+
+      <ul className="mt-2 flex flex-col gap-1.5">
+        {present.map((row) => (
+          <li key={row.label} className="flex items-center gap-2 text-xs">
+            <span className="w-24 shrink-0 text-neutral-500">{row.label}</span>
+            <span className="h-2.5 flex-1 rounded bg-neutral-100">
+              <span
+                data-testid="status-bar"
+                style={{ width: `${Math.max((row.count / most) * 100, 4)}%` }}
+                // Failures wear the status colour and say so in the label
+                // beside them; nothing here is colour alone.
+                className={`block h-2.5 rounded ${
+                  row.bad ? "bg-rose-700" : "bg-emerald-600"
+                }`}
+              />
+            </span>
+            <span className="w-8 shrink-0 text-right tabular-nums text-neutral-700">
+              {row.count}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+}
+
+/**
+ * Execution statuses, in Vietnamese, in the order a run goes through them.
+ *
+ * Named rather than shown raw: CREATED, VALIDATING and PLANNING mean nothing to
+ * the person waiting for a post. Anything not listed is folded into "Khác" so a
+ * status added later still shows up somewhere instead of vanishing from the
+ * total.
+ */
+const QUEUE_LABELS: Record<string, string> = {
+  CREATED: "Vừa nhận",
+  VALIDATING: "Đang kiểm",
+  PLANNING: "Đang lập kế hoạch",
+  READY: "Sẵn sàng",
+  SCHEDULED: "Đã xếp lịch",
+  RUNNING: "Đang chạy",
+  WAITING: "Chờ duyệt",
+  RETRYING: "Đang thử lại",
+  PAUSED: "Tạm dừng",
+  CANCELLING: "Đang huỷ",
+  CANCELLED: "Đã huỷ",
+  COMPLETED: "Xong",
+  FAILED: "Hỏng",
+  ARCHIVED: "Lưu trữ",
+};
+
+function queueRows(
+  byStatus: Record<string, number>,
+): { label: string; count: number; bad?: boolean }[] {
+  const rows = Object.entries(byStatus).map(([status, count]) => ({
+    label: QUEUE_LABELS[status] ?? status,
+    count,
+    ...(status === "FAILED" ? { bad: true } : {}),
+  }));
+
+  // Biggest first: a list in status order makes somebody read all of it to
+  // find the line that matters.
+  return rows.sort((a, b) => b.count - a.count);
 }
 
 /** `2026-08-04` → `04/08`. */

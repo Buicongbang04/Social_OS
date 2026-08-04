@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppShell, SectionHeader } from "../../../components/app-shell";
+import { AppShell } from "../../../components/app-shell";
 import {
   StudioPanel,
   type SeededBrief,
@@ -27,10 +27,6 @@ export default function ComposePage() {
     <AppShell>
       {() => (
         <>
-          <SectionHeader
-            title="Soạn nội dung"
-            hint="Viết, viết lại, dịch và kiểm SEO — rồi lưu vào lịch."
-          />
           <StudioPanel seed={seed} />
         </>
       )}

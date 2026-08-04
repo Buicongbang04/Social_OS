@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { AppShell, SectionHeader } from "../../../components/app-shell";
+import { AppShell } from "../../../components/app-shell";
 import { CompetitorPanel } from "../../../components/competitor-panel";
 import { handOffBrief } from "../../../lib/brief";
 
@@ -19,10 +19,6 @@ export default function CompetitorPage() {
     <AppShell>
       {() => (
         <>
-          <SectionHeader
-            title="Phân tích đối thủ"
-            hint="Đọc một trang của đối thủ: họ bán gì, cho ai, và không nói gì."
-          />
           <CompetitorPanel
             onUseAsBrief={(text) => {
               handOffBrief(text);

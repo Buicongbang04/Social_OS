@@ -299,18 +299,6 @@ function Brand({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** A heading for a section, so a page says what it is without a panel doing it. */
-export function SectionHeader({
-  title,
-  hint,
-}: {
-  title: string;
-  hint?: string;
-}) {
-  return (
-    <div>
-      <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
-      {hint ? <p className="mt-0.5 text-sm text-neutral-500">{hint}</p> : null}
-    </div>
-  );
-}
+// There is deliberately no page heading component any more. The sidebar
+// already says which section is open, and repeating it at the top of the page
+// cost a line of the screen to tell the reader what they just clicked.

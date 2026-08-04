@@ -405,6 +405,14 @@ export type DashboardReport = {
     awaitingApproval: number;
     running: number;
     failed: number;
+    /**
+     * Every status with at least one Execution in it.
+     *
+     * These do not overlap, unlike the summed fields above — an Execution is in
+     * exactly one status — so a chart can be drawn from them without
+     * double-counting.
+     */
+    byStatus: Record<string, number>;
   };
   content: {
     drafts: number;

@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell, SectionHeader } from "../../components/app-shell";
+import { AppShell } from "../../components/app-shell";
 import { GoalPanel } from "../../components/goal-panel";
 
 /**
@@ -15,10 +15,6 @@ export default function AutomationPage() {
     <AppShell>
       {(workspace) => (
         <>
-          <SectionHeader
-            title="Tự động"
-            hint="Mô tả mục tiêu bằng lời, runtime tự tách bước và chạy."
-          />
           <GoalPanel workspace={workspace} />
         </>
       )}

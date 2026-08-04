@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell, SectionHeader } from "../components/app-shell";
+import { AppShell } from "../components/app-shell";
 import { DashboardPanel } from "../components/dashboard-panel";
 import { ReportPanel } from "../components/report-panel";
 
@@ -17,10 +17,6 @@ export default function OverviewPage() {
     <AppShell>
       {() => (
         <>
-          <SectionHeader
-            title="Tổng quan"
-            hint="Có gì hỏng, và mọi thứ đang ra sao."
-          />
           <DashboardPanel />
           <ReportPanel />
         </>

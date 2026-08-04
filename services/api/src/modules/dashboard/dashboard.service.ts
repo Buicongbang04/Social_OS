@@ -45,6 +45,15 @@ export type DashboardReport = {
     awaitingApproval: number;
     running: number;
     failed: number;
+    /**
+     * Every status with at least one Execution in it.
+     *
+     * Carried raw as well as summarised because the fields above overlap —
+     * `unfinished` contains `running` and `awaitingApproval` — and a chart
+     * drawn from overlapping numbers double-counts. These do not overlap: an
+     * Execution is in exactly one status.
+     */
+    byStatus: Record<string, number>;
   };
   content: {
     drafts: number;
@@ -117,6 +126,7 @@ export class DashboardService {
         awaitingApproval: executionStatuses.WAITING ?? 0,
         running: executionStatuses.RUNNING ?? 0,
         failed: executionStatuses.FAILED ?? 0,
+        byStatus: executionStatuses,
       },
       content: {
         drafts: pieceStatuses.DRAFT ?? 0,

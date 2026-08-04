@@ -122,6 +122,24 @@ describe("DashboardService", () => {
     expect(report.queue.failed).toBe(5);
   });
 
+  it("carries the statuses raw as well, because the summed fields overlap", async () => {
+    // `unfinished` contains `running` and `awaitingApproval`. A chart drawn
+    // from those three would count the same Execution up to three times; these
+    // do not overlap.
+    const byStatus = { WAITING: 3, RUNNING: 4, COMPLETED: 100 };
+    executions.countByStatus.mockResolvedValue(byStatus);
+
+    const report = await service().overview(WORKSPACE, {
+      days: 7,
+      timeZone: TZ,
+    });
+
+    expect(report.queue.byStatus).toEqual(byStatus);
+    expect(
+      Object.values(report.queue.byStatus).reduce((a, b) => a + b, 0),
+    ).toBe(107);
+  });
+
   it("leaves finished executions out of the waiting count", async () => {
     executions.countByStatus.mockResolvedValue({
       COMPLETED: 40,

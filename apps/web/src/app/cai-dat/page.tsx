@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell, SectionHeader } from "../../components/app-shell";
+import { AppShell } from "../../components/app-shell";
 import { ConnectionsPanel } from "../../components/connections-panel";
 import { DocumentList } from "../../components/document-list";
 import { KeysPanel } from "../../components/keys-panel";
@@ -18,10 +18,6 @@ export default function SettingsPage() {
     <AppShell>
       {() => (
         <>
-          <SectionHeader
-            title="Cài đặt"
-            hint="Khoá, kênh, ghi nhớ và tài liệu — đặt một lần rồi thôi."
-          />
           <KeysPanel />
           <ConnectionsPanel />
           <MemoryPanel />
