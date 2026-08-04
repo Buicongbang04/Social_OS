@@ -46,3 +46,6 @@ docker/volumes/
 docker/.env.compose
 backups/
 secrets/
+
+# Tài khoản đăng nhập viết ra để đưa lại cho chủ máy. Không bao giờ commit.
+account.txt

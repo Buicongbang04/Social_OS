@@ -75,6 +75,9 @@ Quên khai báo không làm route bị mở — `PermissionGuard` từ chối lu
 
 ```bash
 pnpm --filter @repo/api test       # unit, không cần Docker
+# Integration test XOÁ SẠCH dữ liệu tenant. Trỏ DATABASE_URL vào database riêng
+# có tên kết thúc bằng _test (xem packages/database/README.md); chạy vào database
+# thật thì @repo/database từ chối xoá.
 pnpm --filter @repo/api test:int   # integration, cần pnpm docker:up
 ```
 
