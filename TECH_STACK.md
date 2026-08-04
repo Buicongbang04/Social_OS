@@ -1580,6 +1580,44 @@ Hai thứ tìm ra ngay khi viết test đầu tiên: hai thẻ `<select>` chọn
 **không có nhãn**, nên trình đọc màn hình không đọc được chúng — chính điều đó
 làm truy vấn theo role bị nhập nhằng. Đã thêm `aria-label`.
 
+### Đọc trang đối thủ (FR-104, FR-105 — Phase 4)
+
+Hai mục cuối của Trend Discovery, và là hai mục duy nhất còn lại **không cần
+app Meta**.
+
+**robots.txt được kiểm tra trước mỗi lần đọc, và đó không phải phép lịch sự.**
+Nền tảng này đi lấy trang của người khác _thay mặt khách hàng_; một crawler
+phớt lờ robots.txt sẽ khiến IP của khách bị chặn và tên khách nằm trong đơn
+khiếu nại — không ai yêu cầu điều đó. File không tồn tại nghĩa là cứ đọc; file
+**không đọc được** lại là một lời từ chối, vì đi tiếp đồng nghĩa với đoán, và
+đoán sai là lấy đúng thứ người ta bảo đừng lấy.
+
+User agent **xưng danh** chứ không giả làm trình duyệt. Chủ trang đọc log phải
+nhận ra đây là cái gì và chặn được nó một cách có chủ đích.
+
+Mọi thứ còn lại đều từ chối thay vì cố thêm: chỉ http(s), chỉ HTML, chỉ trong
+giới hạn dung lượng đã thoả thuận, và chỉ trong một khoảng chờ — nó chạy bên
+trong một request có người đang đợi.
+
+**Lỗi tìm được bằng cách đọc vnexpress.net, không phải bằng cách đọc code:**
+các tiêu đề được rút từ HTML thô, nên một `<h1>` viết bên trong template
+literal của JavaScript cũng bị tính là tiêu đề — "tiêu đề thứ hai" của trang
+chủ trả về là `'+((articleData['privacy']&8)?' Live '...`. Giờ code bị bóc **một
+lần, trước khi bất kỳ thứ gì đọc cấu trúc trang**.
+
+Trang gần như không có chữ trong HTML thì **báo thẳng** chứ không gửi cho model
+— đó là hình dạng của một trang dựng hoàn toàn bằng JavaScript, và model nhận
+một trang rỗng sẽ bịa ra cả một công ty.
+
+`gaps` — những gì trang **không** nói — là trường hữu ích nhất và cũng dễ bịa
+nhất. Prompt vì thế nêu đích danh loại thông tin cần tìm (giá, phí, thời gian
+giao, đổi trả) thay vì hỏi chung chung "điểm yếu là gì". Trên màn hình nó nằm
+tách hẳn ra, để không bao giờ bị đọc nhầm thành điều đối thủ tuyên bố.
+
+Mỗi lần một trang, do người bấm. Không quét cả site, không chạy nền: khác biệt
+giữa một trang ai đó yêu cầu và một vòng quét tự động chính là khác biệt giữa
+đọc và cào.
+
 ### Xu hướng nối thẳng sang Studio (Phase 4)
 
 Mỗi dòng xu hướng có nút **Viết bài**, đưa một câu brief sang Studio.

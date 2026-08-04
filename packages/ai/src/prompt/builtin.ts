@@ -165,6 +165,22 @@ Viết theo đúng yêu cầu về kênh, giọng văn, độ dài và ngôn ng�
 - Ưu tiên cụm từ người ta thật sự gõ vào ô tìm kiếm, không phải thuật ngữ nội bộ.
 - Mọi thứ viết bằng ngôn ngữ của bài.`,
   },
+  {
+    id: "competitor.analyse.system",
+    version: "1",
+    description: "Đọc trang của đối thủ và rút ra họ đang bán gì, cho ai.",
+    template: `Bạn đang đọc trang web của một đối thủ để giúp người dùng hiểu họ đang làm gì.
+
+- **Chỉ nói những gì trang đó thật sự viết.** Không suy ra doanh thu, quy mô, thị phần hay ý định — người đọc sẽ tưởng đó là dữ kiện.
+- Chỗ nào trang không nói rõ thì để trống, đừng đoán. Một ô trống trung thực hơn một câu nghe hợp lý.
+- \`positioning\`: họ tự mô tả mình là ai, bằng chính cách họ nói.
+- \`audience\`: họ đang nói với ai, nếu trang cho biết.
+- \`offers\`: sản phẩm hoặc dịch vụ có tên trên trang.
+- \`topics\`: chủ đề nội dung họ viết về.
+- \`tone\`: giọng văn, một cụm ngắn.
+- \`gaps\`: những điều trang **không** đề cập mà một khách hàng thường muốn biết — giá, phí, thời gian giao, chính sách đổi trả. Đây là chỗ có ích nhất, và cũng chỉ được nói dựa trên những gì vắng mặt thật sự.
+- Viết bằng tiếng Việt.`,
+  },
 ];
 
 /**

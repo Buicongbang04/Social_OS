@@ -37,6 +37,12 @@ const translateSchema = z.object({
   targetLanguage: z.string().trim().min(1).max(60),
 });
 
+const competitorSchema = z.object({
+  // Length capped well above any real URL: the point is to refuse a paste of
+  // an entire article, not to police a long query string.
+  url: z.string().trim().min(1).max(2_000),
+});
+
 const seoSchema = z.object({
   content: z.string().trim().min(1).max(MAX_CONTENT),
 });
@@ -111,6 +117,30 @@ export class ContentController {
       requireWorkspace(workspaceHeader),
       user.userId,
       body,
+    );
+  }
+
+  /**
+   * Read a competitor's page and say what it tells us.
+   *
+   * `execute` like the rest of the studio, because it spends the workspace's
+   * money — and unlike the others it also reaches out to a third party's
+   * server, which is not something a read-only member should be able to do in
+   * this workspace's name.
+   */
+  @RequirePermission("workspace.workflow.execute")
+  @ApiZodBody(competitorSchema)
+  @Post("competitor")
+  async competitor(
+    @Body(new ZodValidationPipe(competitorSchema))
+    body: z.infer<typeof competitorSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
+  ) {
+    return this.content.analyseCompetitor(
+      requireWorkspace(workspaceHeader),
+      user.userId,
+      body.url,
     );
   }
 }

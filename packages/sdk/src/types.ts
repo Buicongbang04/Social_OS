@@ -382,6 +382,31 @@ export type SpendReport = {
   byModel: (SpendSummary & { provider: string; model: string })[];
 };
 
+/**
+ * What a competitor's page says.
+ *
+ * `gaps` is what the page does **not** cover — usually the most useful field,
+ * and the one a model is most tempted to invent, so the prompt names the kinds
+ * of thing to look for rather than asking for weaknesses in general.
+ */
+export type CompetitorAnalysis = {
+  positioning: string;
+  audience: string;
+  offers: string[];
+  topics: string[];
+  tone: string;
+  gaps: string[];
+};
+
+/** The page itself, as it was read. */
+export type CrawledPage = {
+  url: string;
+  title: string | null;
+  description: string | null;
+  headings: string[];
+  text: string;
+};
+
 export const TREND_SOURCES = ["google", "youtube"] as const;
 export type TrendSourceName = (typeof TREND_SOURCES)[number];
 
