@@ -144,11 +144,28 @@ async function main(): Promise<void> {
    * the alert about it also fails.
    */
   const mailer = mailerConfigFromEnv();
-  if (mailer) {
-    logger.info(
-      { to: mailer.to.length },
-      "email alerts on: sẽ báo khi có bài không đăng được",
-    );
+  const notifier = mailer ? new EmailNotifier(mailer) : null;
+
+  if (notifier) {
+    // Checked now, not at eight in the morning. An alert that cannot be
+    // delivered fails at exactly the moment it is needed, and nobody hears
+    // about that failure either.
+    //
+    // Not awaited: a mail server that hangs must not hold up the runtime, and
+    // publishing without alerts beats not publishing at all.
+    void notifier.check().then((result) => {
+      if (result.ok) {
+        logger.info(
+          { to: mailer!.to.length },
+          "email alerts on: sẽ báo khi có bài không đăng được",
+        );
+      } else {
+        logger.error(
+          { reason: result.reason },
+          "email alerts đã cấu hình nhưng KHÔNG gửi được — bài hỏng sẽ không có ai được báo",
+        );
+      }
+    });
   }
 
   const contentPublisher =
@@ -162,7 +179,7 @@ async function main(): Promise<void> {
           // the same MINIO_* configuration. Null when storage is not set up,
           // and then a scheduled post goes out as words.
           store: knowledge?.store ?? null,
-          notifier: mailer ? new EmailNotifier(mailer) : null,
+          notifier,
           ...(process.env.APP_URL?.trim()
             ? { appUrl: process.env.APP_URL.trim() }
             : {}),
