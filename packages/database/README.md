@@ -35,7 +35,16 @@ pnpm --filter @repo/database db:seed       # seed permission catalog + role matr
 pnpm --filter @repo/database db:studio     # Drizzle Studio
 
 pnpm --filter @repo/database test          # unit test, không cần Docker
-pnpm --filter @repo/database test:int      # integration test, cần Postgres đang chạy
+
+# Integration test XOÁ SẠCH dữ liệu tenant giữa mỗi test. Phải trỏ vào database
+# riêng có tên kết thúc bằng _test; chạy vào database thật thì nó từ chối.
+#
+#   docker exec ai-social-os-postgres-1 psql -U ai_social_os -d postgres \
+#     -c "create database ai_social_os_test"
+#   DATABASE_URL=…/ai_social_os_test pnpm --filter @repo/database db:migrate
+#
+DATABASE_URL=postgresql://ai_social_os:ai_social_os@localhost:5433/ai_social_os_test \
+  pnpm --filter @repo/database test:int
 ```
 
 Seed dev fixture (2 tenant để test cách ly) chỉ chạy khi có `SEED_ADMIN_PASSWORD_HASH` — package này cố tình không phụ thuộc thư viện hash, việc hash thuộc `@repo/auth`.

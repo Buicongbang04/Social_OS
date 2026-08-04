@@ -155,6 +155,46 @@ export class DrizzleAiUsageRepository implements AiUsageRecorder, SpendReader {
   }
 
   /**
+   * The same period, one row per calendar day.
+   *
+   * Bucketed in a named time zone rather than UTC. This platform is run from
+   * Vietnam (UTC+7), where a UTC day boundary falls at 7am — everything done
+   * before breakfast would land on the previous bar, and "hôm nay" on the
+   * dashboard would disagree with the clock on the wall.
+   *
+   * Days with no calls are absent, not zero: filling the gaps needs the whole
+   * range, which the caller has and this query would have to re-derive.
+   */
+  async countByDay(
+    workspaceId: WorkspaceId,
+    from: Date,
+    to: Date,
+    timeZone: string,
+  ): Promise<{ day: string; calls: number; costUsd: string }[]> {
+    return (
+      this.db
+        .select({
+          day: sql<string>`to_char((${aiUsage.timestamp} at time zone ${timeZone})::date, 'YYYY-MM-DD')`,
+          calls: sql<number>`count(*)::int`,
+          costUsd: sql<string>`coalesce(sum(${aiUsage.costUsd}), 0)::text`,
+        })
+        .from(aiUsage)
+        .where(
+          and(
+            eq(aiUsage.workspaceId, workspaceId),
+            gte(aiUsage.timestamp, from),
+            lte(aiUsage.timestamp, to),
+          ),
+        )
+        // By ordinal, not by repeating the expression. The zone arrives as a
+        // bound parameter, so writing it out twice produces two different
+        // placeholders and Postgres refuses the group as not matching.
+        .groupBy(sql`1`)
+        .orderBy(sql`1`)
+    );
+  }
+
+  /**
    * The same period, split by which model was called.
    *
    * A total answers "how much"; this answers "on what", which is the question

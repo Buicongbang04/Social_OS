@@ -32,6 +32,9 @@ Giữ chúng tất định là có chủ ý: bug scheduling hay retry tìm đư�
 ## Test
 
 ```bash
+# Integration test XOÁ SẠCH dữ liệu tenant. Trỏ DATABASE_URL vào database riêng
+# có tên kết thúc bằng _test (xem packages/database/README.md); chạy vào database
+# thật thì @repo/database từ chối xoá.
 pnpm --filter @repo/runtime-service test:int   # cần pnpm docker:up
 ```
 

@@ -37,6 +37,7 @@ import type {
   Inbox,
   RevisedContent,
   SeoContent,
+  DashboardReport,
   SpendReport,
   WrittenContent,
   PostStatsReport,
@@ -407,6 +408,24 @@ export class ApiClient {
    * The ledger has been written since Phase 2 and had no way out until now — a
    * record nobody can read is a record nobody trusts.
    */
+  /**
+   * The overview page's numbers, in one call.
+   *
+   * The time zone goes with the request because the server decides where one
+   * day ends, and a bar chart of "requests per day" bucketed in UTC would move
+   * everything done before 7am in Vietnam onto the previous bar.
+   */
+  async dashboard(
+    days = 14,
+    timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+  ): Promise<DashboardReport> {
+    return this.request<DashboardReport>(
+      "GET",
+      `/dashboard?days=${days}&tz=${encodeURIComponent(timeZone)}`,
+      { workspaceScoped: true },
+    );
+  }
+
   async spend(days = 30): Promise<SpendReport> {
     return this.request<SpendReport>("GET", `/usage?days=${days}`, {
       workspaceScoped: true,

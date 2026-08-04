@@ -29,6 +29,7 @@ import { CampaignsModule } from "./modules/campaigns/campaigns.module";
 import { TrendsModule } from "./modules/trends/trends.module";
 import { ConnectionsModule } from "./modules/connections/connections.module";
 import { ContentModule } from "./modules/content/content.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { MetricsModule } from "./infra/metrics/metrics.module";
 import { SecretsModule } from "./modules/secrets/secrets.module";
 import { DocumentsModule } from "./modules/documents/documents.module";
@@ -78,6 +79,7 @@ import { WorkspacesModule } from "./modules/workspaces/workspaces.module";
     ConnectionsModule,
     ContentModule,
     CampaignsModule,
+    DashboardModule,
     TrendsModule,
     MetricsModule,
   ],
