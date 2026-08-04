@@ -10,6 +10,7 @@ import {
 } from "@repo/sdk";
 import { useCallback, useEffect, useState } from "react";
 import { getClient } from "../lib/api";
+import { ImageCount, ImagePicker, type Candidate } from "./image-picker";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
 
 /**
@@ -235,7 +236,6 @@ export function CalendarPanel() {
             setEditing(null);
             await load();
           }}
-          onError={setError}
         />
       ) : null}
     </Panel>
@@ -554,19 +554,25 @@ function Editor({
   piece,
   onClose,
   onSaved,
-  onError,
 }: {
   piece: ContentPiece;
   onClose: () => void;
   onSaved: () => Promise<void>;
-  onError: (message: string | null) => void;
 }) {
+  /**
+   * Reported inside the dialog, not by the panel behind it.
+   *
+   * It used to call up to the panel, which draws its error under the list —
+   * underneath this overlay. A refused save looked exactly like a button that
+   * does nothing, which is how "nút lưu không hoạt động" got reported.
+   */
+  const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState(piece.title);
   const [body, setBody] = useState(piece.body);
   const [hashtags, setHashtags] = useState(piece.hashtags.join(" "));
   const [scheduledAt, setScheduledAt] = useState(localInput(piece.scheduledAt));
   const [imageKey, setImageKey] = useState<string | null>(piece.imageKey);
-  const [images, setImages] = useState<{ key: string; url: string }[]>([]);
+  const [images, setImages] = useState<Candidate[]>([]);
   const [count, setCount] = useState(1);
   const [busy, setBusy] = useState<"images" | "save" | null>(null);
 
@@ -591,14 +597,14 @@ function Editor({
 
   const draw = async () => {
     setBusy("images");
-    onError(null);
+    setError(null);
     try {
       // Drawn from the text on screen, not from what was saved: the point of
       // being here is usually that the saved text was wrong.
       const result = await getClient().generateImages(body, count);
       setImages(result.images);
     } catch (caught) {
-      onError(describe(caught));
+      setError(describe(caught));
     } finally {
       setBusy(null);
     }
@@ -606,14 +612,14 @@ function Editor({
 
   const save = async () => {
     setBusy("save");
-    onError(null);
+    setError(null);
     try {
       const tags = hashtags
         .split(/[\s,]+/)
         .map((tag) => tag.replace(/^#/, ""))
         .filter(Boolean);
 
-      await getClient().updateContentPiece(piece.id, {
+      const changes = {
         ...(title === piece.title ? {} : { title }),
         ...(body === piece.body ? {} : { body }),
         ...(tags.join(" ") === piece.hashtags.join(" ")
@@ -626,10 +632,21 @@ function Editor({
                 scheduledAt === "" ? null : new Date(scheduledAt).toISOString(),
             }),
         ...(imageKey === piece.imageKey ? {} : { imageKey }),
-      });
+      };
+
+      // Said rather than sent. A save that closes the dialog having written
+      // nothing is indistinguishable from a button that does not work, which
+      // is exactly how it got reported.
+      if (Object.keys(changes).length === 0) {
+        setError("Chưa có gì thay đổi để lưu.");
+        setBusy(null);
+        return;
+      }
+
+      await getClient().updateContentPiece(piece.id, changes);
       await onSaved();
     } catch (caught) {
-      onError(describe(caught));
+      setError(describe(caught));
       setBusy(null);
     }
   };
@@ -705,18 +722,7 @@ function Editor({
               >
                 {piece.imageKey ? "Sinh ảnh khác" : "Sinh ảnh"}
               </PrimaryButton>
-              <select
-                aria-label="Số ảnh"
-                value={String(count)}
-                onChange={(event) => setCount(Number(event.target.value))}
-                className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"
-              >
-                {[1, 2, 3, 4].map((many) => (
-                  <option key={many} value={many}>
-                    {many} ảnh
-                  </option>
-                ))}
-              </select>
+              <ImageCount value={count} onChange={setCount} />
               <span className="text-xs text-neutral-500">
                 khoảng $0.04 mỗi ảnh
               </span>
@@ -741,34 +747,15 @@ function Editor({
               </div>
             ) : null}
 
-            {images.length > 0 ? (
-              <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {images.map((image) => (
-                  <li key={image.key}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setImageKey(imageKey === image.key ? null : image.key)
-                      }
-                      aria-pressed={imageKey === image.key}
-                      className={`block w-full overflow-hidden rounded-md border-2 ${
-                        imageKey === image.key
-                          ? "border-neutral-900"
-                          : "border-transparent hover:border-neutral-300"
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={image.url}
-                        alt="Ảnh đề xuất cho bài viết"
-                        className="aspect-[1.91/1] w-full object-cover"
-                      />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            <ImagePicker
+              images={images}
+              onImagesChange={setImages}
+              value={imageKey}
+              onChange={setImageKey}
+            />
           </div>
+
+          <ErrorNote message={error} />
 
           <div className="flex items-center gap-2 border-t border-neutral-100 pt-3">
             <PrimaryButton

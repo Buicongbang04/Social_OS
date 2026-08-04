@@ -9,6 +9,7 @@ import {
 } from "@repo/sdk";
 import { useEffect, useRef, useState } from "react";
 import { getClient } from "../lib/api";
+import { ImageCount, ImagePicker, type Candidate } from "./image-picker";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
 
 /**
@@ -73,7 +74,7 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
   const [length, setLength] = useState<ContentLength>("vua");
   const [instruction, setInstruction] = useState("");
   /** Pictures drawn for this draft, and which one is going with it. */
-  const [images, setImages] = useState<{ key: string; url: string }[]>([]);
+  const [images, setImages] = useState<Candidate[]>([]);
   const [imageKey, setImageKey] = useState<string | null>(null);
   const [imageCount, setImageCount] = useState(1);
   const [language, setLanguage] = useState("English");
@@ -315,17 +316,7 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
             >
               Sinh ảnh
             </PrimaryButton>
-            <Select
-              name="Số ảnh"
-              value={String(imageCount) as "1" | "2" | "3" | "4"}
-              onChange={(value) => setImageCount(Number(value))}
-              labels={{
-                "1": "1 ảnh",
-                "2": "2 ảnh",
-                "3": "3 ảnh",
-                "4": "4 ảnh",
-              }}
-            />
+            <ImageCount value={imageCount} onChange={setImageCount} />
             {/* Said before the money is spent, not after. */}
             <span className="text-xs text-neutral-500">
               khoảng $0.04 mỗi ảnh
@@ -335,33 +326,15 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
           {images.length > 0 ? (
             <div>
               <p className="mb-1 text-xs text-neutral-500">
-                Bấm để chọn ảnh đăng kèm. Không chọn thì bài đăng không có ảnh.
+                Bấm vào ảnh để xem cỡ lớn. Chọn một ảnh để đăng kèm, hoặc bỏ
+                những ảnh không dùng. Không chọn thì bài đăng không có ảnh.
               </p>
-              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {images.map((image) => (
-                  <li key={image.key}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setImageKey(imageKey === image.key ? null : image.key)
-                      }
-                      aria-pressed={imageKey === image.key}
-                      className={`block w-full overflow-hidden rounded-md border-2 ${
-                        imageKey === image.key
-                          ? "border-neutral-900"
-                          : "border-transparent hover:border-neutral-300"
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={image.url}
-                        alt="Ảnh đề xuất cho bài viết"
-                        className="aspect-[1.91/1] w-full object-cover"
-                      />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <ImagePicker
+                images={images}
+                onImagesChange={setImages}
+                value={imageKey}
+                onChange={setImageKey}
+              />
             </div>
           ) : null}
 

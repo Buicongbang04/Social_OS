@@ -333,10 +333,49 @@ describe("CalendarPanel", () => {
       screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
     );
     const dialog = await screen.findByRole("dialog");
+    const title = within(dialog).getByLabelText("Tiêu đề");
+    await userEvent.clear(title);
+    await userEvent.type(title, "Tên mới");
     await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
 
-    await waitFor(() => expect(client.updateContentPiece).toHaveBeenCalled());
-    expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {});
+    await waitFor(() =>
+      expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {
+        title: "Tên mới",
+      }),
+    );
+  });
+
+  it("says so instead of pretending to save nothing", async () => {
+    // A dialog that closes having written nothing is indistinguishable from a
+    // button that does not work.
+    await show([piece()]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+
+    expect(
+      await within(dialog).findByText(/Chưa có gì thay đổi/),
+    ).toBeVisible();
+    expect(client.updateContentPiece).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed save inside the dialog, not behind it", async () => {
+    // The panel draws its errors under the list, which this overlay covers, so
+    // a refused save looked exactly like a button that does nothing.
+    client.updateContentPiece.mockRejectedValue(new Error("mạng hỏng"));
+    await show([piece()]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText("Tiêu đề"), " thêm");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+
+    expect(await within(dialog).findByText(/mạng hỏng/)).toBeVisible();
   });
 
   it("draws a picture for a piece that never got one", async () => {
@@ -356,8 +395,9 @@ describe("CalendarPanel", () => {
       expect(client.generateImages).toHaveBeenCalledWith("Thân bài", 1),
     );
 
+    // One candidate, and choosing it is explicit.
     await userEvent.click(
-      await within(dialog).findByRole("button", { name: /Ảnh đề xuất/ }),
+      await within(dialog).findByRole("button", { name: "Dùng ảnh này" }),
     );
     await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
 

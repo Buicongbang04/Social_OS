@@ -66,7 +66,9 @@ beforeEach(() => {
 const withImages = async (count?: string) => {
   await withDraft();
   if (count) {
-    await userEvent.selectOptions(screen.getByLabelText("Số ảnh"), count);
+    const input = screen.getByRole("spinbutton", { name: "Số ảnh" });
+    await userEvent.clear(input);
+    await userEvent.type(input, count);
   }
   await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh" }));
   await screen.findAllByRole("img");
@@ -106,7 +108,7 @@ describe("StudioPanel — sinh ảnh", () => {
     await withImages();
 
     await userEvent.click(
-      screen.getAllByRole("button", { name: /Ảnh đề xuất/ })[1]!,
+      screen.getAllByRole("button", { name: "Dùng ảnh này" })[1]!,
     );
     await userEvent.click(screen.getByRole("button", { name: "Lưu vào lịch" }));
 
@@ -117,16 +119,93 @@ describe("StudioPanel — sinh ảnh", () => {
     );
   });
 
-  it("lets a picked picture be unpicked", async () => {
-    // Otherwise the only way back to a post with no image is to start again.
+  it("says in words which picture will be posted", async () => {
+    // A border is a thing somebody has to notice, and a picture posted by
+    // accident is not undoable.
     await withImages();
 
-    const first = screen.getAllByRole("button", { name: /Ảnh đề xuất/ })[0]!;
-    await userEvent.click(first);
-    expect(first).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Dùng ảnh này" })[0]!,
+    );
 
-    await userEvent.click(first);
-    expect(first).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Sẽ đăng kèm")).toBeVisible();
+  });
+
+  it("opens a picture full size, rather than picking it", async () => {
+    // Full size is the only way to see whether the model wrote text into it.
+    await withImages();
+
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Xem ảnh cỡ lớn" })[0]!,
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: "Ảnh cỡ lớn" }),
+    ).toBeVisible();
+    // Looking is not choosing.
+    expect(screen.queryByText("Sẽ đăng kèm")).toBeNull();
+  });
+
+  it("takes a discarded picture off the list", async () => {
+    await withImages();
+
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Bỏ ảnh này" })[0]!,
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: "Xem ảnh cỡ lớn" }),
+    ).toHaveLength(1);
+  });
+
+  it("treats discarding everything else as the choice it is", async () => {
+    // Making somebody delete three pictures and then still click "Dùng" on
+    // the one they kept is asking twice for one decision.
+    await withImages();
+
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Bỏ ảnh này" })[0]!,
+    );
+
+    expect(screen.getByText("Sẽ đăng kèm")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Lưu vào lịch" }));
+
+    await waitFor(() =>
+      expect(client.createContentPiece).toHaveBeenCalledWith(
+        expect.objectContaining({ imageKey: "b.png" }),
+      ),
+    );
+  });
+
+  it("takes the number of pictures as a number somebody types", async () => {
+    await withDraft();
+
+    const count = screen.getByRole("spinbutton", { name: "Số ảnh" });
+    await userEvent.clear(count);
+    await userEvent.type(count, "6");
+    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh" }));
+
+    await waitFor(() =>
+      expect(client.generateImages).toHaveBeenCalledWith("Thân bài", 6),
+    );
+  });
+
+  it("will not let a typo become a bill", async () => {
+    // Each picture is about four cents. "99" is somebody reaching for a
+    // number, not a request for four dollars of pictures.
+    await withDraft();
+
+    const count = screen.getByRole("spinbutton", { name: "Số ảnh" });
+    await userEvent.clear(count);
+    await userEvent.type(count, "99");
+    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh" }));
+
+    await waitFor(() =>
+      expect(client.generateImages).toHaveBeenCalledWith("Thân bài", 8),
+    );
+    // And the box corrects itself rather than leaving 99 on screen.
+    await userEvent.click(document.body);
+    expect(count).toHaveValue(8);
   });
 
   it("says what a picture costs before anybody spends it", async () => {
