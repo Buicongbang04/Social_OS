@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { Metadata, SocialAccountId, WorkspaceId } from "@repo/core";
 import { newId } from "@repo/core";
 import type {
@@ -151,6 +151,25 @@ export class DrizzleSocialAccountRepository implements SocialAccountRepository {
     const row = rows[0];
     if (!row) throw new Error("Connecting the account returned no row.");
     return toAccount(row);
+  }
+
+  async listActiveEverywhere(limit: number): Promise<SocialAccount[]> {
+    const rows = await this.db
+      .select()
+      .from(socialAccounts)
+      .where(
+        and(
+          eq(socialAccounts.status, "ACTIVE"),
+          isNull(socialAccounts.deletedAt),
+        ),
+      )
+      // Oldest check first would need a column to record one. Ordering by
+      // connection age instead is enough while a sweep covers everything it
+      // finds — and it stops the same few rows leading every batch.
+      .orderBy(asc(socialAccounts.connectedAt))
+      .limit(limit);
+
+    return rows.map(toAccount);
   }
 
   async updateStatus(

@@ -187,6 +187,52 @@ export async function listManageablePages(
 }
 
 /**
+ * Ask the platform whether a token still works.
+ *
+ * A read, and the cheapest one there is — the Page's own id. Nothing is posted
+ * and nothing changes; the only question is whether the credential is still
+ * accepted.
+ *
+ * Exists because the alternative is finding out at publish time, which means
+ * finding out by losing a post. A token that expired on Tuesday should be
+ * noticed on Tuesday, not on the morning of the next scheduled campaign.
+ *
+ * A network failure answers `null` rather than "expired": the platform said
+ * nothing, and marking a healthy connection dead because the network hiccuped
+ * would send somebody to reconnect a channel that was never broken.
+ */
+export async function checkCredential(
+  target: PublishTarget,
+  deps: { fetch?: typeof globalThis.fetch; env?: NodeJS.ProcessEnv } = {},
+): Promise<{ ok: boolean; verdict: CredentialVerdict; reason: string | null }> {
+  const call = deps.fetch ?? globalThis.fetch;
+  const url = new URL(`${graphBase(deps.env)}/${target.externalId}`);
+  url.searchParams.set("fields", "id");
+
+  let response: Response;
+  try {
+    response = await call(url.toString(), {
+      headers: { authorization: `Bearer ${target.accessToken}` },
+    });
+  } catch {
+    // Unknown, not unhealthy.
+    return { ok: true, verdict: null, reason: null };
+  }
+
+  const text = await response.text();
+  if (response.ok) return { ok: true, verdict: null, reason: null };
+
+  const verdict = credentialVerdict(text);
+  if (verdict === null) {
+    // A refusal that is not about the credential — a rate limit, a server
+    // error. Reporting it as a dead token would be a guess.
+    return { ok: true, verdict: null, reason: null };
+  }
+
+  return { ok: false, verdict, reason: graphError(text) };
+}
+
+/**
  * Post to a Facebook Page.
  *
  * The first thing in this system that reaches somebody's real audience, which

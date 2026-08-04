@@ -28,6 +28,7 @@ import { buildKnowledgeStack } from "./knowledge";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
 import { startMetricsServer } from "./metrics-server";
 import { EmailNotifier, mailerConfigFromEnv } from "@repo/notify";
+import { ConnectionWatch } from "./connection-watch";
 import { ContentPublisher } from "./content-publisher";
 import { Scheduler } from "./scheduler";
 
@@ -294,10 +295,31 @@ async function main(): Promise<void> {
     }, indexIntervalMs);
   }
 
+  /**
+   * Watches whether the connected channels still work.
+   *
+   * Runs whether or not live publishing is on: a workspace that has connected
+   * a channel wants to know it stopped working regardless of whether anything
+   * is scheduled to go out on it, and finding out from a failed post means
+   * finding out by losing one.
+   */
+  const connectionWatch = keyring
+    ? new ConnectionWatch({
+        accounts: new DrizzleSocialAccountRepository(db),
+        secrets: new DrizzleSecretRepository(db),
+        keyring,
+        notifier,
+        ...(process.env.APP_URL?.trim()
+          ? { appUrl: process.env.APP_URL.trim() }
+          : {}),
+      })
+    : null;
+
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, "shutting down");
     scheduler.stop();
     contentPublisher?.stop();
+    connectionWatch?.stop();
     if (indexing) clearInterval(indexing);
     // Give the in-flight tick a moment to finish rather than killing a task
     // mid-run and relying on reservation recovery to clean up.
@@ -325,7 +347,11 @@ async function main(): Promise<void> {
   // Both loops run for the life of the process; whichever settles first is a
   // failure, and awaiting the race surfaces it instead of leaving one dead.
   await Promise.race(
-    [scheduler.start(), contentPublisher?.start()].filter(Boolean),
+    [
+      scheduler.start(),
+      contentPublisher?.start(),
+      connectionWatch?.start(),
+    ].filter(Boolean),
   );
 }
 
