@@ -1499,6 +1499,34 @@ Một bài mang **kênh**, không mang tài khoản. Nối hai Page thì "đăng
 Facebook" là một câu thiếu tân ngữ, nên nó dừng và nói ra tên cả hai — chọn hộ
 là nền tảng tự quyết định khán giả của người khác.
 
+### `verify:loop` — chạy cả vòng lặp trên Page thật (Phase 4)
+
+`verify:stack` chứng minh **từng mảnh** chạy được. Cái này chứng minh chúng
+**vẫn chạy khi ghép lại**: xu hướng → Studio → lịch → duyệt → đăng → báo cáo.
+Đó là câu hỏi khác, và là câu chỉ hỏng sau khi vài lát cắt trôi xa nhau.
+
+Tách thành lệnh riêng vì nó **tốn một bài đăng thật** trên khán giả của ai đó.
+Không có `FB_TEST_PAGE_ID` thì nó **từ chối chạy** chứ không bỏ qua như
+verify:stack — một lần chạy xanh mà không có Page là một lần chạy không kiểm
+chứng được gì.
+
+Bước đáng giá nhất là bước **không có gì xảy ra**: một bài đã quá giờ mà chưa
+ai duyệt phải đi qua trọn một vòng quét và vẫn nguyên `DRAFT`. Nếu chỗ đó sai
+thì nó sai trên Page của khách, và không server Graph giả nào nói cho biết
+được. Khi bước đó hỏng, script **dừng ngay tại đó** thay vì chạy tiếp — thứ
+duy nhất trong kịch bản này có nghĩa là "ra xem Page ngay".
+
+Thời gian chờ vòng quét để **20 giây**, không phải 2. Chờ quá ngắn thì bước đó
+xanh vì vòng quét chưa kịp chạy — tức là báo cáo tính chất an toàn đang hoạt
+động mà chưa hề kiểm tra nó.
+
+Nội dung bài test **cố định là "test đăng bài"**, không sinh bằng model. Nó
+xuất hiện thật trên trang trong vài giây trước khi bị xoá, và một đoạn quảng
+cáo do model viết là thứ không nên để người lạ nhìn thấy ở đó.
+
+Tạo gì thì dọn nấy: xoá bài, lưu trữ bài và chiến dịch, gỡ kết nối Page. Một
+bài kiểm chứng để lại rác trên Page người ta là bài không ai chạy lần thứ hai.
+
 ### Báo cáo chiến dịch (Phase 4)
 
 Hai nguồn không join được trong cơ sở dữ liệu: bài viết là của mình, còn tương
