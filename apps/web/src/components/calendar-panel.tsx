@@ -63,6 +63,8 @@ export function CalendarPanel() {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<ContentPiece | null>(null);
   const [editing, setEditing] = useState<ContentPiece | null>(null);
+  /** The piece whose deletion is waiting to be confirmed. */
+  const [removing, setRemoving] = useState<ContentPiece | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -116,6 +118,22 @@ export function CalendarPanel() {
    * The only authorisation the publisher has: nothing that is not APPROVED is
    * ever sent, however its date reads.
    */
+  /**
+   * Take a piece off the calendar.
+   *
+   * Confirmed first, because there is no undo button on this screen: the row
+   * is soft-deleted, so the data survives, but nothing here brings it back.
+   */
+  const remove = async (piece: ContentPiece) => {
+    try {
+      await getClient().archiveContentPiece(piece.id);
+      setRemoving(null);
+      await load();
+    } catch (caught) {
+      setError(describe(caught));
+    }
+  };
+
   const setReview = async (piece: ContentPiece, review: ContentReview) => {
     try {
       await getClient().updateContentPiece(piece.id, { review });
@@ -184,6 +202,7 @@ export function CalendarPanel() {
                     onAccount={setAccount}
                     onPreview={setPreview}
                     onEdit={setEditing}
+                    onRemove={setRemoving}
                   />
                 ))}
               </ul>
@@ -205,6 +224,7 @@ export function CalendarPanel() {
                     onAccount={setAccount}
                     onPreview={setPreview}
                     onEdit={setEditing}
+                    onRemove={setRemoving}
                   />
                 ))}
               </ul>
@@ -225,6 +245,14 @@ export function CalendarPanel() {
           }
           accounts={accounts}
           onClose={() => setPreview(null)}
+        />
+      ) : null}
+
+      {removing ? (
+        <ConfirmRemove
+          piece={removing}
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => void remove(removing)}
         />
       ) : null}
 
@@ -249,6 +277,7 @@ function Row({
   onAccount,
   onPreview,
   onEdit,
+  onRemove,
 }: {
   piece: ContentPiece;
   accounts: SocialConnection[];
@@ -256,6 +285,7 @@ function Row({
   onAccount: (piece: ContentPiece, accountId: string) => Promise<void>;
   onPreview: (piece: ContentPiece) => void;
   onEdit: (piece: ContentPiece) => void;
+  onRemove: (piece: ContentPiece) => void;
 }) {
   const onChannel = accounts.filter(
     (account) => account.connectorId === piece.channel,
@@ -380,6 +410,19 @@ function Row({
         </a>
       ) : null}
 
+      {/* Last, and set apart from the rest by colour on hover only: it sits on
+          a row whose everyday action is changing a status, and a delete that
+          looks like the others is a delete that happens by accident. */}
+      <button
+        type="button"
+        onClick={() => onRemove(piece)}
+        aria-label={`Bỏ "${piece.title}"`}
+        title="Bỏ bài này khỏi lịch"
+        className="shrink-0 rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-700"
+      >
+        <TrashIcon />
+      </button>
+
       {piece.lastError ? (
         <span className="w-full text-xs text-red-600">{piece.lastError}</span>
       ) : null}
@@ -399,6 +442,23 @@ function EyeIcon() {
     >
       <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
       <circle cx="12" cy="12" r="2.6" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      aria-hidden
+    >
+      <path d="M4 7h16" />
+      <path d="M9 7V5h6v2" />
+      <path d="M6 7l1 12h10l1-12" />
     </svg>
   );
 }
@@ -532,6 +592,71 @@ function Preview({
             {" · "}
             {PUBLISH_LABELS[piece.status]}
           </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Asked before a piece is thrown away.
+ *
+ * A dialog rather than an instant delete, because nothing on this screen
+ * brings a row back — the delete is soft, so the data is still there, but
+ * finding it again is a database job, not a click.
+ *
+ * The title is repeated in the question. "Bỏ bài này?" on a list of eleven
+ * rows is a question about a row somebody has to trust they clicked.
+ */
+function ConfirmRemove({
+  piece,
+  onCancel,
+  onConfirm,
+}: {
+  piece: ContentPiece;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Xác nhận bỏ bài"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-lg bg-white p-4 shadow-lg"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <p className="text-sm text-neutral-900">
+          Bỏ bài <span className="font-medium">“{piece.title}”</span> khỏi lịch?
+        </p>
+
+        {/* Said where the decision is made. Archiving a published post here
+            leaves it up on Facebook, and somebody deleting it to take it down
+            would otherwise believe they had. */}
+        {piece.publishedPostId ? (
+          <p className="mt-2 text-xs text-amber-800">
+            Bài này đã đăng rồi — bỏ ở đây không gỡ bài trên Facebook.
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100"
+          >
+            Huỷ
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-md bg-red-700 px-3 py-1.5 text-sm text-white hover:bg-red-800"
+          >
+            Bỏ bài
+          </button>
         </div>
       </div>
     </div>

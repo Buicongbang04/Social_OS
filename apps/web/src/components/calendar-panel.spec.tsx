@@ -537,12 +537,91 @@ describe("CalendarPanel", () => {
     ).toBeDisabled();
   });
 
-  it("has no way to throw a piece away from this screen", async () => {
-    // Archiving sat one click from the verdict dropdown, on a row where the
-    // usual action is a status change.
+  it("asks before throwing a piece away", async () => {
+    // Nothing on this screen brings a row back. The delete is soft, so the
+    // data is still there, but finding it again is a database job.
     await show([piece()]);
 
-    expect(screen.queryByRole("button", { name: "Bỏ" })).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Bỏ "Bài viết"' }),
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: "Xác nhận bỏ bài" }),
+    ).toBeVisible();
+    expect(client.archiveContentPiece).not.toHaveBeenCalled();
+  });
+
+  it("names the piece in the question", async () => {
+    // "Bỏ bài này?" on a list of eleven rows is a question about a row
+    // somebody has to trust they clicked.
+    await show([piece()]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Bỏ "Bài viết"' }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Bài viết/)).toBeVisible();
+  });
+
+  it("throws it away once, after the confirmation", async () => {
+    await show([piece()]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Bỏ "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Bỏ bài" }),
+    );
+
+    await waitFor(() =>
+      expect(client.archiveContentPiece).toHaveBeenCalledWith("cnt_1"),
+    );
+    expect(client.archiveContentPiece).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the piece when the question is answered no", async () => {
+    await show([piece()]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Bỏ "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Huỷ" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(client.archiveContentPiece).not.toHaveBeenCalled();
+  });
+
+  it("warns that binning a published post leaves it up on Facebook", async () => {
+    // Somebody deleting it to take it down would otherwise believe they had.
+    await show([piece({ status: "PUBLISHED", publishedPostId: "p_1" })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Bỏ "Bài viết"' }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(/không gỡ bài trên Facebook/),
+    ).toBeVisible();
+  });
+
+  it("reloads the list after a piece is thrown away", async () => {
+    await show([piece()]);
+    client.listContentPieces.mockClear();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Bỏ "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Bỏ bài" }),
+    );
+
+    await waitFor(() => expect(client.listContentPieces).toHaveBeenCalled());
   });
 
   it("says what went wrong instead of failing silently", async () => {
