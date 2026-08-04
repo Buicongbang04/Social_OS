@@ -3,6 +3,7 @@
 import { isApiError, type Workspace } from "@repo/sdk";
 import { useState } from "react";
 import { getClient } from "../lib/api";
+import { AlertBanner } from "./alert-banner";
 import { CalendarPanel } from "./calendar-panel";
 import { ChatPanel } from "./chat-panel";
 import { CompetitorPanel } from "./competitor-panel";
@@ -87,6 +88,11 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Above everything, including the box people came here to type in. What
+          it reports — a dead channel, posts that never went out — makes the
+          rest of the screen misleading until it is dealt with. */}
+      <AlertBanner />
+
       <Panel
         title="Mô tả điều bạn muốn"
         subtitle="Viết bằng ngôn ngữ tự nhiên. Runtime sẽ tự tách thành các bước và chạy theo đúng thứ tự phụ thuộc."
