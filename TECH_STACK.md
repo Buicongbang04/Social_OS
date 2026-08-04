@@ -1580,6 +1580,17 @@ Hai thứ tìm ra ngay khi viết test đầu tiên: hai thẻ `<select>` chọn
 **không có nhãn**, nên trình đọc màn hình không đọc được chúng — chính điều đó
 làm truy vấn theo role bị nhập nhằng. Đã thêm `aria-label`.
 
+Đợt phủ nốt bốn panel còn lại (Kênh, Kho khoá, Hộp thư, Chat) tìm ra thêm hai
+thứ cùng loại. Nút xoá hội thoại có nhãn hiển thị là `×`, và `title` **không**
+sửa được điều đó — nội dung chữ thắng `title` khi trình duyệt tính accessible
+name, nên trình đọc màn hình chỉ đọc "times". Đã thêm `aria-label` kèm tên hội
+thoại.
+
+Và một test của chính tôi **xanh vì lý do sai**: nó kiểm "ô nhập user token đã
+biến mất" sau khi nối Page — nhưng ô đó biến mất vì cả panel đóng lại, chứ
+không phải vì token bị xoá. Break-check bỏ dòng `setUserToken("")` đi mà test
+vẫn xanh. Giờ nó mở lại panel và kiểm ô rỗng.
+
 ### Ảnh bìa cho bài đăng: sharp `0.35` (Phase 4)
 
 Media là nhóm duy nhất của Phase 4 chưa có gì. Sinh ảnh và sinh video cần khoá

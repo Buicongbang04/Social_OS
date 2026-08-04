@@ -222,6 +222,10 @@ export function ChatPanel() {
             <button
               type="button"
               onClick={() => void remove(thread)}
+              // The visible label is "×", which a screen reader announces as
+              // "times" and nothing more. `title` alone does not fix that:
+              // text content wins over it when a name is computed.
+              aria-label={`Xoá hội thoại ${thread.title || ""}`.trim()}
               title="Xoá hội thoại"
               className="opacity-0 transition-opacity group-hover:opacity-100"
             >
