@@ -55,6 +55,18 @@ beforeEach(() => {
 });
 
 describe("StudioPanel", () => {
+  it("writes for Facebook and no other social network", async () => {
+    // The one channel this platform can actually publish to. Offering TikTok
+    // or Threads produced drafts nothing here could ever post, which reads as
+    // a broken publisher rather than a channel that was never connected.
+    render(<StudioPanel />);
+
+    const channels = screen.getByLabelText("Kênh");
+    expect(
+      [...channels.querySelectorAll("option")].map((option) => option.value),
+    ).toEqual(["facebook", "blog", "email"]);
+  });
+
   it("saves a draft with no date rather than defaulting to now", async () => {
     // "Written, not scheduled yet" is a real state, and the calendar shows it.
     await withDraft();

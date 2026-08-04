@@ -71,7 +71,7 @@ describe("writeContent", () => {
       { gateway: gatewayReturning(WRITTEN, seen) },
       {
         brief: "b",
-        channel: "tiktok",
+        channel: "facebook",
         tone: "hai-huoc",
         length: "ngan",
         language: "tiếng Việt",

@@ -20,8 +20,6 @@ import { ErrorNote, Panel, PrimaryButton } from "./ui";
  */
 const CHANNEL_LABELS: Record<ContentChannel, string> = {
   facebook: "Facebook",
-  tiktok: "TikTok",
-  threads: "Threads",
   blog: "Blog",
   email: "Email",
 };
@@ -230,9 +228,24 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Select value={channel} onChange={setChannel} labels={CHANNEL_LABELS} />
-        <Select value={tone} onChange={setTone} labels={TONE_LABELS} />
-        <Select value={length} onChange={setLength} labels={LENGTH_LABELS} />
+        <Select
+          name="Kênh"
+          value={channel}
+          onChange={setChannel}
+          labels={CHANNEL_LABELS}
+        />
+        <Select
+          name="Giọng văn"
+          value={tone}
+          onChange={setTone}
+          labels={TONE_LABELS}
+        />
+        <Select
+          name="Độ dài"
+          value={length}
+          onChange={setLength}
+          labels={LENGTH_LABELS}
+        />
         <PrimaryButton
           busy={busy === "write"}
           onClick={() => void write()}
@@ -391,16 +404,20 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
 }
 
 function Select<T extends string>({
+  name,
   value,
   onChange,
   labels,
 }: {
+  /** What this box chooses. Three unnamed dropdowns in a row name nothing. */
+  name: string;
   value: T;
   onChange: (value: T) => void;
   labels: Record<T, string>;
 }) {
   return (
     <select
+      aria-label={name}
       value={value}
       onChange={(event) => onChange(event.target.value as T)}
       className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"

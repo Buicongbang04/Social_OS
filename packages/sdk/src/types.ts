@@ -538,13 +538,7 @@ export type ContentPiece = {
   lastError: string | null;
 };
 
-export const CONTENT_CHANNELS = [
-  "facebook",
-  "tiktok",
-  "threads",
-  "blog",
-  "email",
-] as const;
+export const CONTENT_CHANNELS = ["facebook", "blog", "email"] as const;
 export type ContentChannel = (typeof CONTENT_CHANNELS)[number];
 
 export const CONTENT_TONES = [
