@@ -24,7 +24,11 @@ type Result = {
  * the difference between one page somebody asked for and a background sweep is
  * the difference between reading and scraping.
  */
-export function CompetitorPanel() {
+export function CompetitorPanel({
+  onUseAsBrief,
+}: {
+  onUseAsBrief?: (brief: string) => void;
+}) {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,7 +51,7 @@ export function CompetitorPanel() {
   return (
     <Panel
       title="Đối thủ"
-      subtitle="Dán một địa chỉ trang. Đọc xem họ bán gì, cho ai, và không nói gì."
+      subtitle="Dán một địa chỉ trang. Đọc xem họ bán gì, cho ai, và không nói gì — rồi viết vào đúng chỗ họ bỏ trống."
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
@@ -102,9 +106,27 @@ export function CompetitorPanel() {
               <p className="mb-1 text-xs font-medium text-amber-900">
                 Trang này không nói gì về
               </p>
-              <ul className="text-amber-900">
+              <ul className="flex flex-col gap-1 text-amber-900">
                 {result.object.gaps.map((gap) => (
-                  <li key={gap}>· {gap}</li>
+                  <li key={gap} className="flex flex-wrap items-baseline gap-2">
+                    <span className="min-w-0 flex-1">· {gap}</span>
+                    {/* The whole point of reading a competitor: a gap is only
+                        worth knowing if something can be written into it.
+                        Offered per gap rather than once for all of them,
+                        because one post cannot answer four different silences
+                        and pretending otherwise produces a post about nothing. */}
+                    {onUseAsBrief ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onUseAsBrief(briefFrom(result.page, gap))
+                        }
+                        className="shrink-0 text-xs underline hover:text-amber-950"
+                      >
+                        Viết bài về chỗ này
+                      </button>
+                    ) : null}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -128,6 +150,34 @@ export function CompetitorPanel() {
       <ErrorNote message={error} />
     </Panel>
   );
+}
+
+/**
+ * The brief a gap turns into.
+ *
+ * It says what the competitor left out and asks for a post that covers it —
+ * and stops there. It does **not** tell the model to say the competitor is
+ * missing something: the page not mentioning delivery times is not evidence
+ * they are slow, and a brief that implies otherwise produces a claim about
+ * somebody else's business that nobody checked.
+ *
+ * The competitor is named by host, not by URL, because the host is what a
+ * person recognises and the path is noise in a brief.
+ */
+function briefFrom(page: CrawledPage, gap: string): string {
+  return [
+    `Đối thủ ${hostOf(page.url)} không nói gì về: ${gap}.`,
+    "Viết một bài nói rõ phần này cho khách của mình.",
+    "Chỉ nói về mình, không nhắc tới đối thủ và không suy đoán gì về họ.",
+  ].join(" ");
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
 }
 
 function Chips({ label, items }: { label: string; items: string[] }) {

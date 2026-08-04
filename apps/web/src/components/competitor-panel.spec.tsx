@@ -102,6 +102,74 @@ describe("CompetitorPanel", () => {
     expect(screen.queryByText("Mua hộ hàng Nhật, phí rõ ràng")).toBeNull();
   });
 
+  it("turns a gap into a brief naming the competitor by host", async () => {
+    const used = vi.fn();
+    render(<CompetitorPanel onUseAsBrief={used} />);
+    await userEvent.type(
+      screen.getByPlaceholderText(/https:\/\/doithu/),
+      "https://doithu.com/",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Đọc trang" }));
+    await screen.findByText(/Không nói chính sách đổi trả/);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Viết bài về chỗ này" }),
+    );
+
+    const brief = used.mock.calls[0]![0] as string;
+    expect(brief).toContain("doithu.com");
+    expect(brief).toContain("Không nói chính sách đổi trả");
+  });
+
+  it("tells the brief not to talk about the competitor at all", async () => {
+    // A page not mentioning delivery times is not evidence anyone is slow. A
+    // brief that implied it would produce a claim about somebody else's
+    // business that nobody checked.
+    const used = vi.fn();
+    render(<CompetitorPanel onUseAsBrief={used} />);
+    await userEvent.type(
+      screen.getByPlaceholderText(/https:\/\/doithu/),
+      "https://doithu.com/",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Đọc trang" }));
+    await screen.findByText(/Không nói chính sách đổi trả/);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Viết bài về chỗ này" }),
+    );
+
+    expect(used.mock.calls[0]![0]).toContain("không nhắc tới đối thủ");
+  });
+
+  it("offers one button per gap, not one for all of them", async () => {
+    // One post cannot answer four different silences, and pretending it can
+    // produces a post about nothing.
+    const used = vi.fn();
+    client.analyseCompetitor.mockResolvedValue(
+      result({ object: { gaps: ["Không nói giá", "Không nói phí ship"] } }),
+    );
+    render(<CompetitorPanel onUseAsBrief={used} />);
+    await userEvent.type(
+      screen.getByPlaceholderText(/https:\/\/doithu/),
+      "https://doithu.com/",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Đọc trang" }));
+    await screen.findByText(/Không nói giá/);
+
+    expect(
+      screen.getAllByRole("button", { name: "Viết bài về chỗ này" }),
+    ).toHaveLength(2);
+  });
+
+  it("offers no write button where there is nowhere to write to", async () => {
+    await analyse();
+    await screen.findByText(/Không nói chính sách đổi trả/);
+
+    expect(
+      screen.queryByRole("button", { name: "Viết bài về chỗ này" }),
+    ).toBeNull();
+  });
+
   it("will not read an empty address", async () => {
     render(<CompetitorPanel />);
 

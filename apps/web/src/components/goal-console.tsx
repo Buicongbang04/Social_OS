@@ -201,7 +201,11 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
       {/* Beside the trends, because both answer the same question from
           different sides: what people are looking for, and what the people
           already selling to them are saying. */}
-      <CompetitorPanel />
+      <CompetitorPanel
+        onUseAsBrief={(text) =>
+          setSeed({ text, nonce: (seed?.nonce ?? 0) + 1 })
+        }
+      />
 
       {/* First of the working panels: most sessions start with somebody
           wanting to write something, not with a Goal. */}
