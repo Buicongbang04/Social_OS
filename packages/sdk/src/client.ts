@@ -612,6 +612,22 @@ export class ApiClient {
     });
   }
 
+  /**
+   * Draw a picture for a piece from a description.
+   *
+   * Shares the piece's one image slot with the banner: asking for a generated
+   * image replaces a banner, and the other way round.
+   */
+  async generateImage(
+    id: string,
+    prompt: string,
+  ): Promise<{ piece: ContentPiece; url: string; costUsd: string }> {
+    return this.request("POST", `/content-pieces/${id}/image`, {
+      body: { prompt },
+      workspaceScoped: true,
+    });
+  }
+
   async archiveContentPiece(id: string): Promise<void> {
     await this.request<void>("DELETE", `/content-pieces/${id}`, {
       workspaceScoped: true,

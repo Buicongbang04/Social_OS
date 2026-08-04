@@ -1609,16 +1609,17 @@ phí, không cần thẻ) đổi được điều đó.
 Nên **sinh ảnh không làm được miễn phí** dù có khoá: Google cắt hạn mức ảnh
 miễn phí về 0 từ đợt 12/2025, phải bật thanh toán mới gọi được.
 
-**Ngày 4/8/2026 đã quyết định bỏ hẳn sinh ảnh và sinh video.** Không phải vì
-khó — đường có sẵn và rẻ (~$1/tháng cho 30 ảnh qua Google, hoặc Stable
-Diffusion cục bộ miễn phí trên RTX 3050). Mà vì nhu cầu thật đã được đáp ứng:
-ảnh bìa vẽ từ chính chữ đã viết. Nó có một tính chất mà model sinh ảnh không
-có — **không bao giờ vẽ ra thứ không tồn tại**. Một tấm ảnh sản phẩm do model
-tưởng tượng, đăng dưới tên một cửa hàng bán hàng thật, là thứ rủi ro hơn nhiều
-so với việc không có ảnh.
+**Đường đi được là Vertex AI, không phải AI Studio.** Cùng một model
+`gemini-2.5-flash-image`: qua khoá AI Studio thì `RESOURCE_EXHAUSTED`, qua
+service account và Vertex thì chạy. Khác nhau ở chỗ Vertex **không có bậc miễn
+phí** — nó tính tiền ngay, khoảng $0.04 một ảnh.
 
-Video thì không có đường nào rẻ: Veo và Sora tính theo giây, còn sinh video cục
-bộ trên 4 GB VRAM không thực tế.
+Hai đường xác thực cũng khác: AI Studio nhận `?key=`, còn Vertex đòi OAuth từ
+service account. Khoá service account gửi vào `generativelanguage.googleapis.com`
+trả `insufficient authentication scopes` — không phải sai khoá, mà là sai cửa.
+
+**Video thì dự án không làm** (quyết định 4/8/2026): Veo và Sora tính theo giây,
+sinh video cục bộ trên 4 GB VRAM không thực tế, và nhu cầu thật dừng ở ảnh.
 
 Khoá AI Studio đời mới có dạng `AQ.Ab8…` chứ không còn `AIza…`. Ghi ra vì nhìn
 nó **không giống** một khoá API và dễ bị tưởng là dán nhầm — chính tôi đã tưởng
@@ -1785,6 +1786,34 @@ người khác nhau. Con số trên tiêu đề thì **cộng cả hai**, vì c�
 đang chờ.
 
 Vẫn **không có ô trả lời**, cùng lý do với hộp thư.
+
+### Sinh ảnh bằng AI, bên cạnh ảnh bìa (Phase 4)
+
+Hai nút, không phải một. **Ảnh bìa** vẽ từ chính chữ đã viết, miễn phí, và
+không bao giờ vẽ ra thứ bài không nói. **Sinh ảnh AI** gọi model, tốn khoảng
+$0.04 mỗi lần, và vẽ được thứ bài chưa từng tuyên bố. Gộp một nút nghĩa là
+người dùng chọn giữa hai thứ đó **một cách tình cờ**.
+
+Lời nhắc là chữ người dùng gõ, **không phải nội dung bài**. Model nhận một đoạn
+quảng cáo sẽ vẽ chính mấy chữ đó lên ảnh; nhận một mô tả bức ảnh thì vẽ bức ảnh.
+Hộp nhập nói rõ điều này ngay chỗ gõ.
+
+Huỷ hộp thoại hoặc để trống thì **không gọi gì cả**. Mỗi lời gọi là bốn xu; một
+cú bấm nhầm không được là một lần tiêu tiền.
+
+Ảnh dùng chung ô `image_key` với ảnh bìa, vì một bài có một tấm ảnh. Sinh ảnh
+AI thay ảnh bìa và ngược lại — hai ô sẽ đẩy quyết định "đăng cái nào" sang lúc
+đăng, mà lúc đó không có câu trả lời đúng.
+
+Khoá service account **gắn bằng volume, không nướng vào image**: một khoá riêng
+nằm trong layer là một khoá riêng nằm trong mọi bản sao của image đó.
+
+Vào sổ chi phí như mọi lời gọi AI khác. Đây là lời gọi **đắt nhất** hệ thống
+thực hiện — khoảng 1.290 token đầu ra một tấm — nên một thao tác không đo được
+là cách hoá đơn thôi khớp với bảng chi tiêu.
+
+Kiểm chứng thật qua API: ảnh 1.384 KB trong 9,4 giây, tải về được bằng link ký
+sẵn, và `$0.04003050` nằm đúng trong `ai_usage` với `priced = true`.
 
 ### Ảnh bìa cho bài đăng: sharp `0.35` (Phase 4)
 

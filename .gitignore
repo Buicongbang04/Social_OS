@@ -45,3 +45,4 @@ docker/volumes/
 # Biến môi trường thật khi chạy cụm Docker. Chỉ commit bản .example.
 docker/.env.compose
 backups/
+secrets/

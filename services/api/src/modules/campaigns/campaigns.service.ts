@@ -8,14 +8,26 @@ import type {
   ContentPiece,
   ContentPieceRepository,
 } from "@repo/domain";
+import {
+  generateVertexImage,
+  priceOf,
+  serviceAccountFromEnv,
+  type ServiceAccount,
+} from "@repo/ai";
+import type { AiUsageRecorder } from "@repo/ai";
+import { newId } from "@repo/core";
 import { renderBanner, type BannerSize } from "@repo/media";
 import type { ObjectStore } from "@repo/storage";
+import { AI_USAGE_REPOSITORY } from "../../infra/database/database.module";
 import { OBJECT_STORE } from "../../infra/storage/storage.module";
 import {
   CAMPAIGN_REPOSITORY,
   CONTENT_PIECE_REPOSITORY,
 } from "../../infra/database/database.module";
 import { ConnectionsService } from "../connections/connections.service";
+
+/** What draws the pictures. */
+const IMAGE_MODEL = "gemini-2.5-flash-image";
 
 /** How many recent posts to read engagement for, per connected Page. */
 const STATS_WINDOW = 50;
@@ -67,7 +79,19 @@ export class CampaignsService {
     // MinIO still runs, and only the picture is missing.
     @Inject(OBJECT_STORE)
     private readonly store: ObjectStore | null,
+    @Inject(AI_USAGE_REPOSITORY)
+    private readonly usage: AiUsageRecorder,
   ) {}
+
+  /**
+   * The model that draws.
+   *
+   * Fixed rather than configurable. A different image model has a different
+   * price and a different response shape, and the one place that matters would
+   * be silently wrong for both.
+   */
+  private readonly serviceAccount: ServiceAccount | null =
+    serviceAccountFromEnv();
 
   /**
    * Draw a banner for a piece and keep it.
@@ -129,6 +153,126 @@ export class CampaignsService {
     return {
       piece: stored ?? piece,
       url: await this.store.presignGet(location),
+    };
+  }
+
+  /**
+   * Draw a picture for a piece from a description, and keep it.
+   *
+   * Shares `imageKey` with the banner, because a piece has one picture. Asking
+   * for a generated image replaces a banner and the other way round — two
+   * slots would mean deciding at publish time which one goes out, and that
+   * decision has no right answer.
+   *
+   * The prompt is the caller's, not the post's. A model handed marketing copy
+   * draws the words; handed a description of a photograph it draws the
+   * photograph.
+   */
+  async generateImageFor(
+    workspaceId: WorkspaceId,
+    id: ContentPieceId,
+    userId: UserId,
+    prompt: string,
+  ): Promise<{ piece: ContentPiece; url: string; costUsd: string }> {
+    if (!this.store) {
+      throw new ValidationError(
+        "Chưa cấu hình kho lưu trữ. Đặt MINIO_URL để dùng được ảnh.",
+      );
+    }
+    if (!this.serviceAccount) {
+      throw new ValidationError(
+        "Chưa cấu hình sinh ảnh. Đặt GOOGLE_SERVICE_ACCOUNT trỏ tới khoá service account có quyền Vertex AI.",
+      );
+    }
+
+    const piece = await this.pieces.find(workspaceId, id);
+    if (!piece) throw new NotFoundError("Không tìm thấy nội dung.");
+
+    const image = await generateVertexImage(
+      {
+        serviceAccount: this.serviceAccount,
+        ...(process.env.GOOGLE_VERTEX_LOCATION?.trim()
+          ? { location: process.env.GOOGLE_VERTEX_LOCATION.trim() }
+          : {}),
+      },
+      prompt,
+    ).catch((error: unknown) => {
+      // A refusal or a quota is something the caller can act on, so it carries
+      // a status rather than surfacing as a 500 about our own server.
+      throw new ValidationError(
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+
+    const location = {
+      workspaceId,
+      folder: "posts" as const,
+      name: `${piece.id}.png`,
+    };
+
+    await this.store.put({
+      ...location,
+      body: image.data,
+      contentType: image.mimeType,
+      fileName: `${piece.id}.png`,
+    });
+
+    const stored = await this.pieces.update(
+      workspaceId,
+      id,
+      { imageKey: location.name },
+      userId,
+    );
+
+    const price = priceOf("google", IMAGE_MODEL);
+    const totalUsd = price
+      ? (image.usage.inputTokens / 1_000_000) * price.inputUsdPerMillion +
+        (image.usage.outputTokens / 1_000_000) * price.outputUsdPerMillion
+      : 0;
+
+    await this.usage
+      .record({
+        id: newId("aiUsage"),
+        workspaceId,
+        userId,
+        executionId: null,
+        taskId: null,
+        correlationId: null,
+        provider: "google",
+        model: IMAGE_MODEL,
+        operation: "image.generate",
+        usage: {
+          inputTokens: image.usage.inputTokens,
+          outputTokens: image.usage.outputTokens,
+          totalTokens: image.usage.totalTokens,
+          cachedInputTokens: 0,
+          reasoningTokens: 0,
+        },
+        cost: {
+          inputUsd: 0,
+          outputUsd: 0,
+          totalUsd,
+          // `priced` false says the number is a floor, not a figure. An
+          // unpriced model contributes nothing to the total, and the spend
+          // view counts those separately rather than quietly understating.
+          priced: price !== null,
+        },
+        latencyMs: 0,
+        finishReason: "stop",
+        metadata: {},
+        timestamp: new Date(),
+      })
+      .catch(() => {
+        // The picture exists and has been paid for either way. A failed ledger
+        // write is never allowed to undo that.
+         
+        console.error("[campaigns] failed to record image.generate");
+      });
+
+    return {
+      piece: stored ?? piece,
+      url: await this.store.presignGet(location),
+      costUsd: totalUsd.toFixed(8),
     };
   }
 

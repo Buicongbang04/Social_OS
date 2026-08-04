@@ -70,6 +70,17 @@ const updateCampaignSchema = z.object({
   endsAt: instant.nullable().optional(),
 });
 
+const imageSchema = z.object({
+  /**
+   * What to draw, in words.
+   *
+   * The caller's description, not the post's text. A model handed marketing
+   * copy draws the words; handed a description of a photograph it draws the
+   * photograph.
+   */
+  prompt: z.string().trim().min(1).max(2_000),
+});
+
 const bannerSchema = z.object({
   size: z.enum(["facebook-post", "square", "story"]).optional(),
   /** Usually a page name or a domain. Left out when there is nothing to sign. */
@@ -376,6 +387,31 @@ export class ContentPiecesController {
       parseRouteId("contentPiece", id) as ContentPieceId,
       user.userId,
       body,
+    );
+  }
+
+  /**
+   * Draw a picture for this piece.
+   *
+   * `execute` rather than `create`, unlike the banner: this one spends money
+   * at a provider. Drawing ten pictures nobody asked for is a bill, and the
+   * banner — which costs nothing — stays on the cheaper permission.
+   */
+  @RequirePermission("workspace.workflow.execute")
+  @ApiZodBody(imageSchema)
+  @Post(":id/image")
+  async image(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(imageSchema))
+    body: z.infer<typeof imageSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    return this.banners.generateImageFor(
+      requireWorkspace(header),
+      parseRouteId("contentPiece", id) as ContentPieceId,
+      user.userId,
+      body.prompt,
     );
   }
 
