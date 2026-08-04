@@ -1,6 +1,6 @@
 "use client";
 
-import { isApiError, type WorkspaceMemory } from "@repo/sdk";
+import { isApiError, type BrandFact, type WorkspaceMemory } from "@repo/sdk";
 import { useCallback, useEffect, useState } from "react";
 import { getClient } from "../lib/api";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
@@ -25,6 +25,12 @@ export function MemoryPanel() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Where to read the workspace's own site from. */
+  const [siteUrl, setSiteUrl] = useState("");
+  /** What the site suggested, before anybody agreed to it. */
+  const [proposed, setProposed] = useState<BrandFact[] | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [reading, setReading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -38,6 +44,54 @@ export function MemoryPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Read the site and show what it suggests.
+   *
+   * Nothing is saved here. A remembered fact shapes every post written
+   * afterwards, so a wrong one is not one bad answer — it is a bad answer
+   * repeated until somebody notices. The person decides which ones are true.
+   */
+  const readSite = async () => {
+    if (siteUrl.trim() === "") return;
+    setReading(true);
+    setError(null);
+    try {
+      const result = await getClient().extractBrandFacts(siteUrl.trim());
+      setProposed(result.object.facts);
+      // Nothing ticked to begin with. Pre-ticking would make "save" the path
+      // of least resistance for facts nobody read.
+      setPicked([]);
+    } catch (caught) {
+      setError(describe(caught));
+      setProposed(null);
+    } finally {
+      setReading(false);
+    }
+  };
+
+  const savePicked = async () => {
+    const chosen = (proposed ?? []).filter((fact) => picked.includes(fact.key));
+    if (chosen.length === 0) return;
+
+    setBusy(true);
+    try {
+      // One at a time, and the existing PUT is idempotent by key — reading the
+      // site twice replaces what it said rather than leaving two answers to
+      // one question.
+      for (const fact of chosen) {
+        await getClient().rememberFact(fact.key, fact.value);
+      }
+      setProposed(null);
+      setPicked([]);
+      setSiteUrl("");
+      await load();
+    } catch (caught) {
+      setError(describe(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const remember = async () => {
     if (key.trim() === "" || value.trim() === "") return;
@@ -68,6 +122,81 @@ export function MemoryPanel() {
       title="Ghi nhớ về workspace"
       subtitle="Những điều này đi kèm MỌI câu trả lời, không chỉ hội thoại hiện tại."
     >
+      {/* Above the manual box, because typing ten facts by hand is the part
+          nobody finishes. The site already says most of them. */}
+      <div className="mb-3 rounded-md border border-neutral-200 p-3">
+        <div className="flex flex-wrap items-end gap-2">
+          <input
+            value={siteUrl}
+            onChange={(event) => setSiteUrl(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void readSite();
+            }}
+            placeholder="https://congty-cua-ban.com"
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+          />
+          <PrimaryButton
+            busy={reading}
+            onClick={() => void readSite()}
+            disabled={siteUrl.trim() === ""}
+          >
+            Đọc website
+          </PrimaryButton>
+        </div>
+        <p className="mt-2 text-xs text-neutral-500">
+          Đọc trang của chính bạn và đề xuất những điều đáng nhớ. Không tự lưu —
+          bạn tick cái nào thì lưu cái đó.
+        </p>
+
+        {proposed !== null ? (
+          proposed.length === 0 ? (
+            <p className="mt-3 text-sm text-neutral-500">
+              Không rút ra được gì từ trang này. Thử một trang giới thiệu cụ thể
+              thay vì trang chủ.
+            </p>
+          ) : (
+            <div className="mt-3">
+              <ul className="flex flex-col gap-2">
+                {proposed.map((fact) => (
+                  <li key={fact.key} className="text-sm">
+                    <label className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={picked.includes(fact.key)}
+                        onChange={(event) =>
+                          setPicked((current) =>
+                            event.target.checked
+                              ? [...current, fact.key]
+                              : current.filter((k) => k !== fact.key),
+                          )
+                        }
+                      />
+                      <span>
+                        <span className="font-medium">{fact.key}</span>
+                        <span className="block text-neutral-600">
+                          {fact.value}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-3">
+                <PrimaryButton
+                  busy={busy}
+                  onClick={() => void savePicked()}
+                  disabled={picked.length === 0}
+                >
+                  Lưu {picked.length} mục đã chọn
+                </PrimaryButton>
+              </div>
+            </div>
+          )
+        ) : null}
+      </div>
+
       <div className="mb-3 flex flex-wrap items-end gap-2">
         <input
           value={key}

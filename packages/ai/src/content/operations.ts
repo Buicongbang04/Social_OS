@@ -190,6 +190,27 @@ export type CompetitorAnalysis = {
   gaps: string[];
 };
 
+const brandSchema = structured(
+  "brand_facts",
+  z.object({
+    facts: z
+      .array(
+        z.object({
+          key: z
+            .string()
+            .min(1)
+            .max(60)
+            .regex(/^[a-z0-9-]+$/, "chỉ chữ thường, số và gạch ngang"),
+          value: z.string().min(1).max(1_000),
+        }),
+      )
+      .max(10),
+  }),
+  "Những dữ kiện đáng nhớ lâu dài về công ty này.",
+);
+
+export type BrandFact = { key: string; value: string };
+
 export type ContentDeps = {
   gateway: ProviderGateway;
   model?: string;
@@ -230,6 +251,37 @@ export async function analyseCompetitor(
   const prompt = PROMPTS.render("competitor.analyse.system");
 
   return run(deps, "competitor.analyse", competitorSchema, prompt, [
+    `Địa chỉ: ${input.url}`,
+    ...(input.title ? [`Tiêu đề trang: ${input.title}`] : []),
+    ...(input.description ? [`Mô tả: ${input.description}`] : []),
+    ...(input.headings.length > 0
+      ? [`Các mục: ${input.headings.slice(0, 20).join(" · ")}`]
+      : []),
+    "",
+    "NỘI DUNG TRANG:",
+    input.text.slice(0, COMPETITOR_TEXT_LIMIT),
+  ]);
+}
+
+/**
+ * Read a company's own site and say what is worth remembering.
+ *
+ * Separate from `analyseCompetitor` even though both read a page: that one
+ * looks for what is missing, this one looks for what is true. Sharing a prompt
+ * would mean one of the two gets the wrong instruction — and the wrong
+ * instruction here writes a false fact into every post from then on.
+ *
+ * Nothing is saved. What comes back is a proposal for a person to approve,
+ * because a wrong brand fact is not a wrong answer once; it is a wrong answer
+ * repeated in everything written afterwards.
+ */
+export async function extractBrandFacts(
+  deps: ContentDeps,
+  input: CompetitorInput,
+): Promise<ContentResult<{ facts: BrandFact[] }>> {
+  const prompt = PROMPTS.render("brand.extract.system");
+
+  return run(deps, "brand.extract", brandSchema, prompt, [
     `Địa chỉ: ${input.url}`,
     ...(input.title ? [`Tiêu đề trang: ${input.title}`] : []),
     ...(input.description ? [`Mô tả: ${input.description}`] : []),

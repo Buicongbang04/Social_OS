@@ -1,10 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   analyseCompetitor,
+  extractBrandFacts,
   rewriteContent,
   suggestSeo,
   translateContent,
   writeContent,
+  type BrandFact,
   type CompetitorAnalysis,
   type ContentResult,
   type RewriteInput,
@@ -108,6 +110,43 @@ export class ContentService {
       userId,
       "competitor.analyse",
       await analyseCompetitor({ gateway }, page),
+    );
+
+    return { ...result, page };
+  }
+
+  /**
+   * Read the workspace's own site and propose what to remember.
+   *
+   * Proposes; never saves. A wrong brand fact is not one wrong answer — it is
+   * a wrong answer repeated in everything written afterwards, so a person
+   * approves each one. That is the same reason a post is approved before it
+   * goes out.
+   */
+  async extractBrandFacts(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    url: string,
+  ): Promise<ContentResult<{ facts: BrandFact[] }> & { page: CrawledPage }> {
+    const gateway = await this.require(workspaceId);
+
+    const page = await crawlPage(url).catch((error: unknown) => {
+      throw new ValidationError(
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+
+    if (page.text.trim().length < 200) {
+      throw new ValidationError(
+        `${page.url} hầu như không có chữ nào đọc được từ HTML — nhiều khả năng trang này dựng bằng JavaScript. Thử một trang giới thiệu cụ thể thay vì trang chủ.`,
+      );
+    }
+
+    const result = await this.meter(
+      workspaceId,
+      userId,
+      "brand.extract",
+      await extractBrandFacts({ gateway }, page),
     );
 
     return { ...result, page };

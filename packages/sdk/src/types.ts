@@ -389,6 +389,9 @@ export type SpendReport = {
  * and the one a model is most tempted to invent, so the prompt names the kinds
  * of thing to look for rather than asking for weaknesses in general.
  */
+/** One fact proposed from a website, not yet remembered. */
+export type BrandFact = { key: string; value: string };
+
 export type CompetitorAnalysis = {
   positioning: string;
   audience: string;

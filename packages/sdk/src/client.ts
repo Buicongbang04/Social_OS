@@ -26,6 +26,7 @@ import type {
   ManageablePage,
   ContentChannel,
   ContentLength,
+  BrandFact,
   CompetitorAnalysis,
   ContentPiece,
   ContentPieceStatus,
@@ -408,6 +409,24 @@ export class ApiClient {
    */
   async spend(days = 30): Promise<SpendReport> {
     return this.request<SpendReport>("GET", `/usage?days=${days}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  /**
+   * Read this workspace's own site and propose facts worth remembering.
+   *
+   * Proposes only. Nothing is remembered until somebody saves it — a wrong
+   * brand fact is repeated in everything written afterwards.
+   */
+  async extractBrandFacts(url: string): Promise<{
+    object: { facts: BrandFact[] };
+    page: CrawledPage;
+    model: string;
+    costUsd: string;
+  }> {
+    return this.request("POST", "/content/brand-facts", {
+      body: { url },
       workspaceScoped: true,
     });
   }

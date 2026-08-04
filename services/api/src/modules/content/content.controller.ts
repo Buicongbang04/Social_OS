@@ -121,6 +121,30 @@ export class ContentController {
   }
 
   /**
+   * Read the workspace's own site and propose facts to remember.
+   *
+   * `execute` like the rest of the studio — it spends money and reaches a
+   * third-party server. Saving what comes back needs
+   * `workspace.workspace.configure`, which is a different authority: reading a
+   * proposal is not deciding what the platform believes.
+   */
+  @RequirePermission("workspace.workflow.execute")
+  @ApiZodBody(competitorSchema)
+  @Post("brand-facts")
+  async brandFacts(
+    @Body(new ZodValidationPipe(competitorSchema))
+    body: z.infer<typeof competitorSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) workspaceHeader: string,
+  ) {
+    return this.content.extractBrandFacts(
+      requireWorkspace(workspaceHeader),
+      user.userId,
+      body.url,
+    );
+  }
+
+  /**
    * Read a competitor's page and say what it tells us.
    *
    * `execute` like the rest of the studio, because it spends the workspace's
