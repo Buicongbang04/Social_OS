@@ -61,6 +61,7 @@ export function CalendarPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<ContentPiece | null>(null);
+  const [editing, setEditing] = useState<ContentPiece | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -181,6 +182,7 @@ export function CalendarPanel() {
                     onReview={setReview}
                     onAccount={setAccount}
                     onPreview={setPreview}
+                    onEdit={setEditing}
                   />
                 ))}
               </ul>
@@ -201,6 +203,7 @@ export function CalendarPanel() {
                     onReview={setReview}
                     onAccount={setAccount}
                     onPreview={setPreview}
+                    onEdit={setEditing}
                   />
                 ))}
               </ul>
@@ -223,6 +226,18 @@ export function CalendarPanel() {
           onClose={() => setPreview(null)}
         />
       ) : null}
+
+      {editing ? (
+        <Editor
+          piece={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            await load();
+          }}
+          onError={setError}
+        />
+      ) : null}
     </Panel>
   );
 }
@@ -233,12 +248,14 @@ function Row({
   onReview,
   onAccount,
   onPreview,
+  onEdit,
 }: {
   piece: ContentPiece;
   accounts: SocialConnection[];
   onReview: (piece: ContentPiece, review: ContentReview) => Promise<void>;
   onAccount: (piece: ContentPiece, accountId: string) => Promise<void>;
   onPreview: (piece: ContentPiece) => void;
+  onEdit: (piece: ContentPiece) => void;
 }) {
   const onChannel = accounts.filter(
     (account) => account.connectorId === piece.channel,
@@ -330,6 +347,26 @@ function Row({
         <EyeIcon />
       </button>
 
+      {/* Beside the preview, because looking is what tells somebody there is
+          something to fix — a paragraph that reads wrong, or a post that never
+          got a picture. Closed once the post is out: editing the row then
+          changes nothing on Facebook, it only makes this screen disagree with
+          what was actually sent. */}
+      <button
+        type="button"
+        onClick={() => onEdit(piece)}
+        disabled={settled}
+        aria-label={`Sửa "${piece.title}"`}
+        title={
+          settled
+            ? "Bài đã đăng — sửa ở đây không đổi được bài trên Facebook"
+            : "Sửa nội dung hoặc thêm ảnh"
+        }
+        className="shrink-0 rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 disabled:pointer-events-none disabled:text-neutral-300"
+      >
+        <PencilIcon />
+      </button>
+
       {/* Where it went. A calendar that says "đã đăng" without a way to go and
           look is asking to be taken on trust. */}
       {piece.publishedPostId ? (
@@ -362,6 +399,22 @@ function EyeIcon() {
     >
       <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
       <circle cx="12" cy="12" r="2.6" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      aria-hidden
+    >
+      <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+      <path d="M14.5 6.5 17.5 9.5" />
     </svg>
   );
 }
@@ -483,6 +536,270 @@ function Preview({
       </div>
     </div>
   );
+}
+
+/**
+ * Fixing a post that is already on the calendar.
+ *
+ * The same three things that go wrong after a piece is saved: the text reads
+ * wrong, the date is wrong, or nobody drew a picture for it. Sending somebody
+ * back to the composer to fix any of them would mean writing the post again —
+ * the composer starts from a brief, not from a draft that already exists.
+ *
+ * Only the fields that actually changed are sent. A save that writes every
+ * field bumps the row and its audit columns for a dialog somebody opened and
+ * closed.
+ */
+function Editor({
+  piece,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  piece: ContentPiece;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+  onError: (message: string | null) => void;
+}) {
+  const [title, setTitle] = useState(piece.title);
+  const [body, setBody] = useState(piece.body);
+  const [hashtags, setHashtags] = useState(piece.hashtags.join(" "));
+  const [scheduledAt, setScheduledAt] = useState(localInput(piece.scheduledAt));
+  const [imageKey, setImageKey] = useState<string | null>(piece.imageKey);
+  const [images, setImages] = useState<{ key: string; url: string }[]>([]);
+  const [count, setCount] = useState(1);
+  const [busy, setBusy] = useState<"images" | "save" | null>(null);
+
+  // The picture already on the piece, so somebody replacing one can see what
+  // they are replacing rather than working from the word "có ảnh".
+  const [current, setCurrent] = useState<string | null>(null);
+  useEffect(() => {
+    if (!piece.imageKey) return;
+    let cancelled = false;
+
+    void getClient()
+      .contentImageUrl(piece.id)
+      .then((result) => {
+        if (!cancelled) setCurrent(result.url);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [piece.id, piece.imageKey]);
+
+  const draw = async () => {
+    setBusy("images");
+    onError(null);
+    try {
+      // Drawn from the text on screen, not from what was saved: the point of
+      // being here is usually that the saved text was wrong.
+      const result = await getClient().generateImages(body, count);
+      setImages(result.images);
+    } catch (caught) {
+      onError(describe(caught));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const save = async () => {
+    setBusy("save");
+    onError(null);
+    try {
+      const tags = hashtags
+        .split(/[\s,]+/)
+        .map((tag) => tag.replace(/^#/, ""))
+        .filter(Boolean);
+
+      await getClient().updateContentPiece(piece.id, {
+        ...(title === piece.title ? {} : { title }),
+        ...(body === piece.body ? {} : { body }),
+        ...(tags.join(" ") === piece.hashtags.join(" ")
+          ? {}
+          : { hashtags: tags }),
+        ...(scheduledAt === localInput(piece.scheduledAt)
+          ? {}
+          : {
+              scheduledAt:
+                scheduledAt === "" ? null : new Date(scheduledAt).toISOString(),
+            }),
+        ...(imageKey === piece.imageKey ? {} : { imageKey }),
+      });
+      await onSaved();
+    } catch (caught) {
+      onError(describe(caught));
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-neutral-900/40 p-4 sm:p-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Sửa "${piece.title}"`}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-lg bg-white shadow-lg"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+          <p className="text-sm font-medium text-neutral-700">Sửa bài</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-2 py-1 text-sm text-neutral-500 hover:bg-neutral-100"
+          >
+            Đóng
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3 p-4">
+          <label className="text-xs text-neutral-500">
+            Tiêu đề
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
+            />
+          </label>
+
+          <label className="text-xs text-neutral-500">
+            Nội dung
+            <textarea
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              rows={12}
+              className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-2 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
+            />
+          </label>
+
+          <label className="text-xs text-neutral-500">
+            Hashtag
+            <input
+              value={hashtags}
+              onChange={(event) => setHashtags(event.target.value)}
+              placeholder="Tiximax OrderQuocTe"
+              className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
+            />
+          </label>
+
+          <label className="text-xs text-neutral-500">
+            Hẹn đăng
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(event) => setScheduledAt(event.target.value)}
+              className="mt-1 block rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
+            />
+          </label>
+
+          <div className="border-t border-neutral-100 pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <PrimaryButton
+                busy={busy === "images"}
+                onClick={() => void draw()}
+              >
+                {piece.imageKey ? "Sinh ảnh khác" : "Sinh ảnh"}
+              </PrimaryButton>
+              <select
+                aria-label="Số ảnh"
+                value={String(count)}
+                onChange={(event) => setCount(Number(event.target.value))}
+                className="rounded-md border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"
+              >
+                {[1, 2, 3, 4].map((many) => (
+                  <option key={many} value={many}>
+                    {many} ảnh
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-neutral-500">
+                khoảng $0.04 mỗi ảnh
+              </span>
+            </div>
+
+            {/* What is on the piece now, until something new is drawn. */}
+            {images.length === 0 && current ? (
+              <div className="mt-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={current}
+                  alt={`Ảnh hiện tại của "${piece.title}"`}
+                  className="w-40 rounded-md"
+                />
+                <button
+                  type="button"
+                  onClick={() => setImageKey(null)}
+                  className="mt-1 text-xs text-neutral-500 underline hover:text-red-700"
+                >
+                  {imageKey === null ? "Sẽ gỡ ảnh khi lưu" : "Gỡ ảnh"}
+                </button>
+              </div>
+            ) : null}
+
+            {images.length > 0 ? (
+              <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {images.map((image) => (
+                  <li key={image.key}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImageKey(imageKey === image.key ? null : image.key)
+                      }
+                      aria-pressed={imageKey === image.key}
+                      className={`block w-full overflow-hidden rounded-md border-2 ${
+                        imageKey === image.key
+                          ? "border-neutral-900"
+                          : "border-transparent hover:border-neutral-300"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={image.url}
+                        alt="Ảnh đề xuất cho bài viết"
+                        className="aspect-[1.91/1] w-full object-cover"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-neutral-100 pt-3">
+            <PrimaryButton
+              busy={busy === "save"}
+              onClick={() => void save()}
+              disabled={body.trim() === "" || title.trim() === ""}
+            >
+              Lưu
+            </PrimaryButton>
+            <span className="text-xs text-neutral-500">
+              Sửa xong vẫn giữ nguyên trạng thái duyệt.
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * An instant, as `datetime-local` wants it: the reader's own wall clock.
+ *
+ * Built by hand rather than with toISOString, which would hand back UTC and
+ * show a Vietnamese 09:00 post as 02:00 in the box somebody is about to edit.
+ */
+function localInput(iso: string | null): string {
+  if (!iso) return "";
+  const at = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, "0");
+
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
 /**

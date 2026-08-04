@@ -20,6 +20,7 @@ const client = {
   updateContentPiece: vi.fn(),
   archiveContentPiece: vi.fn(),
   contentImageUrl: vi.fn(),
+  generateImages: vi.fn(),
 };
 
 vi.mock("../lib/api", () => ({ getClient: () => client }));
@@ -71,6 +72,10 @@ const show = async (
 
 beforeEach(() => {
   client.contentImageUrl.mockResolvedValue({ url: "http://x/anh.png" });
+  client.generateImages.mockResolvedValue({
+    images: [{ key: "moi.png", url: "http://x/moi.png" }],
+    costUsd: "0.0390",
+  });
   client.updateContentPiece.mockResolvedValue(piece());
   client.archiveContentPiece.mockResolvedValue(undefined);
 });
@@ -296,6 +301,133 @@ describe("CalendarPanel", () => {
     expect(
       screen.getByRole("button", { name: 'Xem trước "Bài viết"' }),
     ).toBeVisible();
+  });
+
+  it("edits the text of a piece already on the calendar", async () => {
+    // The composer starts from a brief, not from a draft that exists, so
+    // without this the only way to fix a paragraph is to write the post again.
+    await show([piece({ body: "Nội dung cũ" })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const body = within(dialog).getByLabelText("Nội dung");
+    await userEvent.clear(body);
+    await userEvent.type(body, "Nội dung mới");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() =>
+      expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {
+        body: "Nội dung mới",
+      }),
+    );
+  });
+
+  it("sends only what actually changed", async () => {
+    // A save that writes every field bumps the row and its audit columns for a
+    // dialog somebody opened and closed.
+    await show([piece()]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() => expect(client.updateContentPiece).toHaveBeenCalled());
+    expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {});
+  });
+
+  it("draws a picture for a piece that never got one", async () => {
+    // The reason this button exists: a post saved before anybody thought
+    // about the picture.
+    await show([piece({ imageKey: null, body: "Thân bài" })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Sinh ảnh" }),
+    );
+
+    await waitFor(() =>
+      expect(client.generateImages).toHaveBeenCalledWith("Thân bài", 1),
+    );
+
+    await userEvent.click(
+      await within(dialog).findByRole("button", { name: /Ảnh đề xuất/ }),
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() =>
+      expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {
+        imageKey: "moi.png",
+      }),
+    );
+  });
+
+  it("draws from the text on screen, not from what was saved", async () => {
+    // The usual reason for being in this dialog is that the saved text was
+    // wrong, and a picture drawn from it would be wrong the same way.
+    await show([piece({ body: "Cũ" })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const body = within(dialog).getByLabelText("Nội dung");
+    await userEvent.clear(body);
+    await userEvent.type(body, "Mới");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Sinh ảnh" }),
+    );
+
+    await waitFor(() =>
+      expect(client.generateImages).toHaveBeenCalledWith("Mới", 1),
+    );
+  });
+
+  it("shows the picture a piece already has, so a replacement can be compared", async () => {
+    await show([piece({ imageKey: "cu.png" })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+
+    expect(await within(dialog).findByRole("img")).toHaveAttribute(
+      "src",
+      "http://x/anh.png",
+    );
+  });
+
+  it("shows the schedule on the reader's own clock, not in UTC", async () => {
+    // Handed back as UTC, a Vietnamese 09:00 post reads as 02:00 in the box
+    // somebody is about to edit.
+    await show([piece({ scheduledAt: "2026-08-15T02:00:00.000Z" })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+
+    const expected = new Date("2026-08-15T02:00:00.000Z");
+    const pad = (value: number) => String(value).padStart(2, "0");
+    expect(within(dialog).getByLabelText("Hẹn đăng")).toHaveValue(
+      `${expected.getFullYear()}-${pad(expected.getMonth() + 1)}-${pad(expected.getDate())}T${pad(expected.getHours())}:${pad(expected.getMinutes())}`,
+    );
+  });
+
+  it("does not offer to edit a post that has already gone out", async () => {
+    // Editing the row then changes nothing on Facebook. It only makes this
+    // screen disagree with what was actually sent.
+    await show([piece({ status: "PUBLISHED", publishedPostId: "p_1" })]);
+
+    expect(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    ).toBeDisabled();
   });
 
   it("has no way to throw a piece away from this screen", async () => {
