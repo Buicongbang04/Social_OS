@@ -4,6 +4,7 @@ import {
   canPublish,
   fetchInbox,
   fetchPostStats,
+  fetchRecentComments,
   credentialsFor,
   exchangeCode,
   fetchIdentity,
@@ -22,7 +23,7 @@ import {
   type WorkspaceId,
 } from "@repo/core";
 import type { SocialAccount, SocialAccountRepository } from "@repo/domain";
-import type { InboxThread, PostStats } from "@repo/connectors";
+import type { InboxThread, PostComment, PostStats } from "@repo/connectors";
 import { RuntimeError } from "@repo/runtime";
 import { SOCIAL_ACCOUNT_REPOSITORY } from "../../infra/database/database.module";
 import { SecretsService } from "../secrets/secrets.service";
@@ -413,6 +414,62 @@ export class ConnectionsService {
     threads.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
     return { threads, failed };
+  }
+
+  /**
+   * Comments waiting under recent posts, across every connected channel.
+   *
+   * A separate call from the inbox rather than folded into it. They are
+   * different reads with different costs — one request per channel here
+   * against one per channel there — and a screen that wanted only messages
+   * would otherwise pay for both. What they share is the shape of the answer,
+   * so a channel that fails is named rather than failing the whole call.
+   */
+  async comments(
+    workspaceId: WorkspaceId,
+    posts = 10,
+  ): Promise<{
+    comments: (PostComment & { account: string; accountId: string })[];
+    failed: { account: string; reason: string }[];
+  }> {
+    const found: (PostComment & { account: string; accountId: string })[] = [];
+    const failed: { account: string; reason: string }[] = [];
+
+    for (const account of await this.publishableAccounts(workspaceId)) {
+      const accessToken = await this.tokenFor(workspaceId, account);
+      if (!accessToken) {
+        failed.push({
+          account: account.displayName,
+          reason: "Không còn credential. Hãy kết nối lại kênh này.",
+        });
+        continue;
+      }
+
+      try {
+        const read = await fetchRecentComments(
+          { externalId: account.externalId, accessToken },
+          { posts },
+        );
+        for (const comment of read) {
+          found.push({
+            ...comment,
+            account: account.displayName,
+            accountId: account.id,
+          });
+        }
+      } catch (caught: unknown) {
+        failed.push({
+          account: account.displayName,
+          reason: caught instanceof Error ? caught.message : String(caught),
+        });
+      }
+    }
+
+    // Newest first across channels, for the same reason the inbox sorts: a
+    // question from an hour ago outranks one from last week on another Page.
+    found.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    return { comments: found, failed };
   }
 
   /**

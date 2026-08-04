@@ -1,10 +1,10 @@
-import type { Inbox } from "@repo/sdk";
+import type { Comments, Inbox } from "@repo/sdk";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InboxPanel } from "./inbox-panel";
 
-const client = { inbox: vi.fn() };
+const client = { inbox: vi.fn(), comments: vi.fn() };
 vi.mock("../lib/api", () => ({ getClient: () => client }));
 
 const thread = (
@@ -20,27 +20,90 @@ const thread = (
   ...overrides,
 });
 
-const show = async (inbox: Partial<Inbox> = {}) => {
+const comment = (overrides: Partial<Comments["comments"][number]> = {}) => ({
+  id: "c_1",
+  account: "Trang một",
+  accountId: "sac_1",
+  author: "Bách Ngũ",
+  message: "còn hàng không shop",
+  createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+  postId: "page-1_10",
+  postExcerpt: "Mua hộ hàng Nhật",
+  ...overrides,
+});
+
+const show = async (
+  inbox: Partial<Inbox> = {},
+  comments: Partial<Comments> = {},
+) => {
   client.inbox.mockResolvedValue({ threads: [], failed: [], ...inbox });
+  client.comments.mockResolvedValue({ comments: [], failed: [], ...comments });
   render(<InboxPanel />);
   await screen.findByRole("button", { name: "Tải lại" });
 };
 
 beforeEach(() => {
   client.inbox.mockResolvedValue({ threads: [], failed: [] });
+  client.comments.mockResolvedValue({ comments: [], failed: [] });
 });
 
 describe("InboxPanel", () => {
-  it("puts the number waiting in the title, where it is read first", async () => {
-    await show({ threads: [thread(), thread({ id: "t_2", unread: false })] });
+  it("counts unread messages and comments together in the title", async () => {
+    // Both are somebody waiting for an answer. Counting only messages puts a
+    // 0 on the screen while three customers are asking under a post.
+    await show(
+      { threads: [thread(), thread({ id: "t_2", unread: false })] },
+      { comments: [comment(), comment({ id: "c_2" })] },
+    );
 
-    expect(screen.getByText("Hộp thư — 1 chưa đọc")).toBeVisible();
+    expect(screen.getByText("Hộp thư — 3 đang chờ")).toBeVisible();
   });
 
   it("says just Hộp thư when nothing is waiting", async () => {
     await show({ threads: [thread({ unread: false })] });
 
     expect(screen.getByText("Hộp thư")).toBeVisible();
+  });
+
+  it("shows a comment, who wrote it and what it sits under", async () => {
+    // Without the post, "còn hàng không" is a question nobody can answer.
+    await show({}, { comments: [comment()] });
+
+    expect(screen.getByText("Bách Ngũ")).toBeVisible();
+    expect(screen.getByText("còn hàng không shop")).toBeVisible();
+    expect(screen.getByText(/dưới bài: Mua hộ hàng Nhật/)).toBeVisible();
+  });
+
+  it("links a comment to the post it is under", async () => {
+    await show({}, { comments: [comment()] });
+
+    expect(screen.getByRole("link", { name: /Trang một/ })).toHaveAttribute(
+      "href",
+      "https://www.facebook.com/page-1_10",
+    );
+  });
+
+  it("says nothing about comments when there are none", async () => {
+    await show({ threads: [thread()] }, { comments: [] });
+
+    expect(screen.queryByText("Bình luận dưới bài đăng")).toBeNull();
+  });
+
+  it("names a channel whose comments could not be read", async () => {
+    await show({}, { failed: [{ account: "Trang hai", reason: "hết quyền" }] });
+
+    expect(
+      screen.getByText(/Không đọc được Trang hai: hết quyền/),
+    ).toBeVisible();
+  });
+
+  it("reads messages and comments in one go, not one after the other", async () => {
+    // Sequentially the comments arrive after a round trip somebody is already
+    // waiting through.
+    await show();
+
+    expect(client.inbox).toHaveBeenCalled();
+    expect(client.comments).toHaveBeenCalled();
   });
 
   it("marks the unread ones apart from the rest", async () => {

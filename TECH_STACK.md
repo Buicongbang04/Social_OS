@@ -1591,6 +1591,32 @@ biến mất" sau khi nối Page — nhưng ô đó biến mất vì cả panel 
 không phải vì token bị xoá. Break-check bỏ dòng `setUserToken("")` đi mà test
 vẫn xanh. Giờ nó mở lại panel và kiểm ô rỗng.
 
+### Đọc bình luận dưới bài (Phase 3, bổ sung)
+
+Với một Page bán hàng, **phần lớn câu hỏi của khách nằm ở bình luận chứ không
+phải tin nhắn**. Hộp thư chỉ đọc tin nhắn nghĩa là một màn hình trống trong khi
+khách đang hỏi ngay dưới bài.
+
+`fetchComments` (đọc bình luận của **một** bài) đã có sẵn từ Phase 3 nhưng
+**không chỗ nào gọi** — code chết. Thay vì nối nó vào rồi gọi một lần cho mỗi
+bài, hàm mới đọc **lồng bình luận vào trong lượt đọc feed**: một request thay
+vì mười một, và mười một cơ hội dính rate limit rút còn một.
+
+Bình luận mang theo **bài nó nằm dưới**. Không có nó thì "còn hàng không" là
+câu hỏi không ai trả lời được.
+
+Sắp xếp theo **thời gian bình luận**, không theo thứ tự feed. Thứ tự feed là
+theo bài, nên một bình luận tuần trước dưới bài hôm nay sẽ nằm trên một bình
+luận một giờ trước ở bài phía dưới.
+
+Trên màn hình, bình luận nằm **thành một khối riêng dưới tin nhắn**, không trộn
+lẫn. Trộn nghĩa là xếp một bình luận cạnh một tin nhắn theo thời gian rồi gọi đó
+là thứ tự — trong khi hai thứ được trả lời ở hai chỗ khác nhau, thường bởi hai
+người khác nhau. Con số trên tiêu đề thì **cộng cả hai**, vì cả hai đều là người
+đang chờ.
+
+Vẫn **không có ô trả lời**, cùng lý do với hộp thư.
+
 ### Ảnh bìa cho bài đăng: sharp `0.35` (Phase 4)
 
 Media là nhóm duy nhất của Phase 4 chưa có gì. Sinh ảnh và sinh video cần khoá

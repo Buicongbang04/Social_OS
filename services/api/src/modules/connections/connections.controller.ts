@@ -103,6 +103,18 @@ export class ConnectionsController {
     return this.connections.inbox(requireWorkspace(workspaceHeader));
   }
 
+  /**
+   * Comments waiting under recent posts.
+   *
+   * `read` like the inbox, and for the same reason: seeing what customers
+   * wrote is ordinary awareness of the work.
+   */
+  @RequirePermission("workspace.connector.read")
+  @Get("comments")
+  async comments(@Headers(WORKSPACE_ID_HEADER) workspaceHeader: string) {
+    return this.connections.comments(requireWorkspace(workspaceHeader));
+  }
+
   /** How recent posts have done on each connected channel. */
   @RequirePermission("workspace.connector.read")
   @Get("stats")

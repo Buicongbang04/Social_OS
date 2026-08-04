@@ -1,6 +1,6 @@
 "use client";
 
-import { isApiError, type Inbox } from "@repo/sdk";
+import { isApiError, type Comments, type Inbox } from "@repo/sdk";
 import { useCallback, useEffect, useState } from "react";
 import { getClient } from "../lib/api";
 import { ErrorNote, Panel } from "./ui";
@@ -15,16 +15,30 @@ import { ErrorNote, Panel } from "./ui";
  * There is no reply box, and that is deliberate rather than unfinished:
  * answering somebody's customers on their behalf is a much larger decision than
  * showing them who is waiting.
+ *
+ * Comments are here rather than on a screen of their own because they are the
+ * same job: somebody asked something and is waiting. For a Page that sells
+ * things most questions arrive as comments, so an inbox without them shows an
+ * empty screen while customers wait underneath a post.
  */
 export function InboxPanel() {
   const [inbox, setInbox] = useState<Inbox | null>(null);
+  const [comments, setComments] = useState<Comments | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
     try {
-      setInbox(await getClient().inbox());
+      const client = getClient();
+      // Read together. Sequentially, the comments would arrive after a round
+      // trip somebody is already waiting through.
+      const [messages, underPosts] = await Promise.all([
+        client.inbox(),
+        client.comments(),
+      ]);
+      setInbox(messages);
+      setComments(underPosts);
       setError(null);
     } catch (caught) {
       setError(describe(caught));
@@ -38,11 +52,12 @@ export function InboxPanel() {
   }, [load]);
 
   const unread = inbox?.threads.filter((thread) => thread.unread).length ?? 0;
+  const waiting = unread + (comments?.comments.length ?? 0);
 
   return (
     <Panel
-      title={unread > 0 ? `Hộp thư — ${unread} chưa đọc` : "Hộp thư"}
-      subtitle="Tin khách gửi tới các kênh đã kết nối. Chỉ xem — trả lời vẫn ở trên nền tảng."
+      title={waiting > 0 ? `Hộp thư — ${waiting} đang chờ` : "Hộp thư"}
+      subtitle="Tin nhắn và bình luận khách để lại. Chỉ xem — trả lời vẫn ở trên nền tảng."
     >
       <button
         type="button"
@@ -56,14 +71,16 @@ export function InboxPanel() {
       {/* A channel that could not be read is named rather than silently
           dropped. An empty inbox and an inbox nobody could open look the same
           on screen, and only one of them means there is nothing waiting. */}
-      {inbox?.failed.map((failure) => (
-        <p
-          key={failure.account}
-          className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900"
-        >
-          Không đọc được {failure.account}: {failure.reason}
-        </p>
-      ))}
+      {[...(inbox?.failed ?? []), ...(comments?.failed ?? [])].map(
+        (failure) => (
+          <p
+            key={`${failure.account}-${failure.reason}`}
+            className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          >
+            Không đọc được {failure.account}: {failure.reason}
+          </p>
+        ),
+      )}
 
       {inbox === null ? (
         <p className="text-sm text-neutral-500">Đang tải…</p>
@@ -108,6 +125,48 @@ export function InboxPanel() {
           ))}
         </ul>
       )}
+
+      {/* Under the messages, in one list of its own. Interleaving them would
+          mean sorting a comment against a message by time and calling that an
+          order — they are answered in different places and often by different
+          people. */}
+      {comments !== null && comments.comments.length > 0 ? (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-medium text-neutral-500">
+            Bình luận dưới bài đăng
+          </p>
+          <ul className="flex flex-col gap-1">
+            {comments.comments.map((comment) => (
+              <li
+                key={comment.id}
+                className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-neutral-700">
+                    {comment.author}
+                  </span>
+                  <a
+                    href={`https://www.facebook.com/${comment.postId}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="ml-auto text-xs text-neutral-400 underline"
+                  >
+                    {comment.account} · {when(comment.createdAt)}
+                  </a>
+                </div>
+                <p className="mt-1 text-neutral-600">{comment.message}</p>
+                {/* The post it sits under. Without it "còn hàng không" is a
+                    question nobody can answer. */}
+                {comment.postExcerpt ? (
+                  <p className="mt-1 truncate text-xs text-neutral-400">
+                    dưới bài: {comment.postExcerpt}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <ErrorNote message={error} />
     </Panel>

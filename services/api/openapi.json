@@ -1912,6 +1912,37 @@
         "tags": ["Connections"]
       }
     },
+    "/api/v1/connections/comments": {
+      "get": {
+        "operationId": "ConnectionsController_comments",
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Workspace đang thao tác. Bắt buộc với route thuộc phạm vi workspace.",
+            "schema": {
+              "type": "string",
+              "example": "wsp_01H..."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Connections"]
+      }
+    },
     "/api/v1/connections/stats": {
       "get": {
         "operationId": "ConnectionsController_stats",
