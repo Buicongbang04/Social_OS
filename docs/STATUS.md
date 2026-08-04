@@ -109,7 +109,7 @@ Plugin SDK, Marketplace, MCP đều chưa bắt đầu.
 ## Phase 6 — Enterprise ⚠️
 
 Có: mã hoá credential (AES-256-GCM, xoay khoá), audit trên mọi bảng, metrics
-Prometheus, đo chi phí AI.
+Prometheus, đo chi phí AI, sao lưu/phục hồi (`pnpm stack:backup`).
 
 Chưa có: SSO, đa vùng, OpenTelemetry, hoá đơn.
 

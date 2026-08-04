@@ -1591,6 +1591,33 @@ biến mất" sau khi nối Page — nhưng ô đó biến mất vì cả panel 
 không phải vì token bị xoá. Break-check bỏ dòng `setUserToken("")` đi mà test
 vẫn xanh. Giờ nó mở lại panel và kiểm ô rỗng.
 
+### Sao lưu và phục hồi (Phase 4)
+
+Đến giờ hệ thống đang giữ thứ **không dựng lại được**: token của Page thật, lịch
+đăng, nội dung đã viết, ghi nhớ thương hiệu. Mất volume Postgres là mất tất cả,
+và trước đợt này không có lệnh nào lấy lại.
+
+`pg_dump --clean --if-exists`, để bản sao lưu tự dọn trước khi nạp — phục hồi
+vào một database đang có dữ liệu không đẻ ra lỗi trùng khoá giữa chừng rồi bỏ
+lại một nửa.
+
+**Cố ý không sao lưu `docker/.env.compose`.** File đó chứa `SECRET_KEYS`, tức là
+khoá mở mọi credential đã mã hoá nằm trong chính bản sao lưu này. Để chung một
+chỗ nghĩa là ai lấy được bản sao lưu thì đọc được luôn credential — mã hoá thành
+vô nghĩa. Script chỉ **nhắc** phải cất khoá riêng, và nhắc cả trong
+`README.txt` đi kèm mỗi bản.
+
+Không sao lưu Qdrant (là chỉ mục, dựng lại được từ tài liệu gốc) và Redis (hàng
+đợi với cache, mất thì chạy lại). Sao lưu chúng là làm bản sao to hơn để giữ
+thứ tự sinh ra được.
+
+Phục hồi **hỏi trước khi ghi đè**. Một lệnh phục hồi gõ nhầm mà chạy ngay thì
+phá đúng thứ nó sinh ra để cứu.
+
+Kiểm chứng bằng vòng thật, không phải bằng việc file tồn tại: tạo chiến dịch và
+bài qua API → sao lưu → `truncate` sạch → phục hồi → đọc lại qua API thấy đúng
+tiêu đề, đúng nội dung, đúng giờ đã hẹn.
+
 ### Dải cảnh báo trên đầu màn hình (Phase 4)
 
 Mọi thứ nó báo **đều đã hiện ở đâu đó**: bài `FAILED` trên lịch, kênh `EXPIRED`

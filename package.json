@@ -25,7 +25,10 @@
     "stack:restart": "bash scripts/stack.sh restart",
     "stack:up": "bash scripts/stack.sh up",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "stack:backup": "bash scripts/backup.sh backup",
+    "stack:restore": "bash scripts/backup.sh restore",
+    "stack:backups": "bash scripts/backup.sh list"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.1.0",
