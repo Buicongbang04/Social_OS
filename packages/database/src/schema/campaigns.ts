@@ -6,7 +6,11 @@ import {
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
-import { campaignStatusEnum, contentPieceStatusEnum } from "./_enums";
+import {
+  campaignStatusEnum,
+  contentPieceStatusEnum,
+  contentReviewEnum,
+} from "./_enums";
 import {
   auditColumns,
   idColumn,
@@ -84,6 +88,15 @@ export const contentPieces = pgTable(
      */
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     status: contentPieceStatusEnum("status").notNull().default("DRAFT"),
+
+    /**
+     * The review verdict, kept apart from the publish state.
+     *
+     * One column could not hold both: approving a piece would erase the record
+     * of a publish that had failed, and publishing one would erase the fact
+     * that a person had ever looked at it.
+     */
+    review: contentReviewEnum("review").notNull().default("DRAFT"),
 
     /**
      * The banner rendered for this piece, if one was.

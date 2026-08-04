@@ -118,11 +118,14 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
       userId,
     );
 
+    // The verdict is what the publisher reads, not the publish state: those
+    // became two columns so that approving a piece could not erase what had
+    // happened to it last time it was sent.
     if ((overrides.status ?? "APPROVED") === "APPROVED") {
       await pieces.update(
         workspaceId,
         piece.id,
-        { status: "APPROVED" },
+        { review: "APPROVED" },
         userId,
       );
     }
@@ -268,7 +271,7 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
     await publisher.tick();
 
     expect(posted).toEqual([]);
-    expect((await pieces.find(workspaceId, piece.id))?.status).toBe("APPROVED");
+    expect((await pieces.find(workspaceId, piece.id))?.status).toBe("DRAFT");
   });
 
   it("puts the hashtags at the end of the post", async () => {
@@ -625,7 +628,7 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
     await pieces.update(
       otherWorkspaceId,
       theirs.id,
-      { status: "APPROVED" },
+      { review: "APPROVED" },
       userId,
     );
 

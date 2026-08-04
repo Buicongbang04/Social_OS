@@ -7,6 +7,7 @@ import {
   SOCIAL_ACCOUNT_STATUSES,
   CAMPAIGN_STATUSES,
   CONTENT_PIECE_STATUSES,
+  CONTENT_REVIEWS,
   MESSAGE_ROLES,
   ENTITY_STATUSES,
   MEMBERSHIP_STATUSES,
@@ -56,6 +57,7 @@ export const contentPieceStatusEnum = pgEnum(
   "content_piece_status",
   CONTENT_PIECE_STATUSES,
 );
+export const contentReviewEnum = pgEnum("content_review", CONTENT_REVIEWS);
 export const permissionScopeEnum = pgEnum(
   "permission_scope",
   PERMISSION_SCOPES,

@@ -1,11 +1,5 @@
 import type { ContentPiece, SocialConnection } from "@repo/sdk";
-import {
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CalendarPanel } from "./calendar-panel";
@@ -25,8 +19,7 @@ const client = {
   createCampaign: vi.fn(),
   updateContentPiece: vi.fn(),
   archiveContentPiece: vi.fn(),
-  renderBanner: vi.fn(),
-  generateImage: vi.fn(),
+  contentImageUrl: vi.fn(),
 };
 
 vi.mock("../lib/api", () => ({ getClient: () => client }));
@@ -42,6 +35,7 @@ const piece = (overrides: Partial<ContentPiece> = {}): ContentPiece => ({
   channel: "facebook",
   scheduledAt: "2026-08-15T02:00:00.000Z",
   status: "DRAFT",
+  review: "DRAFT",
   publishedPostId: null,
   publishedAt: null,
   lastError: null,
@@ -76,49 +70,58 @@ const show = async (
 };
 
 beforeEach(() => {
-  client.renderBanner.mockResolvedValue({ piece: piece(), url: "http://x/y" });
-  client.generateImage.mockResolvedValue({
-    piece: piece({ imageKey: "cnt_1.png" }),
-    url: "http://x/y",
-    costUsd: "0.0390",
-  });
+  client.contentImageUrl.mockResolvedValue({ url: "http://x/anh.png" });
   client.updateContentPiece.mockResolvedValue(piece());
   client.archiveContentPiece.mockResolvedValue(undefined);
 });
 
 describe("CalendarPanel", () => {
-  it("offers approval on a draft", async () => {
-    await show([piece({ status: "DRAFT" })]);
+  it("offers all four verdicts, and sends the one that was picked", async () => {
+    await show([piece({ review: "DRAFT" })]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Duyệt" }));
+    const picker = screen.getByRole("combobox", {
+      name: 'Trạng thái duyệt cho "Bài viết"',
+    });
+    expect(
+      [...picker.querySelectorAll("option")].map((option) => option.value),
+    ).toEqual(["DRAFT", "REVIEW", "APPROVED", "REJECTED"]);
+
+    await userEvent.selectOptions(picker, "APPROVED");
 
     expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {
-      status: "APPROVED",
+      review: "APPROVED",
     });
   });
 
-  it("never offers approval on something already published", async () => {
-    // Approving a published piece would send it a second time — the one
-    // mistake in this whole feature that cannot be undone.
+  it("shows the verdict and the publish state as two separate things", async () => {
+    // A rejected piece still has to be able to say the last attempt to send it
+    // failed. Folded into one field, approving something erased what had
+    // happened to it.
+    await show([
+      piece({ review: "REJECTED", status: "FAILED", lastError: "token hỏng" }),
+    ]);
+
+    expect(
+      screen.getByRole("combobox", { name: /Trạng thái duyệt/ }),
+    ).toHaveValue("REJECTED");
+    expect(screen.getByText("Đăng thất bại")).toBeVisible();
+    expect(screen.getByText("token hỏng")).toBeVisible();
+  });
+
+  it("says a piece has not gone out yet, whatever its verdict", async () => {
+    await show([piece({ review: "APPROVED", status: "APPROVED" })]);
+
+    expect(screen.getByText("Chưa đăng")).toBeVisible();
+  });
+
+  it("closes the verdict once the post is out", async () => {
+    // Changing it then changes nothing except what the screen claims.
     await show([piece({ status: "PUBLISHED", publishedPostId: "p_1" })]);
 
-    expect(screen.queryByRole("button", { name: /Duyệt/ })).toBeNull();
-  });
-
-  it("offers a way back after a failure", async () => {
-    // A post that failed for a reason somebody has since fixed needs a route
-    // back without being rewritten.
-    await show([piece({ status: "FAILED", lastError: "token hết hạn" })]);
-
-    expect(screen.getByRole("button", { name: "Duyệt lại" })).toBeVisible();
-    expect(screen.getByText("token hết hạn")).toBeVisible();
-  });
-
-  it("does not offer approval while a piece is going out", async () => {
-    await show([piece({ status: "PUBLISHING" })]);
-
-    expect(screen.queryByRole("button", { name: /Duyệt/ })).toBeNull();
-    expect(screen.getByText("đang đăng")).toBeVisible();
+    expect(
+      screen.getByRole("combobox", { name: /Trạng thái duyệt/ }),
+    ).toBeDisabled();
+    expect(screen.getByText("Đăng thành công")).toBeVisible();
   });
 
   it("links to the post once there is one", async () => {
@@ -137,7 +140,7 @@ describe("CalendarPanel", () => {
     // offer.
     await show([piece()], [connection("sac_1", "Trang một")]);
 
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /Trang đăng/ })).toBeNull();
   });
 
   it("offers a Page picker once a second Page is connected", async () => {
@@ -164,7 +167,10 @@ describe("CalendarPanel", () => {
       [connection("sac_1", "Trang một"), connection("sac_2", "Trang hai")],
     );
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "");
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /Trang đăng/ }),
+      "",
+    );
 
     expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {
       socialAccountId: null,
@@ -185,7 +191,7 @@ describe("CalendarPanel", () => {
       [connection("sac_1", "Trang một"), connection("sac_2", "Trang hai")],
     );
 
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /Trang đăng/ })).toBeNull();
     expect(screen.getByText("Trang hai")).toBeVisible();
   });
 
@@ -200,7 +206,7 @@ describe("CalendarPanel", () => {
       ],
     );
 
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /Trang đăng/ })).toBeNull();
   });
 
   it("keeps undated pieces out of the days, at the end", async () => {
@@ -221,103 +227,93 @@ describe("CalendarPanel", () => {
   });
 
   it("reloads after a change, so the row shows what the server stored", async () => {
-    await show([piece({ status: "DRAFT" })]);
+    await show([piece({ review: "DRAFT" })]);
     client.listContentPieces.mockClear();
 
-    await userEvent.click(screen.getByRole("button", { name: "Duyệt" }));
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /Trạng thái duyệt/ }),
+      "APPROVED",
+    );
 
     await waitFor(() => expect(client.listContentPieces).toHaveBeenCalled());
   });
 
-  it("offers to draw a banner, and says so once there is one", async () => {
-    await show([piece()]);
-    expect(screen.getByRole("button", { name: "Vẽ bìa" })).toBeVisible();
+  it("shows the post as it will look, text and picture together", async () => {
+    // The only place the two can be seen together before somebody approves
+    // them. Reading the body in a table cell is not looking at the post.
+    await show([
+      piece({
+        body: "MỞ ĐẦU\n\nDòng hai",
+        hashtags: ["Tiximax"],
+        imageKey: "cnt_1.png",
+      }),
+    ]);
 
-    cleanup();
-    await show([piece({ imageKey: "cnt_1.png" })]);
-    expect(screen.getByRole("button", { name: "Vẽ lại bìa" })).toBeVisible();
-    expect(screen.getByText("có ảnh")).toBeVisible();
-  });
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Xem trước "Bài viết"' }),
+    );
 
-  it("offers the free banner and the paid image as separate choices", async () => {
-    // The banner says exactly what the post says and costs nothing; the model
-    // can draw something the post never claimed and costs money. One button
-    // for both would make that choice by accident.
-    await show([piece()]);
-
-    expect(screen.getByRole("button", { name: "Vẽ bìa" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Sinh ảnh AI" })).toBeVisible();
-  });
-
-  it("sends the description somebody typed, not the post's own words", async () => {
-    // A model handed marketing copy draws the words onto the picture.
-    vi.spyOn(window, "prompt").mockReturnValue("kiện hàng trên bàn gỗ");
-    await show([piece()]);
-
-    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
-
-    await waitFor(() =>
-      expect(client.generateImage).toHaveBeenCalledWith(
-        "cnt_1",
-        "kiện hàng trên bàn gỗ",
-      ),
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/MỞ ĐẦU/)).toBeVisible();
+    expect(within(dialog).getByText("#Tiximax")).toBeVisible();
+    expect(await within(dialog).findByRole("img")).toHaveAttribute(
+      "src",
+      "http://x/anh.png",
     );
   });
 
-  it("spends nothing when the description is cancelled", async () => {
-    // Every call is about four cents. A stray click must not be one.
-    vi.spyOn(window, "prompt").mockReturnValue(null);
-    await show([piece()]);
+  it("keeps the line breaks in the preview", async () => {
+    // They are the format. A preview that collapses them shows a post nobody
+    // is sending.
+    await show([piece({ body: "MỞ ĐẦU\n\nDòng hai" })]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
-
-    expect(client.generateImage).not.toHaveBeenCalled();
-  });
-
-  it("spends nothing on an empty description", async () => {
-    vi.spyOn(window, "prompt").mockReturnValue("   ");
-    await show([piece()]);
-
-    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
-
-    expect(client.generateImage).not.toHaveBeenCalled();
-  });
-
-  it("says what went wrong when the model refuses", async () => {
-    vi.spyOn(window, "prompt").mockReturnValue("gì đó");
-    client.generateImage.mockRejectedValue(
-      new Error("Model không vẽ ảnh mà trả lời bằng chữ"),
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Xem trước "Bài viết"' }),
     );
-    await show([piece()]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
-
-    expect(await screen.findByText(/không vẽ ảnh/)).toBeVisible();
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/MỞ ĐẦU/)).toHaveClass(
+      "whitespace-pre-wrap",
+    );
   });
 
-  it("does not offer either picture once the post is out", async () => {
-    // Drawing one then would store a picture nobody will ever see attached to
-    // it.
+  it("asks for no picture when the piece has none", async () => {
+    // A presigned link costs a round trip, and there is nothing to sign.
+    await show([piece({ imageKey: null })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Xem trước "Bài viết"' }),
+    );
+
+    await screen.findByRole("dialog");
+    expect(client.contentImageUrl).not.toHaveBeenCalled();
+  });
+
+  it("offers a preview even for a post already out", async () => {
+    // Reading what went out is the commonest reason to open it.
     await show([piece({ status: "PUBLISHED", publishedPostId: "p_1" })]);
 
-    expect(screen.queryByRole("button", { name: /Vẽ/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Sinh ảnh/ })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: 'Xem trước "Bài viết"' }),
+    ).toBeVisible();
   });
 
-  it("reloads after drawing, so the row shows the piece has a picture", async () => {
+  it("has no way to throw a piece away from this screen", async () => {
+    // Archiving sat one click from the verdict dropdown, on a row where the
+    // usual action is a status change.
     await show([piece()]);
-    client.listContentPieces.mockClear();
 
-    await userEvent.click(screen.getByRole("button", { name: "Vẽ bìa" }));
-
-    await waitFor(() => expect(client.listContentPieces).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Bỏ" })).toBeNull();
   });
 
   it("says what went wrong instead of failing silently", async () => {
-    await show([piece({ status: "DRAFT" })]);
+    await show([piece({ review: "DRAFT" })]);
     client.updateContentPiece.mockRejectedValue(new Error("mạng hỏng"));
 
-    await userEvent.click(screen.getByRole("button", { name: "Duyệt" }));
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /Trạng thái duyệt/ }),
+      "APPROVED",
+    );
 
     expect(await screen.findByText(/mạng hỏng/)).toBeVisible();
   });

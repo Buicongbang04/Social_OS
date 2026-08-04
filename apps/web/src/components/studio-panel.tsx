@@ -72,6 +72,10 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
   const [tone, setTone] = useState<ContentTone>("than-thien");
   const [length, setLength] = useState<ContentLength>("vua");
   const [instruction, setInstruction] = useState("");
+  /** Pictures drawn for this draft, and which one is going with it. */
+  const [images, setImages] = useState<{ key: string; url: string }[]>([]);
+  const [imageKey, setImageKey] = useState<string | null>(null);
+  const [imageCount, setImageCount] = useState(1);
   const [language, setLanguage] = useState("English");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [scheduledAt, setScheduledAt] = useState("");
@@ -183,6 +187,27 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
     });
 
   /**
+   * Draw pictures for the draft that is on screen.
+   *
+   * The description is built on the server out of the post itself, so nobody
+   * has to describe their own post back to a machine — that step produced
+   * worse pictures than the post did.
+   *
+   * Several at once, then pick: generating one at a time meant the only way to
+   * see a second option was to lose the first, so nobody ever compared two.
+   */
+  const drawImages = () =>
+    guard("images", async () => {
+      if (!draft) return;
+      const result = await getClient().generateImages(draft.body, imageCount);
+      setImages(result.images);
+      // Nothing chosen automatically. A picture attached without being looked
+      // at is a picture that goes out without being looked at.
+      setImageKey(null);
+      setSaved(false);
+    });
+
+  /**
    * Put the draft on the calendar.
    *
    * `datetime-local` gives a wall-clock string with no zone. `new Date(...)`
@@ -203,6 +228,7 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
         // account on this channel". Sending an empty string instead would be a
         // channel id that matches nothing.
         ...(accountId === "" ? {} : { socialAccountId: accountId }),
+        ...(imageKey === null ? {} : { imageKey }),
         scheduledAt:
           scheduledAt === "" ? undefined : new Date(scheduledAt).toISOString(),
       });
@@ -277,6 +303,66 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
                 <li key={note}>· {note}</li>
               ))}
             </ul>
+          ) : null}
+
+          {/* Pictures come after the words on purpose: the picture is drawn
+              from the post, so a post that is still changing draws a picture
+              that is already wrong. */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3">
+            <PrimaryButton
+              busy={busy === "images"}
+              onClick={() => void drawImages()}
+            >
+              Sinh ảnh
+            </PrimaryButton>
+            <Select
+              name="Số ảnh"
+              value={String(imageCount) as "1" | "2" | "3" | "4"}
+              onChange={(value) => setImageCount(Number(value))}
+              labels={{
+                "1": "1 ảnh",
+                "2": "2 ảnh",
+                "3": "3 ảnh",
+                "4": "4 ảnh",
+              }}
+            />
+            {/* Said before the money is spent, not after. */}
+            <span className="text-xs text-neutral-500">
+              khoảng $0.04 mỗi ảnh
+            </span>
+          </div>
+
+          {images.length > 0 ? (
+            <div>
+              <p className="mb-1 text-xs text-neutral-500">
+                Bấm để chọn ảnh đăng kèm. Không chọn thì bài đăng không có ảnh.
+              </p>
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {images.map((image) => (
+                  <li key={image.key}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImageKey(imageKey === image.key ? null : image.key)
+                      }
+                      aria-pressed={imageKey === image.key}
+                      className={`block w-full overflow-hidden rounded-md border-2 ${
+                        imageKey === image.key
+                          ? "border-neutral-900"
+                          : "border-transparent hover:border-neutral-300"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={image.url}
+                        alt="Ảnh đề xuất cho bài viết"
+                        className="aspect-[1.91/1] w-full object-cover"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3">

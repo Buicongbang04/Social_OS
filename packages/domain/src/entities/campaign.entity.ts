@@ -19,14 +19,6 @@ export const CAMPAIGN_STATUSES = ["DRAFT", "ACTIVE", "DONE"] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 
 /**
- * Where one piece of content is in its life.
- *
- * `APPROVED` sits between draft and published on purpose. Somebody says a piece
- * is ready, and something else — later, possibly unattended — sends it. Without
- * a state in between, "ready to go out" and "gone out" are the same fact and
- * nothing can tell whether a person ever looked.
- */
-/**
  * Where a piece is on its way out.
  *
  * `PUBLISHING` is not decoration. It is the row a runtime node claims before
@@ -43,6 +35,27 @@ export const CONTENT_PIECE_STATUSES = [
   "FAILED",
 ] as const;
 export type ContentPieceStatus = (typeof CONTENT_PIECE_STATUSES)[number];
+
+/**
+ * Where a piece is in review — a separate question from where it is on its way
+ * out.
+ *
+ * They were one field until it became clear they answer different things. A
+ * published post still has a review verdict, and a piece somebody rejected
+ * still has to say whether the earlier attempt to send it failed. Folded into
+ * one column, approving something erased what had happened to it.
+ *
+ * REJECTED is not DRAFT: a draft is unfinished, a rejection is a decision, and
+ * a writer needs to be able to tell which of the two is sitting in front of
+ * them.
+ */
+export const CONTENT_REVIEWS = [
+  "DRAFT",
+  "REVIEW",
+  "APPROVED",
+  "REJECTED",
+] as const;
+export type ContentReview = (typeof CONTENT_REVIEWS)[number];
 
 /**
  * A campaign: a name, a period, and the pieces that belong to it.
@@ -90,6 +103,8 @@ export type ContentPiece = SoftDeletableEntity<ContentPieceId> & {
   /** Storage key of the banner rendered for this piece, if any. */
   imageKey: string | null;
   status: ContentPieceStatus;
+  /** Where it is in review. Only APPROVED is ever sent. */
+  review: ContentReview;
   /** The platform's post id, once it has one. Null until published. */
   publishedPostId: string | null;
   publishedAt: Date | null;
@@ -124,6 +139,8 @@ export type CreateContentPieceInput = {
   hashtags?: readonly string[];
   channel: string;
   scheduledAt?: Date | null;
+  /** The picture chosen before the piece was saved, if there was one. */
+  imageKey?: string | null;
   metadata?: Metadata;
 };
 
@@ -137,6 +154,9 @@ export type UpdateContentPieceInput = {
   channel?: string;
   scheduledAt?: Date | null;
   status?: ContentPieceStatus;
+  review?: ContentReview;
+  /** Cleared when an approval sends a failed piece back for another attempt. */
+  lastError?: string | null;
 };
 
 /**

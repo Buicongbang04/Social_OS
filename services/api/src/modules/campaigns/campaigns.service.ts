@@ -174,6 +174,110 @@ export class CampaignsService {
     userId: UserId,
     prompt: string,
   ): Promise<{ piece: ContentPiece; url: string; costUsd: string }> {
+    const piece = await this.pieces.find(workspaceId, id);
+    if (!piece) throw new NotFoundError("Không tìm thấy nội dung.");
+
+    const drawn = await this.draw(
+      workspaceId,
+      userId,
+      prompt,
+      `${piece.id}.png`,
+    );
+
+    const stored = await this.pieces.update(
+      workspaceId,
+      id,
+      { imageKey: drawn.key },
+      userId,
+    );
+
+    return {
+      piece: stored ?? piece,
+      url: drawn.url,
+      costUsd: drawn.costUsd,
+    };
+  }
+
+  /**
+   * Draw several pictures for a post that may not exist yet.
+   *
+   * Attached to nothing: they are candidates, and the one somebody picks is
+   * saved with the piece. Generating straight onto a piece meant the only way
+   * to see a second option was to overwrite the first, so nobody ever compared
+   * two — they took whatever came out.
+   *
+   * Sequential rather than parallel. Each call bills, and a fleet of them
+   * firing at once is how a quota refusal turns four charges into four
+   * failures with one picture to show for it.
+   */
+  /**
+   * A link to the picture already on a piece.
+   *
+   * Minted on demand rather than stored: a presigned URL expires, and one kept
+   * on the row would leave the calendar showing a picture that stops loading a
+   * few minutes after somebody made it.
+   */
+  async imageUrlFor(
+    workspaceId: WorkspaceId,
+    id: ContentPieceId,
+  ): Promise<{ url: string | null }> {
+    const piece = await this.pieces.find(workspaceId, id);
+    if (!piece) throw new NotFoundError("Không tìm thấy nội dung.");
+    if (!piece.imageKey || !this.store) return { url: null };
+
+    return {
+      url: await this.store.presignGet({
+        workspaceId,
+        folder: "posts",
+        name: piece.imageKey,
+      }),
+    };
+  }
+
+  async generateImages(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    prompt: string,
+    count: number,
+  ): Promise<{ images: { key: string; url: string }[]; costUsd: string }> {
+    const images: { key: string; url: string }[] = [];
+    let total = 0;
+
+    for (let index = 0; index < count; index += 1) {
+      const drawn = await this.draw(
+        workspaceId,
+        userId,
+        prompt,
+        `${newId("contentPiece")}.png`,
+      ).catch((error: unknown) => {
+        // What was drawn before the failure is kept and returned: it has been
+        // paid for, and throwing it away to report a clean error would charge
+        // for pictures nobody ever sees.
+        if (images.length === 0) throw error;
+        return null;
+      });
+      if (!drawn) break;
+
+      images.push({ key: drawn.key, url: drawn.url });
+      total += Number(drawn.costUsd);
+    }
+
+    return { images, costUsd: total.toFixed(8) };
+  }
+
+  /**
+   * One picture: drawn, stored, metered.
+   *
+   * The metering is here rather than at each caller because an unmetered image
+   * is the most expensive single call this platform makes, and a second copy
+   * of this code is where that gets forgotten.
+   */
+  private async draw(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    prompt: string,
+    name: string,
+  ): Promise<{ key: string; url: string; costUsd: string }> {
     if (!this.store) {
       throw new ValidationError(
         "Chưa cấu hình kho lưu trữ. Đặt MINIO_URL để dùng được ảnh.",
@@ -184,9 +288,6 @@ export class CampaignsService {
         "Chưa cấu hình sinh ảnh. Đặt GOOGLE_SERVICE_ACCOUNT trỏ tới khoá service account có quyền Vertex AI.",
       );
     }
-
-    const piece = await this.pieces.find(workspaceId, id);
-    if (!piece) throw new NotFoundError("Không tìm thấy nội dung.");
 
     const image = await generateVertexImage(
       {
@@ -204,25 +305,14 @@ export class CampaignsService {
       );
     });
 
-    const location = {
-      workspaceId,
-      folder: "posts" as const,
-      name: `${piece.id}.png`,
-    };
+    const location = { workspaceId, folder: "posts" as const, name };
 
     await this.store.put({
       ...location,
       body: image.data,
       contentType: image.mimeType,
-      fileName: `${piece.id}.png`,
+      fileName: name,
     });
-
-    const stored = await this.pieces.update(
-      workspaceId,
-      id,
-      { imageKey: location.name },
-      userId,
-    );
 
     const price = priceOf("google", IMAGE_MODEL);
     const totalUsd = price
@@ -265,12 +355,12 @@ export class CampaignsService {
       .catch(() => {
         // The picture exists and has been paid for either way. A failed ledger
         // write is never allowed to undo that.
-         
+
         console.error("[campaigns] failed to record image.generate");
       });
 
     return {
-      piece: stored ?? piece,
+      key: location.name,
       url: await this.store.presignGet(location),
       costUsd: totalUsd.toFixed(8),
     };

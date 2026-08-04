@@ -503,6 +503,21 @@ export const CONTENT_PIECE_STATUSES = [
 ] as const;
 export type ContentPieceStatus = (typeof CONTENT_PIECE_STATUSES)[number];
 
+/**
+ * The review verdict — a different question from where a piece is on its way
+ * out, and kept in its own field for that reason.
+ *
+ * A published post still has a verdict, and a rejected one still has to be
+ * able to say that the last attempt to send it failed.
+ */
+export const CONTENT_REVIEWS = [
+  "DRAFT",
+  "REVIEW",
+  "APPROVED",
+  "REJECTED",
+] as const;
+export type ContentReview = (typeof CONTENT_REVIEWS)[number];
+
 export type Campaign = {
   id: string;
   name: string;
@@ -533,6 +548,7 @@ export type ContentPiece = {
   /** Storage key of the banner rendered for this piece, if any. */
   imageKey: string | null;
   status: ContentPieceStatus;
+  review: ContentReview;
   publishedPostId: string | null;
   publishedAt: string | null;
   lastError: string | null;

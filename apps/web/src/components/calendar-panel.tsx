@@ -5,26 +5,45 @@ import {
   type Campaign,
   type ContentPiece,
   type ContentPieceStatus,
+  type ContentReview,
   type SocialConnection,
 } from "@repo/sdk";
 import { useCallback, useEffect, useState } from "react";
 import { getClient } from "../lib/api";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
 
-const STATUS_LABELS: Record<ContentPieceStatus, string> = {
-  DRAFT: "nháp",
-  APPROVED: "chờ tới giờ",
-  PUBLISHING: "đang đăng",
-  PUBLISHED: "đã đăng",
-  FAILED: "hỏng",
+/**
+ * The review verdict — somebody's decision, and the only thing that lets a
+ * post go out.
+ */
+const REVIEW_LABELS: Record<ContentReview, string> = {
+  DRAFT: "Nháp",
+  REVIEW: "Review",
+  APPROVED: "Duyệt",
+  REJECTED: "Chưa đạt",
 };
 
-const STATUS_STYLES: Record<ContentPieceStatus, string> = {
-  DRAFT: "bg-neutral-100 text-neutral-700",
-  APPROVED: "bg-emerald-100 text-emerald-800",
+/**
+ * Where the post is on its way out — a record of what happened, never a choice.
+ *
+ * Shown beside the verdict rather than folded into it: a rejected piece still
+ * has to be able to say that the last attempt to send it failed, and an
+ * approved one that has not gone yet is a different thing from one that has.
+ */
+const PUBLISH_LABELS: Record<ContentPieceStatus, string> = {
+  DRAFT: "Chưa đăng",
+  APPROVED: "Chưa đăng",
+  PUBLISHING: "Đang đăng",
+  PUBLISHED: "Đăng thành công",
+  FAILED: "Đăng thất bại",
+};
+
+const PUBLISH_STYLES: Record<ContentPieceStatus, string> = {
+  DRAFT: "bg-neutral-100 text-neutral-600",
+  APPROVED: "bg-neutral-100 text-neutral-600",
   PUBLISHING: "bg-amber-100 text-amber-900",
-  PUBLISHED: "bg-sky-100 text-sky-800",
-  FAILED: "bg-red-100 text-red-800",
+  PUBLISHED: "bg-emerald-100 text-emerald-800",
+  FAILED: "bg-rose-100 text-rose-800",
 };
 
 /**
@@ -41,6 +60,7 @@ export function CalendarPanel() {
   const [campaignName, setCampaignName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<ContentPiece | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -89,51 +109,14 @@ export function CalendarPanel() {
   };
 
   /**
-   * Ask a model for a picture.
+   * The verdict, set by a person from the dropdown.
    *
-   * The description is typed here rather than taken from the post, because a
-   * model handed marketing copy draws the words. It costs money per picture,
-   * so it is a separate deliberate action from the free banner beside it.
+   * The only authorisation the publisher has: nothing that is not APPROVED is
+   * ever sent, however its date reads.
    */
-  const drawImage = async (piece: ContentPiece) => {
-    const prompt = window.prompt(
-      `Mô tả ảnh cho "${piece.title}".\n\nTả bức ảnh, đừng dán nội dung bài — model sẽ vẽ chữ ra ảnh.\nVí dụ: kiện hàng carton dán tem quốc tế trên bàn gỗ, ánh sáng tự nhiên.`,
-    );
-    if (prompt === null || prompt.trim() === "") return;
-
-    setError(null);
+  const setReview = async (piece: ContentPiece, review: ContentReview) => {
     try {
-      await getClient().generateImage(piece.id, prompt.trim());
-      await load();
-    } catch (caught) {
-      setError(describe(caught));
-    }
-  };
-
-  const drawBanner = async (piece: ContentPiece) => {
-    setError(null);
-    try {
-      await getClient().renderBanner(piece.id, {
-        footer: window.location.host,
-      });
-      await load();
-    } catch (caught) {
-      setError(describe(caught));
-    }
-  };
-
-  const setStatus = async (piece: ContentPiece, status: ContentPieceStatus) => {
-    try {
-      await getClient().updateContentPiece(piece.id, { status });
-      await load();
-    } catch (caught) {
-      setError(describe(caught));
-    }
-  };
-
-  const remove = async (piece: ContentPiece) => {
-    try {
-      await getClient().archiveContentPiece(piece.id);
+      await getClient().updateContentPiece(piece.id, { review });
       await load();
     } catch (caught) {
       setError(describe(caught));
@@ -148,7 +131,7 @@ export function CalendarPanel() {
   return (
     <Panel
       title="Lịch nội dung"
-      subtitle="Bài nào đi lúc nào. Bài đã duyệt và tới giờ sẽ tự đăng — chưa duyệt thì không, dù ngày đã qua."
+      subtitle="Bài nào đang có, ở trạng thái nào. Chỉ bài đã Duyệt và tới giờ mới tự đăng."
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
@@ -195,11 +178,9 @@ export function CalendarPanel() {
                     key={piece.id}
                     piece={piece}
                     accounts={accounts}
-                    onStatus={setStatus}
+                    onReview={setReview}
                     onAccount={setAccount}
-                    onBanner={drawBanner}
-                    onImage={drawImage}
-                    onRemove={remove}
+                    onPreview={setPreview}
                   />
                 ))}
               </ul>
@@ -217,11 +198,9 @@ export function CalendarPanel() {
                     key={piece.id}
                     piece={piece}
                     accounts={accounts}
-                    onStatus={setStatus}
+                    onReview={setReview}
                     onAccount={setAccount}
-                    onBanner={drawBanner}
-                    onImage={drawImage}
-                    onRemove={remove}
+                    onPreview={setPreview}
                   />
                 ))}
               </ul>
@@ -231,6 +210,19 @@ export function CalendarPanel() {
       )}
 
       <ErrorNote message={error} />
+
+      {preview ? (
+        <Preview
+          // Re-read from the list rather than held: approving something while
+          // its preview is open would otherwise leave the dialog showing the
+          // verdict it had when it was opened.
+          piece={
+            (pieces ?? []).find((piece) => piece.id === preview.id) ?? preview
+          }
+          accounts={accounts}
+          onClose={() => setPreview(null)}
+        />
+      ) : null}
     </Panel>
   );
 }
@@ -238,19 +230,15 @@ export function CalendarPanel() {
 function Row({
   piece,
   accounts,
-  onStatus,
+  onReview,
   onAccount,
-  onBanner,
-  onImage,
-  onRemove,
+  onPreview,
 }: {
   piece: ContentPiece;
   accounts: SocialConnection[];
-  onStatus: (piece: ContentPiece, status: ContentPieceStatus) => Promise<void>;
+  onReview: (piece: ContentPiece, review: ContentReview) => Promise<void>;
   onAccount: (piece: ContentPiece, accountId: string) => Promise<void>;
-  onBanner: (piece: ContentPiece) => Promise<void>;
-  onImage: (piece: ContentPiece) => Promise<void>;
-  onRemove: (piece: ContentPiece) => Promise<void>;
+  onPreview: (piece: ContentPiece) => void;
 }) {
   const onChannel = accounts.filter(
     (account) => account.connectorId === piece.channel,
@@ -267,7 +255,18 @@ function Row({
           {timeOf(piece.scheduledAt)}
         </span>
       ) : null}
+
       <span className="min-w-0 flex-1 font-medium">{piece.title}</span>
+
+      {piece.imageKey ? (
+        <span
+          className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600"
+          title="Bài này sẽ đăng kèm ảnh"
+        >
+          có ảnh
+        </span>
+      ) : null}
+
       {onChannel.length > 1 && !settled ? (
         <select
           aria-label={`Trang đăng cho "${piece.title}"`}
@@ -288,63 +287,48 @@ function Row({
             ?.displayName ?? piece.channel}
         </span>
       )}
-      <span
-        className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${STATUS_STYLES[piece.status]}`}
+
+      {/* The verdict, chosen. Approving is a person saying this exact text may
+          go out, and it is the only authorisation the publisher has — nothing
+          that is not "Duyệt" is ever sent. Closed once a post is out: changing
+          the verdict on something already published changes nothing except
+          what the screen claims. */}
+      <select
+        aria-label={`Trạng thái duyệt cho "${piece.title}"`}
+        value={piece.review}
+        disabled={settled}
+        onChange={(event) =>
+          void onReview(piece, event.target.value as ContentReview)
+        }
+        className="shrink-0 rounded border border-neutral-300 px-1 py-0.5 text-xs focus:border-neutral-900 focus:outline-none disabled:bg-neutral-100 disabled:text-neutral-500"
       >
-        {STATUS_LABELS[piece.status]}
+        {(Object.keys(REVIEW_LABELS) as (keyof typeof REVIEW_LABELS)[]).map(
+          (review) => (
+            <option key={review} value={review}>
+              {REVIEW_LABELS[review]}
+            </option>
+          ),
+        )}
+      </select>
+
+      {/* Not a choice: a record of what happened. */}
+      <span
+        className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${PUBLISH_STYLES[piece.status]}`}
+      >
+        {PUBLISH_LABELS[piece.status]}
       </span>
 
-      {/* Approving is a person saying this exact text may go out, and it is
-          the only authorisation the publisher has — nothing else is ever sent.
-          Offered from DRAFT, and again from FAILED, because a post that failed
-          for a reason somebody has since fixed needs a way back without being
-          rewritten. Never from PUBLISHED: that would post it twice. */}
-      {piece.status === "DRAFT" || piece.status === "FAILED" ? (
-        <button
-          type="button"
-          onClick={() => void onStatus(piece, "APPROVED")}
-          className="shrink-0 text-xs text-emerald-700 underline"
-        >
-          {piece.status === "FAILED" ? "Duyệt lại" : "Duyệt"}
-        </button>
-      ) : null}
-
-      {/* Only while it can still change the post. Drawing a banner for
-          something already out would store a picture nobody will ever see
-          attached to it. */}
-      {!settled ? (
-        <button
-          type="button"
-          onClick={() => void onBanner(piece)}
-          className="shrink-0 text-xs text-neutral-600 underline hover:text-neutral-900"
-        >
-          {piece.imageKey ? "Vẽ lại bìa" : "Vẽ bìa"}
-        </button>
-      ) : null}
-
-      {/* Beside the banner, not instead of it. The banner is free and says
-          exactly what the post says; this one costs money and can draw
-          something the post never claimed. Two buttons so the choice is made
-          on purpose. */}
-      {!settled ? (
-        <button
-          type="button"
-          onClick={() => void onImage(piece)}
-          className="shrink-0 text-xs text-neutral-600 underline hover:text-neutral-900"
-          title="Sinh ảnh bằng AI — tốn khoảng $0.04 mỗi ảnh"
-        >
-          Sinh ảnh AI
-        </button>
-      ) : null}
-
-      {piece.imageKey ? (
-        <span
-          className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600"
-          title="Bài này sẽ đăng kèm ảnh"
-        >
-          có ảnh
-        </span>
-      ) : null}
+      {/* What the post will actually look like — the only way to see the text
+          and the picture together before somebody approves them. */}
+      <button
+        type="button"
+        onClick={() => onPreview(piece)}
+        aria-label={`Xem trước "${piece.title}"`}
+        title="Xem trước bài đăng"
+        className="shrink-0 rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+      >
+        <EyeIcon />
+      </button>
 
       {/* Where it went. A calendar that says "đã đăng" without a way to go and
           look is asking to be taken on trust. */}
@@ -362,15 +346,142 @@ function Row({
       {piece.lastError ? (
         <span className="w-full text-xs text-red-600">{piece.lastError}</span>
       ) : null}
-
-      <button
-        type="button"
-        onClick={() => void onRemove(piece)}
-        className="shrink-0 text-xs text-neutral-500 underline hover:text-red-700"
-      >
-        Bỏ
-      </button>
     </li>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      aria-hidden
+    >
+      <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="2.6" />
+    </svg>
+  );
+}
+
+/**
+ * The post as Facebook will show it.
+ *
+ * Built from the same fields the publisher sends, in the same order, rather
+ * than from a summary: the point of looking is to catch what is wrong with the
+ * real thing, and a preview that tidies it up catches nothing.
+ */
+function Preview({
+  piece,
+  accounts,
+  onClose,
+}: {
+  piece: ContentPiece;
+  accounts: SocialConnection[];
+  onClose: () => void;
+}) {
+  const [image, setImage] = useState<string | null>(null);
+  const page = accounts.find((account) => account.id === piece.socialAccountId);
+
+  useEffect(() => {
+    if (!piece.imageKey) return;
+    let cancelled = false;
+
+    // The key is not a URL. A link is minted per view because a stored one
+    // expires, and a preview showing a broken picture would read as a post
+    // with a broken picture.
+    void getClient()
+      .contentImageUrl(piece.id)
+      .then((result) => {
+        if (!cancelled) setImage(result.url);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [piece.id, piece.imageKey]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-neutral-900/40 p-4 sm:p-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Xem trước "${piece.title}"`}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-lg bg-white shadow-lg"
+        // Clicking the post itself must not close what somebody opened to read.
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+          <p className="text-sm font-medium text-neutral-700">
+            Bài đăng sẽ trông như thế này
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-2 py-1 text-sm text-neutral-500 hover:bg-neutral-100"
+          >
+            Đóng
+          </button>
+        </div>
+
+        <div className="p-4">
+          <div className="rounded-md border border-neutral-200">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <span
+                className="h-8 w-8 rounded-full bg-neutral-200"
+                aria-hidden
+              />
+              <span className="text-sm font-medium text-neutral-800">
+                {page?.displayName ?? piece.channel}
+              </span>
+            </div>
+
+            {/* whitespace-pre-wrap, because the line breaks are the format:
+                a preview that collapses them shows a post nobody is sending. */}
+            <p className="whitespace-pre-wrap px-3 pb-3 text-sm text-neutral-900">
+              {piece.body}
+            </p>
+
+            {piece.hashtags.length > 0 ? (
+              <p className="px-3 pb-3 text-sm text-sky-700">
+                {piece.hashtags.map((tag) => `#${tag}`).join(" ")}
+              </p>
+            ) : null}
+
+            {piece.imageKey ? (
+              image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={image}
+                  alt={`Ảnh của bài "${piece.title}"`}
+                  className="w-full"
+                />
+              ) : (
+                <p className="px-3 pb-3 text-xs text-neutral-400">
+                  Đang tải ảnh…
+                </p>
+              )
+            ) : null}
+          </div>
+
+          <p className="mt-2 text-xs text-neutral-500">
+            {piece.scheduledAt
+              ? `Hẹn đăng ${new Date(piece.scheduledAt).toLocaleString("vi-VN")}`
+              : "Chưa hẹn ngày đăng"}
+            {" · "}
+            {REVIEW_LABELS[piece.review]}
+            {" · "}
+            {PUBLISH_LABELS[piece.status]}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 

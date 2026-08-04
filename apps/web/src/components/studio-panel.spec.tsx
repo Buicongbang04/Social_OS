@@ -11,6 +11,7 @@ const client = {
   suggestSeo: vi.fn(),
   createContentPiece: vi.fn(),
   listConnections: vi.fn(),
+  generateImages: vi.fn(),
 };
 
 vi.mock("../lib/api", () => ({ getClient: () => client }));
@@ -52,6 +53,98 @@ const withDraft = async (connections: SocialConnection[] = []) => {
 beforeEach(() => {
   client.listConnections.mockResolvedValue([]);
   client.createContentPiece.mockResolvedValue({ id: "cnt_1" });
+  client.generateImages.mockResolvedValue({
+    images: [
+      { key: "a.png", url: "http://x/a.png" },
+      { key: "b.png", url: "http://x/b.png" },
+    ],
+    costUsd: "0.0780",
+  });
+});
+
+/** Draw the pictures, so there is a grid to pick from. */
+const withImages = async (count?: string) => {
+  await withDraft();
+  if (count) {
+    await userEvent.selectOptions(screen.getByLabelText("Số ảnh"), count);
+  }
+  await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh" }));
+  await screen.findAllByRole("img");
+};
+
+describe("StudioPanel — sinh ảnh", () => {
+  it("draws from the post itself, not from a description somebody types", async () => {
+    // Describing your own post back to a machine produced worse pictures than
+    // the post did.
+    await withImages();
+
+    expect(client.generateImages).toHaveBeenCalledWith("Thân bài", 1);
+  });
+
+  it("draws as many as were asked for", async () => {
+    // One at a time meant the only way to see a second option was to lose the
+    // first, so nobody ever compared two.
+    await withImages("4");
+
+    expect(client.generateImages).toHaveBeenCalledWith("Thân bài", 4);
+  });
+
+  it("attaches nothing until somebody picks one", async () => {
+    // A picture attached without being looked at is a picture that goes out
+    // without being looked at.
+    await withImages();
+
+    await userEvent.click(screen.getByRole("button", { name: "Lưu vào lịch" }));
+
+    await waitFor(() => expect(client.createContentPiece).toHaveBeenCalled());
+    expect(client.createContentPiece.mock.calls[0]![0]).not.toHaveProperty(
+      "imageKey",
+    );
+  });
+
+  it("saves the picture that was picked", async () => {
+    await withImages();
+
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /Ảnh đề xuất/ })[1]!,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Lưu vào lịch" }));
+
+    await waitFor(() =>
+      expect(client.createContentPiece).toHaveBeenCalledWith(
+        expect.objectContaining({ imageKey: "b.png" }),
+      ),
+    );
+  });
+
+  it("lets a picked picture be unpicked", async () => {
+    // Otherwise the only way back to a post with no image is to start again.
+    await withImages();
+
+    const first = screen.getAllByRole("button", { name: /Ảnh đề xuất/ })[0]!;
+    await userEvent.click(first);
+    expect(first).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(first);
+    expect(first).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("says what a picture costs before anybody spends it", async () => {
+    await withDraft();
+
+    expect(screen.getByText(/\$0\.04 mỗi ảnh/)).toBeVisible();
+  });
+
+  it("says what went wrong when the model refuses", async () => {
+    client.generateImages.mockRejectedValue(
+      new Error("Model không vẽ ảnh mà trả lời bằng chữ"),
+    );
+    await withDraft();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh" }));
+
+    expect(await screen.findByText(/không vẽ ảnh/)).toBeVisible();
+  });
 });
 
 describe("StudioPanel", () => {

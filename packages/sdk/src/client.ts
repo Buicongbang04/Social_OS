@@ -30,6 +30,7 @@ import type {
   CompetitorAnalysis,
   ContentPiece,
   ContentPieceStatus,
+  ContentReview,
   ContentTone,
   CrawledPage,
   TrendItem,
@@ -588,6 +589,8 @@ export class ApiClient {
     hashtags?: string[];
     channel: string;
     scheduledAt?: string;
+    /** The picture picked in the composer. */
+    imageKey?: string;
   }): Promise<ContentPiece> {
     return this.request<ContentPiece>("POST", "/content-pieces", {
       body: input,
@@ -606,6 +609,9 @@ export class ApiClient {
       channel?: string;
       scheduledAt?: string | null;
       status?: ContentPieceStatus;
+      review?: ContentReview;
+      /** The picture chosen in the composer, or null to take it off. */
+      imageKey?: string | null;
     },
   ): Promise<ContentPiece> {
     return this.request<ContentPiece>("PATCH", `/content-pieces/${id}`, {
@@ -637,6 +643,30 @@ export class ApiClient {
    * Shares the piece's one image slot with the banner: asking for a generated
    * image replaces a banner, and the other way round.
    */
+  /**
+   * Draw pictures for a post that has not been saved yet.
+   *
+   * Attached to nothing: the one that gets picked is saved with the piece.
+   * The prompt is built on the server from the post itself — describing your
+   * own post back to a machine produced worse pictures than the post did.
+   */
+  /** A temporary link to the picture already on a piece, for the preview. */
+  async contentImageUrl(id: string): Promise<{ url: string | null }> {
+    return this.request("GET", `/content-pieces/${id}/image`, {
+      workspaceScoped: true,
+    });
+  }
+
+  async generateImages(
+    body: string,
+    count = 1,
+  ): Promise<{ images: { key: string; url: string }[]; costUsd: string }> {
+    return this.request("POST", "/content-pieces/images", {
+      body: { body, count },
+      workspaceScoped: true,
+    });
+  }
+
   async generateImage(
     id: string,
     prompt: string,

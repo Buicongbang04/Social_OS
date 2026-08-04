@@ -22,10 +22,13 @@ import type {
 import {
   CAMPAIGN_STATUSES,
   CONTENT_PIECE_STATUSES,
+  CONTENT_REVIEWS,
   type CampaignRepository,
   type ContentPieceRepository,
   type SocialAccountRepository,
+  type WorkspaceMemoryRepository,
 } from "@repo/domain";
+import { buildImagePrompt } from "@repo/ai";
 import { z } from "zod";
 import {
   CurrentUser,
@@ -37,6 +40,7 @@ import {
   CAMPAIGN_REPOSITORY,
   CONTENT_PIECE_REPOSITORY,
   SOCIAL_ACCOUNT_REPOSITORY,
+  WORKSPACE_MEMORY_REPOSITORY,
 } from "../../infra/database/database.module";
 import { ApiZodBody } from "../../common/openapi/zod-body";
 import { parseRouteId } from "../../common/parse-id";
@@ -79,6 +83,18 @@ const imageSchema = z.object({
    * photograph.
    */
   prompt: z.string().trim().min(1).max(2_000),
+});
+
+const imagesSchema = z.object({
+  /** What the post says, which is what the picture is derived from. */
+  body: z.string().trim().min(1).max(20_000),
+  /**
+   * How many to draw.
+   *
+   * Capped at four: each one bills, and a grid larger than four is a bill
+   * nobody meant to run up while looking for a picture they like.
+   */
+  count: z.coerce.number().int().min(1).max(4).default(1),
 });
 
 const bannerSchema = z.object({
@@ -124,6 +140,8 @@ const createPieceSchema = z.object({
   hashtags: z.array(z.string().trim().max(40)).max(12).optional(),
   channel: z.string().trim().min(1).max(40),
   scheduledAt: instant.optional(),
+  /** The picture picked in the composer, saved with the post it belongs to. */
+  imageKey: z.string().trim().max(400).optional(),
 });
 
 const updatePieceSchema = z.object({
@@ -144,6 +162,21 @@ const updatePieceSchema = z.object({
    * looks at it again.
    */
   status: z.enum(["DRAFT", "APPROVED"]).optional(),
+  /**
+   * The review verdict, which is entirely a person's to set.
+   *
+   * Every value is allowed here, unlike `status`: none of them is a record of
+   * something that happened, they are all somebody's decision.
+   */
+  review: z.enum(CONTENT_REVIEWS).optional(),
+  /**
+   * The picture chosen in the composer, or null to take it off.
+   *
+   * A key, not a URL: a presigned URL expires, and one stored on the piece
+   * would leave the calendar showing a picture that stops loading minutes
+   * after somebody made it.
+   */
+  imageKey: z.string().trim().max(400).nullable().optional(),
 });
 
 /**
@@ -249,8 +282,32 @@ export class ContentPiecesController {
     private readonly pieces: ContentPieceRepository,
     @Inject(SOCIAL_ACCOUNT_REPOSITORY)
     private readonly accounts: SocialAccountRepository,
+    @Inject(WORKSPACE_MEMORY_REPOSITORY)
+    private readonly memory: WorkspaceMemoryRepository,
     private readonly banners: CampaignsService,
   ) {}
+
+  /**
+   * What this workspace does, for the picture to be about the right thing.
+   *
+   * Assembled from whatever it has remembered rather than from a field of its
+   * own: the facts are already there, already edited in one place, and a
+   * second place to describe the same business is a second place for the two
+   * to disagree.
+   *
+   * The footer is left out — a hotline in a description of a photograph is
+   * noise, and it is the one fact that must never be drawn.
+   */
+  private async brandOf(workspaceId: WorkspaceId): Promise<{ brand?: string }> {
+    const facts = await this.memory.list(workspaceId);
+    const brand = facts
+      .filter((fact) => fact.key !== "chan-bai")
+      .map((fact) => `${fact.key}: ${fact.value}`)
+      .join("; ")
+      .slice(0, 400);
+
+    return brand ? { brand } : {};
+  }
 
   /**
    * The account, checked against the workspace that asked for it.
@@ -333,11 +390,25 @@ export class ContentPiecesController {
     @Headers(WORKSPACE_ID_HEADER) header: string,
   ) {
     const { campaignId, socialAccountId, ...rest } = body;
+    const workspaceId = requireWorkspace(header);
+    const pieceId = parseRouteId("contentPiece", id);
+
+    // Approving something that failed to send is how it gets another attempt.
+    // The publisher only picks up pieces that have not been sent yet, so
+    // without this the verdict would change and nothing would ever happen —
+    // an approval that quietly does nothing is worse than a button that is
+    // not there.
+    const retry =
+      rest.review === "APPROVED" && rest.status === undefined
+        ? (await this.pieces.find(workspaceId, pieceId))?.status === "FAILED"
+        : false;
+
     const updated = await this.pieces.update(
-      requireWorkspace(header),
-      parseRouteId("contentPiece", id),
+      workspaceId,
+      pieceId,
       {
         ...rest,
+        ...(retry ? { status: "DRAFT" as const, lastError: null } : {}),
         // `undefined` leaves it alone, `null` takes it out of its campaign.
         // Collapsing the two would move a piece every time somebody renamed it.
         ...(campaignId === undefined
@@ -387,6 +458,57 @@ export class ContentPiecesController {
       parseRouteId("contentPiece", id) as ContentPieceId,
       user.userId,
       body,
+    );
+  }
+
+  /**
+   * A link to this piece's picture, for the preview.
+   *
+   * `read`: it hands back a temporary link to something the workspace already
+   * owns, and nothing is drawn or paid for.
+   */
+  @RequirePermission("workspace.workflow.read")
+  @Get(":id/image")
+  async imageUrl(
+    @Param("id") id: string,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    return this.banners.imageUrlFor(
+      requireWorkspace(header),
+      parseRouteId("contentPiece", id) as ContentPieceId,
+    );
+  }
+
+  /**
+   * Draw pictures for a post that has not been saved yet.
+   *
+   * Attached to nothing: they are candidates, and the one somebody picks is
+   * saved with the piece. Before this, the only way to see a second option was
+   * to overwrite the first, so nobody ever compared two.
+   *
+   * The prompt is built from the post rather than typed: what to draw is
+   * already written down, and asking somebody to describe their own post back
+   * to a machine is a step that produced worse pictures than the post did.
+   */
+  @RequirePermission("workspace.workflow.execute")
+  @ApiZodBody(imagesSchema)
+  @Post("images")
+  async images(
+    @Body(new ZodValidationPipe(imagesSchema))
+    body: z.infer<typeof imagesSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    const workspaceId = requireWorkspace(header);
+
+    return this.banners.generateImages(
+      workspaceId,
+      user.userId,
+      buildImagePrompt({
+        body: body.body,
+        ...(await this.brandOf(workspaceId)),
+      }),
+      body.count,
     );
   }
 

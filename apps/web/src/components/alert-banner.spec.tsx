@@ -32,6 +32,7 @@ const piece = (overrides: Partial<ContentPiece> = {}): ContentPiece => ({
   channel: "facebook",
   scheduledAt: null,
   status: "DRAFT",
+  review: "DRAFT",
   publishedPostId: null,
   publishedAt: null,
   lastError: null,

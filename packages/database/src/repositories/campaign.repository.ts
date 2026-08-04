@@ -72,6 +72,7 @@ function toPiece(row: PieceRow): ContentPiece {
     scheduledAt: row.scheduledAt,
     imageKey: row.imageKey,
     status: row.status,
+    review: row.review,
     publishedPostId: row.publishedPostId,
     publishedAt: row.publishedAt,
     lastError: row.lastError,
@@ -310,6 +311,7 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
         hashtags: [...(input.hashtags ?? [])],
         channel: input.channel,
         scheduledAt: input.scheduledAt ?? null,
+        imageKey: input.imageKey ?? null,
         metadata: input.metadata ?? {},
         createdBy: actorId,
       })
@@ -414,7 +416,11 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
       .where(
         sql`${contentPieces.id} in (
           select id from content_pieces
-          where status = 'APPROVED'
+          -- The verdict, not the publish state: those became two columns
+          -- because approving a piece must not erase what happened to it last
+          -- time it was sent.
+          where review = 'APPROVED'
+            and status in ('DRAFT', 'APPROVED')
             and scheduled_at is not null
             -- Sent as text with an explicit cast: a Date interpolated into raw
             -- SQL reaches the driver as an object it refuses.

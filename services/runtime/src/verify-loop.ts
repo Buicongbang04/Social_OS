@@ -180,11 +180,14 @@ async function main(): Promise<void> {
   }
 
   console.log("\n→ Duyệt, rồi để nó tự đăng");
-  await client.updateContentPiece(piece.id, { status: "APPROVED" });
+  await client.updateContentPiece(piece.id, { review: "APPROVED" });
 
   const published = await waitFor(async () => {
     const current = await find(client, piece.id);
+    // The verdict no longer moves, so waiting on it would wait forever: what
+    // changes is the publish state.
     return current &&
+      current.status !== "DRAFT" &&
       current.status !== "APPROVED" &&
       current.status !== "PUBLISHING"
       ? current
