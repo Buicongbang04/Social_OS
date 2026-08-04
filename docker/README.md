@@ -125,3 +125,22 @@ Không lỗi nào bị lint, typecheck hay 814 test bắt được:
 `NEXT_PUBLIC_API_URL` là **build arg**, không phải biến môi trường: Next.js
 nhúng nó vào bundle lúc build, nên đặt lúc chạy không có tác dụng gì. Đổi nó
 phải build lại image web.
+
+## Sao lưu
+
+```bash
+pnpm stack:backup          # lưu vào backups/<ngày-giờ>/
+pnpm stack:backups         # xem có những bản nào
+pnpm stack:restore <tên>   # ghi đè dữ liệu hiện tại, có hỏi xác nhận
+```
+
+Lấy cơ sở dữ liệu và các tệp đã tải lên. **Không** lấy `docker/.env.compose`.
+
+File đó giữ `SECRET_KEYS` — khoá mở mọi credential đã mã hoá nằm trong chính
+bản sao lưu. Cất chung hai thứ nghĩa là ai lấy được bản sao lưu thì đọc được
+luôn token của các kênh, và mã hoá không còn tác dụng gì. **Hãy cất một bản
+`SECRET_KEYS` ở nơi khác.** Không có nó, phục hồi xong vẫn đủ workspace, đủ
+lịch, đủ nội dung — nhưng mọi kênh phải nối lại từ đầu.
+
+Qdrant và Redis không được sao lưu: một cái là chỉ mục dựng lại được từ tài
+liệu gốc, một cái là hàng đợi và cache.
