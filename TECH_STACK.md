@@ -1591,6 +1591,32 @@ biến mất" sau khi nối Page — nhưng ô đó biến mất vì cả panel 
 không phải vì token bị xoá. Break-check bỏ dòng `setUserToken("")` đi mà test
 vẫn xanh. Giờ nó mở lại panel và kiểm ô rỗng.
 
+### Canh kênh còn sống, trước khi mất một bài (Phase 4)
+
+Trước đợt này, token chết chỉ lộ ra **một cách duy nhất**: bài đăng tiếp theo
+hỏng. Đó là một chiến dịch hụt một bài, phát hiện bằng cách mất nó — và nếu
+lịch là hàng tuần thì phát hiện muộn một tuần.
+
+Vòng quét mỗi 30 phút, hỏi Facebook thứ rẻ nhất có thể: **id của chính Page**.
+Không đăng gì, không đổi gì.
+
+**Mạng lỗi là "không biết", không phải "đã chết".** Nền tảng chưa nói gì cả;
+đánh dấu một kết nối lành là chết vì mạng chớp một cái sẽ đẩy người ta đi nối
+lại một kênh chưa từng hỏng. Rate limit cũng vậy — 429 không nói gì về token, và
+"hãy nối lại kênh" không sửa được rate limit.
+
+**Hết hạn và bị thu hồi được nói khác nhau**, vì việc phải làm khác nhau: nối
+lại sửa được cái đầu và **không** sửa được cái sau cho tới khi quyền được cấp
+lại bên nền tảng. Bảo người ta bấm một nút không thể có tác dụng còn tệ hơn
+không nói gì.
+
+Chỉ đánh dấu **xấu đi, không bao giờ tốt lên** — và đó là việc của câu truy vấn
+chứ không phải của lớp này: `listActiveEverywhere` chỉ trả về hàng `ACTIVE`, nên
+kết nối đã đánh dấu chết sẽ không bao giờ bị nhìn lại cho tới khi có người nối
+lại nó. Ghi ra vì luật này có thật mà code thực thi nó nằm chỗ khác — một test
+viết ở đây để chứng minh nó sẽ **xanh mà không chứng minh gì**, đúng như bản
+đầu tiên tôi viết và đã bỏ đi.
+
 ### Báo lỗi qua email: nodemailer `6.10` (Phase 4)
 
 Lịch tự đăng chạy lúc 8 giờ sáng. Bài hỏng thì trạng thái `FAILED` nằm trên

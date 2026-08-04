@@ -1,6 +1,7 @@
 import { RuntimeError } from "@repo/runtime";
 import { describe, expect, it } from "vitest";
 import {
+  checkCredential,
   credentialVerdict,
   listManageablePages,
   publishToFacebook,
@@ -277,6 +278,100 @@ describe("publishToFacebook with a picture", () => {
 
     expect(seen.url).toContain("/page-1/feed");
     expect(seen.body?.get("message")).toBe("Không ảnh");
+  });
+});
+
+describe("checkCredential", () => {
+  it("asks for the cheapest thing there is, and posts nothing", async () => {
+    const seen: Seen = {};
+    await checkCredential(
+      { externalId: "page-1", accessToken: "tok" },
+      {
+        fetch: answering(200, JSON.stringify({ id: "page-1" }), seen),
+        env: ENV,
+      },
+    );
+
+    expect(seen.method).toBe("GET");
+    expect(seen.url).toContain("fields=id");
+  });
+
+  it("says a live token is fine", async () => {
+    const result = await checkCredential(
+      { externalId: "page-1", accessToken: "tok" },
+      { fetch: answering(200, JSON.stringify({ id: "page-1" })), env: ENV },
+    );
+
+    expect(result).toEqual({ ok: true, verdict: null, reason: null });
+  });
+
+  it("tells an expired token from a revoked one", async () => {
+    const expired = await checkCredential(
+      { externalId: "page-1", accessToken: "tok" },
+      {
+        fetch: answering(
+          401,
+          JSON.stringify({
+            error: { code: 190, message: "Session has expired" },
+          }),
+        ),
+        env: ENV,
+      },
+    );
+    expect(expired.ok).toBe(false);
+    expect(expired.verdict).toBe("EXPIRED");
+
+    const revoked = await checkCredential(
+      { externalId: "page-1", accessToken: "tok" },
+      {
+        fetch: answering(
+          401,
+          JSON.stringify({
+            error: {
+              code: 190,
+              error_subcode: 458,
+              message: "User has not authorized application",
+            },
+          }),
+        ),
+        env: ENV,
+      },
+    );
+    expect(revoked.verdict).toBe("REVOKED");
+  });
+
+  it("treats a network failure as unknown, not as a dead token", async () => {
+    // The platform said nothing. Marking a healthy connection dead over a
+    // hiccup would send somebody to reconnect a channel that never broke.
+    const result = await checkCredential(
+      { externalId: "page-1", accessToken: "tok" },
+      {
+        fetch: (async () => {
+          throw new Error("ECONNRESET");
+        }) as unknown as typeof globalThis.fetch,
+        env: ENV,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("does not read a rate limit as a credential problem", async () => {
+    // Reporting a 429 as a dead token is a guess, and the fix it suggests —
+    // reconnect the channel — does nothing about a rate limit.
+    const result = await checkCredential(
+      { externalId: "page-1", accessToken: "tok" },
+      {
+        fetch: answering(
+          429,
+          JSON.stringify({ error: { code: 4, message: "rate limit" } }),
+        ),
+        env: ENV,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.verdict).toBeNull();
   });
 });
 

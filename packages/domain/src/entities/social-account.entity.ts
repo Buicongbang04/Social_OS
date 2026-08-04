@@ -100,6 +100,15 @@ export type SocialAccountRepository = {
     status: SocialAccountStatus,
     actorId: string | null,
   ): Promise<SocialAccount | null>;
+  /**
+   * Every live connection, across every workspace.
+   *
+   * Not scoped to one, unlike everything else here: the health sweep runs on
+   * behalf of all of them and has no workspace to be scoped to. Only ACTIVE
+   * ones, because re-checking a connection already known to be dead spends a
+   * request to learn what the row already says.
+   */
+  listActiveEverywhere(limit: number): Promise<SocialAccount[]>;
   disconnect(
     workspaceId: WorkspaceId,
     id: SocialAccountId,
