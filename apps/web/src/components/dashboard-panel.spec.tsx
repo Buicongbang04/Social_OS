@@ -79,6 +79,35 @@ describe("DashboardPanel", () => {
     expect(quiet).toHaveStyle({ height: "0%" });
   });
 
+  it("marks today apart from the days that already finished", async () => {
+    // A part-day always looks like a slump next to finished days. Drawn in the
+    // same colour it reads as "usage collapsed" every morning.
+    await show();
+
+    const bars = screen.getAllByTestId("bar");
+    expect(bars.at(-1)).toHaveAttribute("data-today", "true");
+    expect(bars.at(-1)?.className).toContain("bg-amber-600");
+    expect(bars[0]?.className).toContain("bg-blue-600");
+    expect(bars[0]).not.toHaveAttribute("data-today");
+  });
+
+  it("names both colours rather than leaving them to be guessed", async () => {
+    await show();
+
+    expect(screen.getByText("ngày đã trọn")).toBeVisible();
+    expect(screen.getByText(/hôm nay \(chưa hết ngày\)/)).toBeVisible();
+  });
+
+  it("keeps the figures in ordinary ink, not in the tile's colour", async () => {
+    // A number wearing its own colour is harder to read and says nothing the
+    // label beside it does not already say.
+    await show();
+
+    const value = screen.getByText("Request hôm nay").nextElementSibling;
+    expect(value).toHaveTextContent("12");
+    expect(value?.className).toContain("text-neutral-900");
+  });
+
   it("says how short the total is when some calls had no price", async () => {
     // A model with no price contributes nothing to the sum, so the figure is
     // understated by an unknown amount — said beside the number, not in a
