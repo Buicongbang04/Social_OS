@@ -2,6 +2,7 @@ import { canPublish, findConnector } from "@repo/connectors";
 import type { ContentPiece, ContentPieceRepository } from "@repo/domain";
 import { createLogger } from "@repo/logger";
 import type { Metrics } from "@repo/observability";
+import type { Alert, Notifier } from "@repo/notify";
 import type { ObjectStore } from "@repo/storage";
 import {
   openToken,
@@ -43,6 +44,17 @@ export type ContentPublisherDeps = VaultAccess & {
    * before pictures existed.
    */
   store?: ObjectStore | null;
+  /**
+   * Where a failure is reported to a person.
+   *
+   * Optional. Without it a failed post is still recorded on the piece and
+   * visible on the calendar — which is where it was before, and the reason
+   * this exists: the sweep runs at eight in the morning and nobody is looking
+   * at the calendar then.
+   */
+  notifier?: Notifier | null;
+  /** Where a person goes to look. Used to make an alert actionable. */
+  appUrl?: string;
   metrics?: Metrics;
 };
 
@@ -96,7 +108,12 @@ export class ContentPublisher {
 
   /** One pass. Returns how many pieces it sent or failed. */
   async tick(): Promise<number> {
-    await this.failAbandoned();
+    // Collected across the whole sweep, then sent once. A token that expires
+    // fails every post due that morning, and one email per post means ten
+    // identical messages nobody reads.
+    const alerts: Alert[] = [];
+
+    await this.failAbandoned(alerts);
 
     const due = await this.deps.pieces.claimDue(
       new Date(),
@@ -106,13 +123,34 @@ export class ContentPublisher {
     // One at a time. Publishing in parallel would mean a failure halfway
     // through leaves an unknown subset already posted.
     for (const piece of due) {
-      await this.send(piece);
+      await this.send(piece, alerts);
     }
 
+    await this.tell(alerts);
     return due.length;
   }
 
-  private async send(piece: ContentPiece): Promise<void> {
+  /**
+   * Send the alerts, and never let that failure become another failure.
+   *
+   * A mail server being down must not stop the next sweep: the posts have
+   * already been dealt with either way, and the piece carries its own error
+   * regardless of whether anybody was told.
+   */
+  private async tell(alerts: Alert[]): Promise<void> {
+    if (!this.deps.notifier || alerts.length === 0) return;
+
+    try {
+      await this.deps.notifier.send(alerts);
+    } catch (error) {
+      logger.error(
+        { err: error, alerts: alerts.length },
+        "could not send the failure alert",
+      );
+    }
+  }
+
+  private async send(piece: ContentPiece, alerts: Alert[]): Promise<void> {
     try {
       const account = await this.resolveAccount(piece);
       const token = await openToken(this.deps, piece.workspaceId, account);
@@ -173,6 +211,15 @@ export class ContentPublisher {
         { pieceId: piece.id, workspaceId: piece.workspaceId, err: error },
         "scheduled piece failed to publish",
       );
+
+      // The title, not the body. A title is what somebody recognises the post
+      // by; the body is their marketing copy and does not belong in an email
+      // sitting on a mail server.
+      alerts.push({
+        title: `Không đăng được "${piece.title}"`,
+        reason: message,
+        link: this.deps.appUrl ?? null,
+      });
     }
   }
 
@@ -277,7 +324,7 @@ export class ContentPublisher {
    * here. Retrying is how one post becomes two on a real audience, so this
    * stops and says so, and a person decides.
    */
-  private async failAbandoned(): Promise<void> {
+  private async failAbandoned(alerts: Alert[]): Promise<void> {
     const stuck = await this.deps.pieces.listStuck(
       new Date(Date.now() - this.options.stuckAfterMs),
       this.options.batchSize,
@@ -295,6 +342,15 @@ export class ContentPublisher {
         { pieceId: piece.id, workspaceId: piece.workspaceId },
         "content piece was abandoned mid-publish",
       );
+
+      // Said louder than an ordinary failure, because the answer is different:
+      // somebody has to go and look at the channel before doing anything.
+      alerts.push({
+        title: `Không rõ "${piece.title}" đã đăng hay chưa`,
+        reason:
+          "Tiến trình dừng giữa chừng khi đang đăng. Hãy mở kênh kiểm tra, rồi duyệt lại nếu chưa có.",
+        link: this.deps.appUrl ?? null,
+      });
     }
   }
 }

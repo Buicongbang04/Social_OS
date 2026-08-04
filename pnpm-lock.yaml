@@ -418,6 +418,34 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)(terser@5.49.0)
 
+  packages/notify:
+    dependencies:
+      "@repo/core":
+        specifier: workspace:*
+        version: link:../core
+      nodemailer:
+        specifier: ^6.9.16
+        version: 6.10.1
+    devDependencies:
+      "@repo/config":
+        specifier: workspace:*
+        version: link:../config
+      "@types/node":
+        specifier: ^22.10.0
+        version: 22.20.1
+      "@types/nodemailer":
+        specifier: ^6.4.17
+        version: 6.4.24
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.5(jiti@1.21.7)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)(terser@5.49.0)
+
   packages/observability:
     dependencies:
       prom-client:
@@ -822,6 +850,9 @@ importers:
       "@repo/logger":
         specifier: workspace:*
         version: link:../../packages/logger
+      "@repo/notify":
+        specifier: workspace:*
+        version: link:../../packages/notify
       "@repo/observability":
         specifier: workspace:*
         version: link:../../packages/observability
@@ -3774,6 +3805,12 @@ packages:
     resolution:
       {
         integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==,
+      }
+
+  "@types/nodemailer@6.4.24":
+    resolution:
+      {
+        integrity: sha512-Ww4u0rT9wQNXh4JiQaIwx3QWdcOFXzOjQA2zc+jtFYNmQiT4mIUqcDin51bDFdkzKubFnQCZNK7FIHlPKQ/q9w==,
       }
 
   "@types/passport-jwt@4.0.1":
@@ -7100,6 +7137,13 @@ packages:
         integrity: sha512-wRNIrw4DmVLKQlbgOMdkMx27Wrpzes2hh5Jtbi2bjPd+4wJstWIqP5A+lscnqbm0xxmT5Bpg8Lec5ItEBwx6BQ==,
       }
     engines: { node: ">=18" }
+
+  nodemailer@6.10.1:
+    resolution:
+      {
+        integrity: sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==,
+      }
+    engines: { node: ">=6.0.0" }
 
   normalize-path@3.0.0:
     resolution:
@@ -10756,6 +10800,10 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  "@types/nodemailer@6.4.24":
+    dependencies:
+      "@types/node": 22.20.1
+
   "@types/passport-jwt@4.0.1":
     dependencies:
       "@types/jsonwebtoken": 9.0.10
@@ -12941,6 +12989,8 @@ snapshots:
   node-gyp-build@4.8.4: {}
 
   node-releases@2.0.51: {}
+
+  nodemailer@6.10.1: {}
 
   normalize-path@3.0.0: {}
 

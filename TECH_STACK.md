@@ -1591,6 +1591,38 @@ biến mất" sau khi nối Page — nhưng ô đó biến mất vì cả panel 
 không phải vì token bị xoá. Break-check bỏ dòng `setUserToken("")` đi mà test
 vẫn xanh. Giờ nó mở lại panel và kiểm ô rỗng.
 
+### Báo lỗi qua email: nodemailer `6.10` (Phase 4)
+
+Lịch tự đăng chạy lúc 8 giờ sáng. Bài hỏng thì trạng thái `FAILED` nằm trên
+lịch — **nơi lúc đó không ai đang mở**. Đăng tự động chỉ đáng tin khi nó biết
+tự kêu lúc hỏng.
+
+Cấu hình bằng **một `SMTP_URL`** thay vì năm biến host/port/user/pass/secure:
+đó là thứ mọi nhà cung cấp đưa cho, và tách ra là thêm bốn chỗ để điền sai.
+
+**Đặt một nửa thì báo lỗi lúc khởi động.** Không đặt gì = không gửi email, chạy
+y như cũ. Nhưng có `ALERT_EMAIL_TO` mà thiếu `SMTP_URL` là người ta _định_ bật
+nó lên; im lặng không gửi là tệ nhất trong cả hai — vừa không có cảnh báo, vừa
+không có dấu hiệu nào cho biết là không có.
+
+**Một thư cho cả vòng quét, không phải mỗi bài một thư.** Token hết hạn làm hỏng
+mọi bài đến hạn sáng đó; mười thư giống hệt nhau thì đến lần thứ mười một không
+ai đọc thư nào.
+
+**Thư chỉ mang tiêu đề bài, không mang nội dung.** Tiêu đề là thứ người ta nhận
+ra bài; nội dung là bài quảng cáo của khách và không có lý do gì để nằm trên một
+máy chủ mail.
+
+Gửi **văn bản thuần**, không HTML. Đây là máy báo cho người, HTML thêm một bước
+render, một bề mặt lọc spam, và một đường để chữ trong bài — vốn là chữ của
+khách — biến thành thẻ trong email.
+
+Mail server chết **không được biến thành một lỗi thứ hai**: bài đã được xử lý
+xong dù có ai được báo hay không.
+
+Kiểm chứng bằng một SMTP server thật (mailpit trong container tạm): thư đi đúng
+tiêu đề, đúng người nhận, đúng nội dung, và **không có phần HTML**.
+
 ### Đọc bình luận dưới bài (Phase 3, bổ sung)
 
 Với một Page bán hàng, **phần lớn câu hỏi của khách nằm ở bình luận chứ không

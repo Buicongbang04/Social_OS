@@ -464,6 +464,110 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
     );
   });
 
+  it("tells somebody when a post fails", async () => {
+    // The whole reason this exists: the sweep runs at eight in the morning and
+    // nobody is looking at the calendar then.
+    const sent: { title: string; reason: string }[][] = [];
+    const piece = await schedule();
+
+    const telling = new ContentPublisher({
+      accounts,
+      secrets,
+      keyring,
+      pieces,
+      notifier: {
+        send: async (alerts) => {
+          sent.push(alerts.map((a) => ({ title: a.title, reason: a.reason })));
+        },
+      },
+      appUrl: "https://app.local",
+    });
+    await telling.tick();
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]![0]!.title).toContain(piece.title);
+    expect(sent[0]![0]!.reason).toContain("Kênh mạng xã hội");
+  });
+
+  it("sends one alert for a whole sweep, not one per post", async () => {
+    // A token that expires fails every post due that morning. One email per
+    // post is ten identical messages nobody reads.
+    await schedule({ body: "Bài một" });
+    await schedule({ body: "Bài hai" });
+    await schedule({ body: "Bài ba" });
+
+    const batches: number[] = [];
+    const telling = new ContentPublisher({
+      accounts,
+      secrets,
+      keyring,
+      pieces,
+      notifier: { send: async (alerts) => void batches.push(alerts.length) },
+    });
+    await telling.tick();
+
+    expect(batches).toEqual([3]);
+  });
+
+  it("says nothing when nothing went wrong", async () => {
+    await connect("page-1", "Trang một");
+    await schedule();
+
+    const calls: number[] = [];
+    const telling = new ContentPublisher({
+      accounts,
+      secrets,
+      keyring,
+      pieces,
+      notifier: { send: async (alerts) => void calls.push(alerts.length) },
+    });
+    await telling.tick();
+
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps the post's own words out of the alert", async () => {
+    // A title is what somebody recognises the post by. The body is their
+    // marketing copy and does not belong sitting on a mail server.
+    const secretBody = "Nội dung riêng không được rời khỏi hệ thống.";
+    await schedule({ body: secretBody });
+
+    const seen: string[] = [];
+    const telling = new ContentPublisher({
+      accounts,
+      secrets,
+      keyring,
+      pieces,
+      notifier: {
+        send: async (alerts) => void seen.push(JSON.stringify(alerts)),
+      },
+    });
+    await telling.tick();
+
+    expect(seen.join()).not.toContain(secretBody);
+  });
+
+  it("still marks the piece failed when the alert cannot be sent", async () => {
+    // A mail server being down must not become a second failure: the post has
+    // been dealt with either way.
+    const piece = await schedule();
+
+    const broken = new ContentPublisher({
+      accounts,
+      secrets,
+      keyring,
+      pieces,
+      notifier: {
+        send: async () => {
+          throw new Error("SMTP không trả lời");
+        },
+      },
+    });
+    await broken.tick();
+
+    expect((await pieces.find(workspaceId, piece.id))?.status).toBe("FAILED");
+  });
+
   it("counts what went out and what did not", async () => {
     await connect("page-1", "Trang một");
     await schedule();

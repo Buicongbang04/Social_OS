@@ -27,6 +27,7 @@ import { buildSocialInbox, buildSocialPublish } from "./capabilities/social";
 import { buildKnowledgeStack } from "./knowledge";
 import { BUILTIN_CAPABILITIES } from "./capabilities/builtin";
 import { startMetricsServer } from "./metrics-server";
+import { EmailNotifier, mailerConfigFromEnv } from "@repo/notify";
 import { ContentPublisher } from "./content-publisher";
 import { Scheduler } from "./scheduler";
 
@@ -135,6 +136,21 @@ async function main(): Promise<void> {
    * wrote the text, chose the time and approved that exact post. Gating it
    * would make the Duyệt button do nothing and say nothing.
    */
+  /**
+   * Where failures are reported, if anywhere.
+   *
+   * Built once at startup so a misconfiguration is a startup error rather than
+   * something discovered at eight in the morning when the first post fails and
+   * the alert about it also fails.
+   */
+  const mailer = mailerConfigFromEnv();
+  if (mailer) {
+    logger.info(
+      { to: mailer.to.length },
+      "email alerts on: sẽ báo khi có bài không đăng được",
+    );
+  }
+
   const contentPublisher =
     publishLive && keyring
       ? new ContentPublisher({
@@ -146,6 +162,10 @@ async function main(): Promise<void> {
           // the same MINIO_* configuration. Null when storage is not set up,
           // and then a scheduled post goes out as words.
           store: knowledge?.store ?? null,
+          notifier: mailer ? new EmailNotifier(mailer) : null,
+          ...(process.env.APP_URL?.trim()
+            ? { appUrl: process.env.APP_URL.trim() }
+            : {}),
           metrics,
         })
       : null;
