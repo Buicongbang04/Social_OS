@@ -29,6 +29,27 @@ import { ConnectionsService } from "../connections/connections.service";
 /** What draws the pictures. */
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
+/**
+ * What Facebook will actually accept as a post image.
+ *
+ * Checked on the way in rather than trusted: a PDF renamed to .png would be
+ * stored, attached to a post, and then refused at publish time — a long way
+ * from the person who picked the file.
+ */
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
+const EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
 /** How many recent posts to read engagement for, per connected Page. */
 const STATS_WINDOW = 50;
 
@@ -210,6 +231,58 @@ export class CampaignsService {
    * firing at once is how a quota refusal turns four charges into four
    * failures with one picture to show for it.
    */
+  /**
+   * Keep a picture somebody brought themselves.
+   *
+   * Same folder and same shape of key as a drawn one, so everything
+   * downstream — the preview, the publisher, the presigned link — cannot tell
+   * the difference and does not have to.
+   *
+   * Nothing is metered: no provider was called and nobody was charged. A row
+   * in the AI ledger for a file upload would make the spend view claim money
+   * that was never spent.
+   */
+  async storeUploadedImage(
+    workspaceId: WorkspaceId,
+    file: { buffer: Buffer; mimetype: string; originalname: string },
+  ): Promise<{ key: string; url: string }> {
+    if (!this.store) {
+      throw new ValidationError(
+        "Chưa cấu hình kho lưu trữ. Đặt MINIO_URL để dùng được ảnh.",
+      );
+    }
+
+    // Checked here rather than trusted: a PDF renamed to .png would be stored,
+    // attached, and then fail at Facebook — a long way from the person who
+    // picked the file.
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+      throw new ValidationError(
+        `Chỉ nhận ảnh JPEG, PNG, WebP hoặc GIF — file này là ${file.mimetype || "không rõ định dạng"}.`,
+      );
+    }
+
+    const extension = EXTENSIONS[file.mimetype] ?? "png";
+    const location = {
+      workspaceId,
+      folder: "posts" as const,
+      // The uploader's filename is never the key: two people uploading
+      // "anh.png" would overwrite each other's post.
+      name: `${newId("contentPiece")}.${extension}`,
+    };
+
+    await this.store.put({
+      ...location,
+      body: file.buffer,
+      contentType: file.mimetype,
+      fileName: file.originalname,
+    });
+
+    return {
+      key: location.name,
+      url: await this.store.presignGet(location),
+    };
+  }
+
   /**
    * A link to the picture already on a piece.
    *

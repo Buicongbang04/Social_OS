@@ -650,6 +650,22 @@ export class ApiClient {
    * The prompt is built on the server from the post itself — describing your
    * own post back to a machine produced worse pictures than the post did.
    */
+  /**
+   * Keep a picture somebody brought themselves.
+   *
+   * Returns the same shape a drawn one does, so the screen picking between
+   * them does not have to know which is which.
+   */
+  async uploadContentImage(file: File): Promise<{ key: string; url: string }> {
+    const form = new FormData();
+    form.append("file", file);
+
+    return this.request("POST", "/content-pieces/upload-image", {
+      rawBody: form,
+      workspaceScoped: true,
+    });
+  }
+
   /** A temporary link to the picture already on a piece, for the preview. */
   async contentImageUrl(id: string): Promise<{ url: string | null }> {
     return this.request("GET", `/content-pieces/${id}/image`, {

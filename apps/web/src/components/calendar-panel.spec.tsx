@@ -21,6 +21,7 @@ const client = {
   archiveContentPiece: vi.fn(),
   contentImageUrl: vi.fn(),
   generateImages: vi.fn(),
+  uploadContentImage: vi.fn(),
 };
 
 vi.mock("../lib/api", () => ({ getClient: () => client }));
@@ -72,6 +73,10 @@ const show = async (
 
 beforeEach(() => {
   client.contentImageUrl.mockResolvedValue({ url: "http://x/anh.png" });
+  client.uploadContentImage.mockResolvedValue({
+    key: "tai-len.png",
+    url: "http://x/tai-len.png",
+  });
   client.generateImages.mockResolvedValue({
     images: [{ key: "moi.png", url: "http://x/moi.png" }],
     costUsd: "0.0390",
@@ -458,6 +463,68 @@ describe("CalendarPanel", () => {
     expect(within(dialog).getByLabelText("Hẹn đăng")).toHaveValue(
       `${expected.getFullYear()}-${pad(expected.getMonth() + 1)}-${pad(expected.getDate())}T${pad(expected.getHours())}:${pad(expected.getMinutes())}`,
     );
+  });
+
+  it("attaches a picture somebody brought themselves", async () => {
+    // Not every post wants a drawn picture: a photograph of the actual parcel
+    // is the one thing a model cannot produce.
+    await show([piece({ imageKey: null })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const file = new File(["giả vờ là PNG"], "kien-hang.png", {
+      type: "image/png",
+    });
+    await userEvent.upload(within(dialog).getByLabelText("Tải ảnh lên"), file);
+
+    await waitFor(() =>
+      expect(client.uploadContentImage).toHaveBeenCalledWith(file),
+    );
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() =>
+      expect(client.updateContentPiece).toHaveBeenCalledWith("cnt_1", {
+        imageKey: "tai-len.png",
+      }),
+    );
+  });
+
+  it("takes an uploaded picture as chosen, without asking again", async () => {
+    // Picking a file off your own machine is already the decision.
+    await show([piece({ imageKey: null })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.upload(
+      within(dialog).getByLabelText("Tải ảnh lên"),
+      new File(["x"], "a.png", { type: "image/png" }),
+    );
+
+    expect(await within(dialog).findByText("Sẽ đăng kèm")).toBeVisible();
+  });
+
+  it("says what went wrong when a file is refused", async () => {
+    // `accept` keeps the obvious cases out of the picker, but it is a hint the
+    // browser may ignore and says nothing about size — the server is the one
+    // that refuses, and its reason has to reach the screen.
+    client.uploadContentImage.mockRejectedValue(new Error("Ảnh quá lớn"));
+    await show([piece({ imageKey: null })]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: 'Sửa "Bài viết"' }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.upload(
+      within(dialog).getByLabelText("Tải ảnh lên"),
+      new File(["x"], "to.png", { type: "image/png" }),
+    );
+
+    expect(await within(dialog).findByText(/Ảnh quá lớn/)).toBeVisible();
   });
 
   it("does not offer to edit a post that has already gone out", async () => {

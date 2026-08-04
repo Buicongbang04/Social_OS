@@ -11,6 +11,8 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
 import { NotFoundError, ValidationError, isId } from "@repo/core";
 import type {
@@ -28,6 +30,7 @@ import {
   type SocialAccountRepository,
   type WorkspaceMemoryRepository,
 } from "@repo/domain";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { buildImagePrompt } from "@repo/ai";
 import { z } from "zod";
 import {
@@ -459,6 +462,28 @@ export class ContentPiecesController {
       user.userId,
       body,
     );
+  }
+
+  /**
+   * Keep a picture somebody brought themselves.
+   *
+   * `create` rather than `execute`, unlike drawing one: this spends storage,
+   * not money at a provider.
+   */
+  @RequirePermission("workspace.workflow.create")
+  @Post("upload-image")
+  @UseInterceptors(FileInterceptor("file"))
+  async uploadImage(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    if (!file) {
+      throw new ValidationError(
+        "Thiếu file. Gửi multipart/form-data với trường tên là 'file'.",
+      );
+    }
+
+    return this.banners.storeUploadedImage(requireWorkspace(header), file);
   }
 
   /**

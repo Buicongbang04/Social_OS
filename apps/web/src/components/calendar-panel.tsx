@@ -574,7 +574,7 @@ function Editor({
   const [imageKey, setImageKey] = useState<string | null>(piece.imageKey);
   const [images, setImages] = useState<Candidate[]>([]);
   const [count, setCount] = useState(1);
-  const [busy, setBusy] = useState<"images" | "save" | null>(null);
+  const [busy, setBusy] = useState<"images" | "upload" | "save" | null>(null);
 
   // The picture already on the piece, so somebody replacing one can see what
   // they are replacing rather than working from the word "có ảnh".
@@ -603,6 +603,28 @@ function Editor({
       // being here is usually that the saved text was wrong.
       const result = await getClient().generateImages(body, count);
       setImages(result.images);
+    } catch (caught) {
+      setError(describe(caught));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * A picture somebody brought themselves.
+   *
+   * Chosen straight away, unlike a drawn one: picking a file off your own
+   * machine is already the decision, and asking again on the tile would be
+   * asking twice. It joins the same list so it can be compared with the drawn
+   * ones and discarded the same way.
+   */
+  const upload = async (file: File) => {
+    setBusy("upload");
+    setError(null);
+    try {
+      const uploaded = await getClient().uploadContentImage(file);
+      setImages((current) => [uploaded, ...current]);
+      setImageKey(uploaded.key);
     } catch (caught) {
       setError(describe(caught));
     } finally {
@@ -723,6 +745,31 @@ function Editor({
                 {piece.imageKey ? "Sinh ảnh khác" : "Sinh ảnh"}
               </PrimaryButton>
               <ImageCount value={count} onChange={setCount} />
+
+              {/* A real file input, styled as a label wrapping it: the button
+                  browsers draw for `type="file"` cannot be restyled, and one
+                  faked with a hidden input plus a click() is a control that
+                  keyboards and screen readers cannot reach. */}
+              <label
+                className={`cursor-pointer rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100 ${
+                  busy === "upload" ? "pointer-events-none opacity-60" : ""
+                }`}
+              >
+                {busy === "upload" ? "Đang tải…" : "Tải ảnh lên"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    // Reset first: picking the same file twice in a row fires
+                    // no change event otherwise, and the second attempt after
+                    // a failure looks like a dead control.
+                    event.target.value = "";
+                    if (file) void upload(file);
+                  }}
+                />
+              </label>
               <span className="text-xs text-neutral-500">
                 khoảng $0.04 mỗi ảnh
               </span>
