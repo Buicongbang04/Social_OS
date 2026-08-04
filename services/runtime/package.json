@@ -14,7 +14,8 @@
     "test:int": "vitest run --config vitest.int.config.ts",
     "verify:llm": "tsx src/verify-llm.ts",
     "verify:stack": "tsx src/verify-stack.ts",
-    "verify:page": "tsx src/verify-page.ts"
+    "verify:page": "tsx src/verify-page.ts",
+    "verify:loop": "tsx src/verify-loop.ts"
   },
   "dependencies": {
     "@repo/ai": "workspace:*",
