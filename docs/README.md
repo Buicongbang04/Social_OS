@@ -2,6 +2,12 @@
 
 > AI-Native Runtime Platform for Social Media, Marketing Automation and Digital Workforce
 
+> **Tài liệu này mô tả sản phẩm được thiết kế, không phải phần đã xây xong.**
+> Ví dụ ngay bên dưới có nhắc Instagram, Telegram và Lark — cả ba đều **chưa
+> nối được**. Kênh chạy thật hiện nay là Facebook.
+>
+> Cái gì đã chạy, cái gì chưa, và vì sao: [`STATUS.md`](STATUS.md).
+
 ---
 
 ## Overview
@@ -191,23 +197,23 @@ flowchart LR
 
 # Core Components
 
-| Component | Responsibility |
-|------------|----------------|
-| Execution Runtime | Kernel điều phối toàn bộ hệ thống |
-| Intent Engine | Phân tích yêu cầu người dùng |
-| Planning Engine | Sinh Execution Plan |
-| Policy Engine | Kiểm tra Permission, Cost, Approval |
-| Context Engine | Xây dựng Context cho AI |
-| Capability Engine | Resolve Capability sang Worker |
-| Scheduler | Điều phối Job |
-| Worker Pool | Thực thi Task |
-| Provider Gateway | Điều phối AI Provider |
-| Connector Gateway | Điều phối Social Connector |
-| Plugin Runtime | Load Plugin |
-| MCP Client | Kết nối MCP Server |
-| Event Bus | Event Streaming |
-| Memory Bus | Điều phối Memory |
-| Analytics Engine | Thu thập Metrics |
+| Component         | Responsibility                      |
+| ----------------- | ----------------------------------- |
+| Execution Runtime | Kernel điều phối toàn bộ hệ thống   |
+| Intent Engine     | Phân tích yêu cầu người dùng        |
+| Planning Engine   | Sinh Execution Plan                 |
+| Policy Engine     | Kiểm tra Permission, Cost, Approval |
+| Context Engine    | Xây dựng Context cho AI             |
+| Capability Engine | Resolve Capability sang Worker      |
+| Scheduler         | Điều phối Job                       |
+| Worker Pool       | Thực thi Task                       |
+| Provider Gateway  | Điều phối AI Provider               |
+| Connector Gateway | Điều phối Social Connector          |
+| Plugin Runtime    | Load Plugin                         |
+| MCP Client        | Kết nối MCP Server                  |
+| Event Bus         | Event Streaming                     |
+| Memory Bus        | Điều phối Memory                    |
+| Analytics Engine  | Thu thập Metrics                    |
 
 ---
 
