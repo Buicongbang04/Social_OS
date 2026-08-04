@@ -524,13 +524,15 @@ export class ApiClient {
       campaignId?: string;
       from?: string;
       to?: string;
+      status?: ContentPieceStatus;
+      /** How many at most. Left out, everything comes back. */
+      limit?: number;
     } = {},
   ): Promise<ContentPiece[]> {
     const query = new URLSearchParams(
-      Object.entries(filter).filter(([, value]) => value !== undefined) as [
-        string,
-        string,
-      ][],
+      Object.entries(filter)
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => [key, String(value)]),
     ).toString();
 
     return this.request<ContentPiece[]>(

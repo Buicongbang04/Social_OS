@@ -1645,6 +1645,19 @@ token hết hạn, bài 8 giờ sáng hỏng trên một trang ai đó để m�
 Đọc hỏng thì **im lặng**, không biến thành một dải cảnh báo về chính nó — mỗi
 panel bên dưới đã tự nói lỗi đọc của nó rồi.
 
+Bản đầu tiên của dải này **kéo toàn bộ danh sách bài mỗi phút** chỉ để đếm bài
+hỏng. Đo với một năm đăng mỗi ngày: 465 bài là 135 kB ở tầng dữ liệu, trong đó
+58 kB là thân bài — nhân với mỗi tab đang mở, mỗi phút, để trả lời một câu hỏi
+về **một con số**. Giờ nó hỏi đúng thứ cần: `status=FAILED`, `limit=21`.
+
+Số 21 là cố ý: nhiều hơn 20 cái nó sẽ nêu tên. Chạm trần thì nói **"Hơn 20
+bài"**, không nói "20 bài" — một con số sai nói với vẻ chắc chắn còn tệ hơn
+không có số.
+
+`list` **không có giới hạn mặc định**. Một giới hạn áp khi không ai yêu cầu sẽ
+cắt cụt lịch ở con số mà file này tình cờ chọn, và những ngày phía sau đơn giản
+là không có, không có gì trên màn hình nói rằng thiếu.
+
 ### Canh kênh còn sống, trước khi mất một bài (Phase 4)
 
 Trước đợt này, token chết chỉ lộ ra **một cách duy nhất**: bài đăng tiếp theo

@@ -12,6 +12,7 @@ import type {
   CampaignRepository,
   CampaignSummary,
   ContentPiece,
+  ContentPieceStatus,
   ContentPieceRepository,
   CreateCampaignInput,
   CreateContentPieceInput,
@@ -227,15 +228,22 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
 
   async list(
     workspaceId: WorkspaceId,
-    filter: { campaignId?: CampaignId; from?: Date; to?: Date } = {},
+    filter: {
+      campaignId?: CampaignId;
+      from?: Date;
+      to?: Date;
+      status?: ContentPieceStatus;
+      limit?: number;
+    } = {},
   ): Promise<ContentPiece[]> {
-    const rows = await this.db
+    const query = this.db
       .select()
       .from(contentPieces)
       .where(
         and(
           eq(contentPieces.workspaceId, workspaceId),
           isNull(contentPieces.deletedAt),
+          ...(filter.status ? [eq(contentPieces.status, filter.status)] : []),
           ...(filter.campaignId
             ? [eq(contentPieces.campaignId, filter.campaignId)]
             : []),
@@ -255,7 +263,14 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
       .orderBy(
         sql`${contentPieces.scheduledAt} asc nulls last`,
         asc(contentPieces.createdAt),
-      );
+      )
+      .$dynamic();
+
+    // No default limit. One applied when nobody asked would cut a calendar off
+    // at whatever number this file happened to choose, and the days past it
+    // would simply not be there, with nothing on screen to say so. A caller
+    // that wants a bounded read says how many it wants.
+    const rows = await (filter.limit ? query.limit(filter.limit) : query);
 
     return rows.map(toPiece);
   }

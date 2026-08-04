@@ -133,6 +133,34 @@ describe.skipIf(!DATABASE_URL)("campaigns and content (integration)", () => {
     expect(august.map((piece) => piece.title)).toEqual(["Trong tháng"]);
   });
 
+  it("narrows to one status when asked", async () => {
+    // What a screen watching for failures wants: the failures, not the whole
+    // calendar filtered afterwards.
+    const failed = await newPiece({ title: "Hỏng" });
+    await pieces.update(workspaceId, failed.id, { status: "APPROVED" }, userId);
+    await pieces.claimDue(new Date(), 10);
+    await pieces.settle(failed.id, { status: "FAILED", error: "token hỏng" });
+    await newPiece({ title: "Nháp" });
+
+    const broken = await pieces.list(workspaceId, { status: "FAILED" });
+
+    expect(broken.map((piece) => piece.title)).toEqual(["Hỏng"]);
+  });
+
+  it("returns everything when nobody asked for a limit", async () => {
+    // A default limit would cut a calendar off at whatever number this file
+    // happened to choose, with nothing on screen to say the rest is missing.
+    for (let i = 0; i < 12; i += 1) await newPiece({ title: `Bài ${i}` });
+
+    expect(await pieces.list(workspaceId)).toHaveLength(12);
+  });
+
+  it("stops at the limit it was given", async () => {
+    for (let i = 0; i < 12; i += 1) await newPiece({ title: `Bài ${i}` });
+
+    expect(await pieces.list(workspaceId, { limit: 5 })).toHaveLength(5);
+  });
+
   it("filters to one campaign's pieces", async () => {
     const campaign = await newCampaign();
     await newPiece({ title: "Thuộc chiến dịch", campaignId: campaign.id });
