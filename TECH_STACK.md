@@ -1823,6 +1823,33 @@ Lưu **khoá kho**, không lưu URL: URL ký sẵn hết hạn, và lưu nó l�
 lịch hiển thị một tấm ảnh ngừng tải sau vài phút. Ký ảnh hỏng thì **vẫn đăng**
 — bài không ảnh là bài kém hơn, không có bài nào mới là kết quả tệ hơn.
 
+### Học ghi nhớ thương hiệu từ chính website (Phase 4)
+
+Gemini viết tốt nhưng **không biết gì về công ty người dùng**. Bài đầu tiên tôi
+thử hay là vì tôi tự nhét thông tin vào brief — bài người dùng tự viết sẽ chung
+chung. Ghi nhớ thương hiệu là đòn bẩy chất lượng lớn nhất còn lại, và nó **trống
+rỗng** vì gõ tay mười dữ kiện là việc không ai làm xong.
+
+Trang web của chính họ đã nói sẵn phần lớn. Crawler và cách đọc trang đã có từ
+lát cắt đối thủ; chỉ cần chĩa vào trong thay vì ra ngoài.
+
+**Prompt tách riêng, không dùng chung với phân tích đối thủ.** Cái kia tìm chỗ
+_thiếu_, cái này tìm điều _đúng_. Dùng chung một prompt nghĩa là một trong hai
+nhận sai chỉ dẫn — mà nhận sai ở đây thì ghi một dữ kiện sai vào mọi bài viết
+sau đó.
+
+**Đề xuất, không tự lưu, và không tick sẵn.** Một dữ kiện thương hiệu sai không
+phải một câu trả lời sai — nó là câu trả lời sai được lặp lại trong mọi thứ viết
+về sau, cho tới khi có người để ý. Tick sẵn sẽ biến việc lưu thành con đường ít
+trở lực nhất cho những dòng chưa ai đọc.
+
+Ghi bằng đúng `PUT` sẵn có, vốn idempotent theo `key` — đọc lại website lần hai
+thì **thay** thứ nó nói lần trước, không để lại hai câu trả lời cho một câu hỏi.
+
+Thử với `tiximax.net`: rút đúng năm thị trường, đúng số hotline, đúng nhóm sản
+phẩm. Đáng chú ý là nó sửa một hiểu nhầm — bài viết trước đó chỉ nói "hàng
+Nhật", trong khi công ty làm cả Indonesia, Mỹ, Thụy Sĩ, Philippines.
+
 ### Đọc trang đối thủ (FR-104, FR-105 — Phase 4)
 
 Hai mục cuối của Trend Discovery, và là hai mục duy nhất còn lại **không cần

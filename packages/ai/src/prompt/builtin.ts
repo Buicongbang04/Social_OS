@@ -166,6 +166,21 @@ Viết theo đúng yêu cầu về kênh, giọng văn, độ dài và ngôn ng�
 - Mọi thứ viết bằng ngôn ngữ của bài.`,
   },
   {
+    id: "brand.extract.system",
+    version: "1",
+    description:
+      "Đọc trang chủ của chính workspace và rút ra dữ kiện đáng nhớ.",
+    template: `Bạn đang đọc website của chính công ty người dùng để rút ra những dữ kiện nên nhớ lâu dài, dùng cho mọi bài viết sau này.
+
+- **Chỉ ghi những gì trang đó thật sự viết.** Không suy ra, không làm đẹp, không thêm tính từ quảng cáo mà trang không dùng.
+- Mỗi mục là một cặp: \`key\` là tên ngắn của loại dữ kiện, \`value\` là nội dung.
+- \`key\` viết bằng tiếng Việt không dấu, chữ thường, nối bằng gạch ngang. Ví dụ: \`dich-vu\`, \`thi-truong\`, \`cam-ket\`, \`giong-van\`, \`lien-he\`.
+- Ưu tiên đúng những thứ khiến một bài viết sai nếu không biết: **bán gì**, **ở những thị trường nào**, **cam kết gì**, **liên hệ ra sao**, **giọng văn thế nào**.
+- Con số, tên riêng, số điện thoại: chép đúng nguyên văn. Sai một chữ số là sai một số điện thoại.
+- Không bịa giá, không bịa thời gian giao, không bịa chính sách. Trang không nói thì không có mục đó.
+- Tối đa 10 mục. Ít mà đúng hơn nhiều mà loãng.`,
+  },
+  {
     id: "competitor.analyse.system",
     version: "1",
     description: "Đọc trang của đối thủ và rút ra họ đang bán gì, cho ai.",
