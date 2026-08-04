@@ -23,6 +23,14 @@ const { organizations, users, workspaces } = schemaTables;
 const DATABASE_URL = process.env.DATABASE_URL;
 
 /**
+ * The half of the notifier the publisher never calls.
+ *
+ * `check()` is for startup. Spelling it out in every fake would say it matters
+ * to publishing, which it does not.
+ */
+const silentCheck = { check: async () => ({ ok: true }) as const };
+
+/**
  * The calendar's publisher, against real Postgres and an HTTP server standing
  * in for Graph.
  *
@@ -476,6 +484,7 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
       keyring,
       pieces,
       notifier: {
+        ...silentCheck,
         send: async (alerts) => {
           sent.push(alerts.map((a) => ({ title: a.title, reason: a.reason })));
         },
@@ -502,7 +511,10 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
       secrets,
       keyring,
       pieces,
-      notifier: { send: async (alerts) => void batches.push(alerts.length) },
+      notifier: {
+        ...silentCheck,
+        send: async (alerts) => void batches.push(alerts.length),
+      },
     });
     await telling.tick();
 
@@ -519,7 +531,10 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
       secrets,
       keyring,
       pieces,
-      notifier: { send: async (alerts) => void calls.push(alerts.length) },
+      notifier: {
+        ...silentCheck,
+        send: async (alerts) => void calls.push(alerts.length),
+      },
     });
     await telling.tick();
 
@@ -539,6 +554,7 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
       keyring,
       pieces,
       notifier: {
+        ...silentCheck,
         send: async (alerts) => void seen.push(JSON.stringify(alerts)),
       },
     });
@@ -558,6 +574,7 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
       keyring,
       pieces,
       notifier: {
+        ...silentCheck,
         send: async () => {
           throw new Error("SMTP không trả lời");
         },

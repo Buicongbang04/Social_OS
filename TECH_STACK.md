@@ -1623,6 +1623,12 @@ xong dù có ai được báo hay không.
 Kiểm chứng bằng một SMTP server thật (mailpit trong container tạm): thư đi đúng
 tiêu đề, đúng người nhận, đúng nội dung, và **không có phần HTML**.
 
+**Kiểm tra kết nối ngay lúc khởi động**, không đợi tới lúc cần gửi. Nếu không,
+thứ đầu tiên thử cấu hình mail lại chính là cảnh báo về một bài vừa hỏng — và
+một cảnh báo không gửi được thì hỏng đúng vào lúc nó cần nhất, lại còn hỏng
+lặng lẽ. Kiểm tra này **không chặn khởi động**: một mail server treo không được
+phép giữ runtime lại, và đăng bài mà không có cảnh báo vẫn hơn là không đăng gì.
+
 ### Đọc bình luận dưới bài (Phase 3, bổ sung)
 
 Với một Page bán hàng, **phần lớn câu hỏi của khách nằm ở bình luận chứ không

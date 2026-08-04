@@ -66,6 +66,35 @@ describe("mailerConfigFromEnv", () => {
   });
 });
 
+describe("EmailNotifier.check", () => {
+  it("says the mail server can be reached", async () => {
+    const transport = {
+      verify: vi.fn(async () => true),
+    } as unknown as Transporter;
+
+    expect(await new EmailNotifier(CONFIG, transport).check()).toEqual({
+      ok: true,
+    });
+  });
+
+  it("reports why it cannot, rather than throwing at startup", async () => {
+    // Checked at boot so a wrong setting is found then. It must not stop the
+    // service starting: a runtime that refuses to run because email is
+    // misconfigured publishes nothing at all, which is worse than publishing
+    // without alerts.
+    const transport = {
+      verify: vi.fn(async () => {
+        throw new Error("Connection timeout");
+      }),
+    } as unknown as Transporter;
+
+    expect(await new EmailNotifier(CONFIG, transport).check()).toEqual({
+      ok: false,
+      reason: "Connection timeout",
+    });
+  });
+});
+
 describe("EmailNotifier", () => {
   it("says what failed and where to look", async () => {
     const { transport, sent } = recording();

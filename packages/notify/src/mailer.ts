@@ -33,6 +33,15 @@ export type MailerConfig = {
  */
 export interface Notifier {
   send(alerts: Alert[]): Promise<void>;
+  /**
+   * Whether the mail server can be reached and the credentials work.
+   *
+   * Worth calling at startup. Otherwise the first thing that tests the mail
+   * configuration is the alert about a post that failed — and an alert that
+   * cannot be delivered is the one moment it is needed and the one moment
+   * nobody hears about it.
+   */
+  check(): Promise<{ ok: true } | { ok: false; reason: string }>;
 }
 
 /**
@@ -91,6 +100,18 @@ export class EmailNotifier implements Notifier {
    * ten emails saying the same thing, and the eleventh time it happens nobody
    * reads any of them.
    */
+  async check(): Promise<{ ok: true } | { ok: false; reason: string }> {
+    try {
+      await this.transport.verify();
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        reason: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   async send(alerts: Alert[]): Promise<void> {
     if (alerts.length === 0) return;
 
