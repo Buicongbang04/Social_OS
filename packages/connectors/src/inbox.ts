@@ -27,6 +27,9 @@ export type PostComment = {
   author: string;
   message: string;
   createdAt: string;
+  /** The post it sits under, and a trimmed line of that post to recognise it by. */
+  postId: string;
+  postExcerpt: string | null;
 };
 
 /**
@@ -85,6 +88,80 @@ export async function fetchInbox(
   }));
 }
 
+/**
+ * Every recent comment on the Page, newest first.
+ *
+ * One request, not one per post. Reading the feed and then each post's comments
+ * separately is eleven round trips to answer one question, and eleven chances
+ * for a rate limit — Graph nests the comments inside the feed read, and it
+ * answers in a single call.
+ *
+ * This exists because for a Page that sells things, most questions arrive as
+ * comments rather than messages. An inbox that only reads messages shows an
+ * empty screen while customers are waiting underneath a post.
+ */
+export async function fetchRecentComments(
+  target: PublishTarget,
+  options: {
+    /** How far back through the feed to look. */
+    posts?: number;
+    /** How many comments to take from each post. */
+    perPost?: number;
+    env?: NodeJS.ProcessEnv;
+    fetch?: typeof globalThis.fetch;
+  } = {},
+): Promise<PostComment[]> {
+  const call = options.fetch ?? globalThis.fetch;
+  const posts = Math.min(Math.max(options.posts ?? 10, 1), 50);
+  const perPost = Math.min(Math.max(options.perPost ?? 10, 1), 50);
+
+  const fields = [
+    "id",
+    "message",
+    `comments.limit(${perPost}){id,from,message,created_time}`,
+  ].join(",");
+
+  const payload = await readGraph(
+    call,
+    `${graphBase(options.env)}/${target.externalId}/feed?fields=${fields}&limit=${posts}`,
+    target.accessToken,
+    "bình luận",
+  );
+
+  const found: PostComment[] = [];
+
+  for (const raw of (payload.data ?? []) as {
+    id?: string;
+    message?: string;
+    comments?: { data?: unknown[] };
+  }[]) {
+    for (const item of raw.comments?.data ?? []) {
+      const comment = item as {
+        id?: string;
+        from?: { name?: string };
+        message?: string;
+        created_time?: string;
+      };
+
+      found.push({
+        id: String(comment.id ?? ""),
+        // Facebook omits `from` for people who have not granted the app
+        // anything, which is most of them. A name we do not have is said as
+        // such rather than guessed at.
+        author: comment.from?.name ?? "Người dùng",
+        message: snippet(comment.message) ?? "",
+        createdAt: String(comment.created_time ?? ""),
+        postId: String(raw.id ?? ""),
+        postExcerpt: snippet(raw.message),
+      });
+    }
+  }
+
+  // Newest first. A comment from an hour ago matters more than one from last
+  // week, and the feed's own order is by post, not by comment.
+  return found.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 /** Read the comments on one post. */
 export async function fetchComments(
   target: PublishTarget,
@@ -117,6 +194,8 @@ export async function fetchComments(
     author: comment.from?.name ?? "Người dùng",
     message: snippet(comment.message) ?? "",
     createdAt: String(comment.created_time ?? ""),
+    postId,
+    postExcerpt: null,
   }));
 }
 

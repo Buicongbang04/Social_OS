@@ -1,6 +1,6 @@
 import type { RuntimeError } from "@repo/runtime";
 import { describe, expect, it } from "vitest";
-import { fetchComments, fetchInbox } from "./inbox";
+import { fetchComments, fetchInbox, fetchRecentComments } from "./inbox";
 
 const ENV = {
   FACEBOOK_GRAPH_URL: "https://graph.test/v21.0",
@@ -8,7 +8,12 @@ const ENV = {
 
 const TARGET = { externalId: "page-1", accessToken: "tok-1" };
 
-type Seen = { url?: string; auth?: string | null };
+type Seen = {
+  url?: string;
+  auth?: string | null;
+  /** How many requests were made — the point of reading the feed nested. */
+  calls?: number;
+};
 
 function answering(
   status: number,
@@ -18,6 +23,7 @@ function answering(
   return (async (url: string, init: RequestInit = {}) => {
     seen.url = String(url);
     seen.auth = new Headers(init.headers).get("authorization");
+    seen.calls = (seen.calls ?? 0) + 1;
     return new Response(
       typeof body === "string" ? body : JSON.stringify(body),
       { status },
@@ -146,6 +152,163 @@ describe("fetchInbox", () => {
       fetchInbox(TARGET, { env: ENV, fetch: answering(500, {}) }),
     );
     expect(unwell.retryable).toBe(true);
+  });
+});
+
+describe("fetchRecentComments", () => {
+  const FEED = JSON.stringify({
+    data: [
+      {
+        id: "page-1_10",
+        message: "Bài mới nhất",
+        comments: {
+          data: [
+            {
+              id: "c_2",
+              from: { name: "Bách Ngũ" },
+              message: "còn hàng không shop",
+              created_time: "2026-08-03T10:00:00+0000",
+            },
+          ],
+        },
+      },
+      {
+        id: "page-1_9",
+        message: "Bài cũ hơn",
+        comments: {
+          data: [
+            {
+              id: "c_1",
+              from: { name: "Lan" },
+              message: "ship về Huế bao nhiêu?",
+              created_time: "2026-08-01T08:00:00+0000",
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  it("reads every post's comments in one request", async () => {
+    // Reading the feed and then each post separately is eleven round trips to
+    // answer one question, and eleven chances for a rate limit.
+    const seen: Seen = {};
+    const comments = await fetchRecentComments(TARGET, {
+      env: ENV,
+      fetch: answering(200, FEED, seen),
+    });
+
+    expect(comments).toHaveLength(2);
+    expect(seen.calls).toBe(1);
+    expect(seen.url).toContain("/feed?");
+    expect(seen.url).toContain("comments.limit(10)");
+  });
+
+  it("says which post each comment sits under", async () => {
+    // A question with no context is unanswerable: "còn hàng không" needs the
+    // post to say what "hàng" is.
+    const comments = await fetchRecentComments(TARGET, {
+      env: ENV,
+      fetch: answering(200, FEED),
+    });
+
+    expect(comments[0]?.postId).toBe("page-1_10");
+    expect(comments[0]?.postExcerpt).toBe("Bài mới nhất");
+  });
+
+  it("puts the newest comment first, not the newest post", async () => {
+    // The feed's own order is by post. A week-old comment on today's post
+    // would otherwise sit above an hour-old one further down.
+    const comments = await fetchRecentComments(TARGET, {
+      env: ENV,
+      fetch: answering(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: "page-1_10",
+              message: "Bài mới",
+              comments: {
+                data: [
+                  {
+                    id: "c_old",
+                    message: "cũ",
+                    created_time: "2026-07-01T00:00:00+0000",
+                  },
+                ],
+              },
+            },
+            {
+              id: "page-1_9",
+              message: "Bài cũ",
+              comments: {
+                data: [
+                  {
+                    id: "c_new",
+                    message: "mới",
+                    created_time: "2026-08-03T00:00:00+0000",
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ),
+    });
+
+    expect(comments.map((comment) => comment.id)).toEqual(["c_new", "c_old"]);
+  });
+
+  it("says Người dùng rather than guessing at a name it was not given", async () => {
+    // Facebook omits `from` for anyone who has not granted the app something,
+    // which is most people.
+    const comments = await fetchRecentComments(TARGET, {
+      env: ENV,
+      fetch: answering(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: "page-1_10",
+              comments: {
+                data: [
+                  {
+                    id: "c",
+                    message: "alo",
+                    created_time: "2026-08-03T00:00:00+0000",
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ),
+    });
+
+    expect(comments[0]?.author).toBe("Người dùng");
+    expect(comments[0]?.postExcerpt).toBeNull();
+  });
+
+  it("returns nothing for a Page whose posts have no comments", async () => {
+    const comments = await fetchRecentComments(TARGET, {
+      env: ENV,
+      fetch: answering(200, JSON.stringify({ data: [{ id: "page-1_10" }] })),
+    });
+
+    expect(comments).toEqual([]);
+  });
+
+  it("will not ask for more than Graph will give", async () => {
+    const seen: Seen = {};
+    await fetchRecentComments(TARGET, {
+      posts: 500,
+      perPost: 500,
+      env: ENV,
+      fetch: answering(200, FEED, seen),
+    });
+
+    expect(seen.url).toContain("limit=50");
+    expect(seen.url).toContain("comments.limit(50)");
   });
 });
 

@@ -550,6 +550,28 @@ export type SeoContent = ContentMeta & {
  * message belongs where they wrote it, not in every log and context window it
  * would otherwise pass through.
  */
+/**
+ * One comment waiting under a post.
+ *
+ * Carries the post it sits under, because a question without it is
+ * unanswerable — "còn hàng không" needs the post to say what the thing is.
+ */
+export type PageComment = {
+  id: string;
+  account: string;
+  accountId: string;
+  author: string;
+  message: string;
+  createdAt: string;
+  postId: string;
+  postExcerpt: string | null;
+};
+
+export type Comments = {
+  comments: PageComment[];
+  failed: { account: string; reason: string }[];
+};
+
 export type InboxThread = {
   id: string;
   account: string;

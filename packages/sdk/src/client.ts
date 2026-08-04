@@ -21,6 +21,7 @@ import type {
   Campaign,
   CampaignReportRow,
   CampaignStatus,
+  Comments,
   ConnectorSummary,
   ManageablePage,
   ContentChannel,
@@ -733,6 +734,18 @@ export class ApiClient {
    * be wrong the moment somebody replies from the Facebook app, and a customer
    * waiting for an answer is the last thing that should be stale.
    */
+  /**
+   * Comments waiting under recent posts.
+   *
+   * Separate from the inbox because they are different reads with different
+   * costs, and a screen that wants only messages should not pay for both.
+   */
+  async comments(): Promise<Comments> {
+    return this.request<Comments>("GET", "/connections/comments", {
+      workspaceScoped: true,
+    });
+  }
+
   async inbox(): Promise<Inbox> {
     return this.request<Inbox>("GET", "/connections/inbox", {
       workspaceScoped: true,
