@@ -109,17 +109,26 @@ describe("AlertBanner", () => {
     expect(await screen.findByText(/3 bài không đăng được/)).toBeVisible();
   });
 
-  it("ignores pieces that are merely drafts or already out", async () => {
-    await show(
-      [],
-      [
-        piece({ id: "cnt_1", status: "DRAFT" }),
-        piece({ id: "cnt_2", status: "PUBLISHED" }),
-        piece({ id: "cnt_3", status: "APPROVED" }),
-      ],
-    );
+  it("asks the server for the failures instead of filtering a whole calendar", async () => {
+    // This runs every minute in every open tab. Fetching the whole calendar to
+    // find the broken ones ships a year of post bodies to answer a question
+    // about a number.
+    await show();
 
-    expect(screen.queryByText(/không đăng được/)).toBeNull();
+    expect(client.listContentPieces).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "FAILED" }),
+    );
+  });
+
+  it("says more-than rather than a number it does not have", async () => {
+    // The read is capped. Stating the cap as the count would be a wrong number
+    // said with total confidence.
+    const many = Array.from({ length: 21 }, (_, i) =>
+      piece({ id: `cnt_${i}`, status: "FAILED" }),
+    );
+    await show([], many);
+
+    expect(await screen.findByText(/Hơn 20 bài không đăng được/)).toBeVisible();
   });
 
   it("puts the dead channel above the failed posts", async () => {

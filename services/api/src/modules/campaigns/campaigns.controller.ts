@@ -21,6 +21,7 @@ import type {
 } from "@repo/core";
 import {
   CAMPAIGN_STATUSES,
+  CONTENT_PIECE_STATUSES,
   type CampaignRepository,
   type ContentPieceRepository,
   type SocialAccountRepository,
@@ -86,6 +87,15 @@ const calendarQuerySchema = z.object({
   campaignId: z.string().optional(),
   from: instant.optional(),
   to: instant.optional(),
+  /** Narrow to one status — what a screen that only cares about failures asks. */
+  status: z.enum(CONTENT_PIECE_STATUSES).optional(),
+  /**
+   * How many at most.
+   *
+   * No default: an unbounded read is what the calendar wants, and a limit
+   * applied when nobody asked would drop days off the end of it silently.
+   */
+  limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
 const createPieceSchema = z.object({

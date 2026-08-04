@@ -177,7 +177,13 @@ export type CampaignRepository = {
 export type ContentPieceRepository = {
   list(
     workspaceId: WorkspaceId,
-    filter?: { campaignId?: CampaignId; from?: Date; to?: Date },
+    filter?: {
+      campaignId?: CampaignId;
+      from?: Date;
+      to?: Date;
+      status?: ContentPieceStatus;
+      limit?: number;
+    },
   ): Promise<ContentPiece[]>;
   find(
     workspaceId: WorkspaceId,

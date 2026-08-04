@@ -7,6 +7,16 @@ import { getClient } from "../lib/api";
 /** How often to look again. */
 const REFRESH_MS = 60_000;
 
+/**
+ * How many failures to ask for.
+ *
+ * One more than the banner will name, so hitting the cap is visible: at
+ * `FAILED_CAP` it says the exact number, past it "20+". A limit that quietly
+ * returned twenty of forty would have this banner state a wrong count with
+ * total confidence.
+ */
+const FAILED_CAP = 20;
+
 type Trouble = {
   key: string;
   text: string;
@@ -35,7 +45,14 @@ export function AlertBanner() {
       const client = getClient();
       const [connections, pieces] = await Promise.all([
         client.listConnections(),
-        client.listContentPieces(),
+        // Only the failures, and only enough of them to count. This runs every
+        // minute in every open tab; asking for the whole calendar to find the
+        // broken ones ships a year of post bodies to answer a question about a
+        // number.
+        client.listContentPieces({
+          status: "FAILED",
+          limit: FAILED_CAP + 1,
+        }),
       ]);
 
       setTroubles([...channelTrouble(connections), ...pieceTrouble(pieces)]);
@@ -103,9 +120,15 @@ function channelTrouble(connections: SocialConnection[]): Trouble[] {
  * token is one problem, and ten identical banners buries the channel warning
  * that explains them.
  */
-function pieceTrouble(pieces: ContentPiece[]): Trouble[] {
-  const failed = pieces.filter((piece) => piece.status === "FAILED");
+function pieceTrouble(failed: ContentPiece[]): Trouble[] {
   if (failed.length === 0) return [];
+
+  // Past the cap the count is not known, so it is not stated. "20+" is true;
+  // "20" would be a wrong number said with confidence.
+  const many =
+    failed.length > FAILED_CAP
+      ? `Hơn ${FAILED_CAP} bài`
+      : `${failed.length} bài`;
 
   return [
     {
@@ -114,7 +137,7 @@ function pieceTrouble(pieces: ContentPiece[]): Trouble[] {
       text:
         failed.length === 1
           ? `Bài "${failed[0]!.title}" không đăng được. Xem lý do ở Lịch nội dung.`
-          : `${failed.length} bài không đăng được. Xem lý do ở Lịch nội dung.`,
+          : `${many} không đăng được. Xem lý do ở Lịch nội dung.`,
     },
   ];
 }
