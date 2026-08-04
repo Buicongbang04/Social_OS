@@ -203,6 +203,83 @@ describe("listManageablePages", () => {
   });
 });
 
+describe("publishToFacebook with a picture", () => {
+  it("posts to /photos, not /feed", async () => {
+    const seen: Seen = {};
+    await publishToFacebook(
+      { externalId: "page-1", accessToken: "tok" },
+      { message: "Có ảnh", imageUrl: "https://cdn.test/banner.png" },
+      {
+        fetch: answering(
+          200,
+          JSON.stringify({ id: "photo-1", post_id: "page-1_9" }),
+          seen,
+        ),
+        env: ENV,
+      },
+    );
+
+    expect(seen.url).toContain("/page-1/photos");
+    expect(seen.url).not.toContain("/feed");
+  });
+
+  it("sends the words as a caption, which is where a photo post keeps them", async () => {
+    // `/photos` ignores `message`. Sending it there produces a photo with no
+    // words under it — accepted, so nothing fails, and the post is wrong.
+    const seen: Seen = {};
+    await publishToFacebook(
+      { externalId: "page-1", accessToken: "tok" },
+      { message: "Mua hộ hàng Nhật", imageUrl: "https://cdn.test/banner.png" },
+      {
+        fetch: answering(
+          200,
+          JSON.stringify({ id: "photo-1", post_id: "page-1_9" }),
+          seen,
+        ),
+        env: ENV,
+      },
+    );
+
+    expect(seen.body?.get("caption")).toBe("Mua hộ hàng Nhật");
+    expect(seen.body?.get("message")).toBeNull();
+    expect(seen.body?.get("url")).toBe("https://cdn.test/banner.png");
+  });
+
+  it("keeps the post id, not the photo id", async () => {
+    // `/photos` answers with both. The post is what a person opens and what a
+    // delete should target; the photo id is a different object.
+    const post = await publishToFacebook(
+      { externalId: "page-1", accessToken: "tok" },
+      { message: "Có ảnh", imageUrl: "https://cdn.test/banner.png" },
+      {
+        fetch: answering(
+          200,
+          JSON.stringify({ id: "photo-777", post_id: "page-1_999" }),
+        ),
+        env: ENV,
+      },
+    );
+
+    expect(post.externalId).toBe("page-1_999");
+    expect(post.url).toContain("page-1/posts/999");
+  });
+
+  it("still uses /feed when there is no picture", async () => {
+    const seen: Seen = {};
+    await publishToFacebook(
+      { externalId: "page-1", accessToken: "tok" },
+      { message: "Không ảnh" },
+      {
+        fetch: answering(200, JSON.stringify({ id: "page-1_5" }), seen),
+        env: ENV,
+      },
+    );
+
+    expect(seen.url).toContain("/page-1/feed");
+    expect(seen.body?.get("message")).toBe("Không ảnh");
+  });
+});
+
 describe("credentialVerdict", () => {
   const graph = (code: number, subcode?: number) =>
     JSON.stringify({

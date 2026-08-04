@@ -2,6 +2,7 @@ import { canPublish, findConnector } from "@repo/connectors";
 import type { ContentPiece, ContentPieceRepository } from "@repo/domain";
 import { createLogger } from "@repo/logger";
 import type { Metrics } from "@repo/observability";
+import type { ObjectStore } from "@repo/storage";
 import {
   openToken,
   publishOnce,
@@ -35,6 +36,13 @@ const DEFAULTS = {
 
 export type ContentPublisherDeps = VaultAccess & {
   pieces: ContentPieceRepository;
+  /**
+   * Where a rendered banner lives, when there is one.
+   *
+   * Optional: a deployment without MinIO publishes text, which is what it did
+   * before pictures existed.
+   */
+  store?: ObjectStore | null;
   metrics?: Metrics;
 };
 
@@ -113,7 +121,11 @@ export class ContentPublisher {
         this.deps,
         account,
         { externalId: account.externalId, accessToken: token },
-        { message: bodyOf(piece), link: null },
+        {
+          message: bodyOf(piece),
+          link: null,
+          imageUrl: await this.imageUrl(piece),
+        },
         // Zero: this is the first attempt on this piece. A claimed piece is
         // never handed back for another try, so there is never a second one —
         // which is what makes the feed check publishOnce does on retries
@@ -161,6 +173,39 @@ export class ContentPublisher {
         { pieceId: piece.id, workspaceId: piece.workspaceId, err: error },
         "scheduled piece failed to publish",
       );
+    }
+  }
+
+  /**
+   * A link Facebook can fetch the banner from, if this piece has one.
+   *
+   * Signed for the public host, which the store already handles — a URL signed
+   * for `minio:9000` is one only this network can reach, and Facebook would
+   * answer with a picture it could not download rather than a post.
+   *
+   * A failure here does not fail the post. Words without a picture is a worse
+   * post; no post at all is a worse outcome.
+   */
+  private async imageUrl(piece: ContentPiece): Promise<string | null> {
+    if (!this.deps.store || piece.imageKey === null) return null;
+
+    try {
+      return await this.deps.store.presignGet(
+        {
+          workspaceId: piece.workspaceId,
+          folder: "posts",
+          name: piece.imageKey,
+        },
+        // Long enough for Facebook to fetch it, short enough that the link
+        // stops working well before anybody finds it in a log.
+        300,
+      );
+    } catch (error) {
+      logger.warn(
+        { pieceId: piece.id, err: error },
+        "could not sign the banner; posting without it",
+      );
+      return null;
     }
   }
 

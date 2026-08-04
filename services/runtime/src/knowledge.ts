@@ -11,6 +11,15 @@ import type { CapabilityImplementation } from "@repo/runtime";
 export type KnowledgeStack = {
   indexer: DocumentIndexer;
   capabilities: readonly CapabilityImplementation[];
+  /**
+   * The object store, shared with whatever else needs one.
+   *
+   * Exposed rather than kept private because it is built from the same MINIO_*
+   * configuration everything else would read, and a second client built from
+   * the same variables is a second thing to get wrong — the public-host
+   * signing in particular, which has already caused one real bug.
+   */
+  store: S3ObjectStore;
   /** For the startup log: which vector database and which storage endpoint. */
   qdrantUrl: string;
   storageEndpoint: string;
@@ -81,6 +90,7 @@ export function buildKnowledgeStack(input: {
       ...(input.onError ? { onError: input.onError } : {}),
     }),
     capabilities: createKnowledgeCapabilities({ knowledge }),
+    store: storage,
     qdrantUrl,
     storageEndpoint,
   };

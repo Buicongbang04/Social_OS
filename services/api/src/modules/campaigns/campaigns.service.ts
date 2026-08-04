@@ -1,10 +1,16 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { WorkspaceId } from "@repo/core";
+import type { ContentPieceId, UserId } from "@repo/core";
+import { NotFoundError, ValidationError } from "@repo/core";
 import type {
   Campaign,
   CampaignRepository,
+  ContentPiece,
   ContentPieceRepository,
 } from "@repo/domain";
+import { renderBanner, type BannerSize } from "@repo/media";
+import type { ObjectStore } from "@repo/storage";
+import { OBJECT_STORE } from "../../infra/storage/storage.module";
 import {
   CAMPAIGN_REPOSITORY,
   CONTENT_PIECE_REPOSITORY,
@@ -57,7 +63,74 @@ export class CampaignsService {
     @Inject(CONTENT_PIECE_REPOSITORY)
     private readonly pieces: ContentPieceRepository,
     private readonly connections: ConnectionsService,
+    // Optional, like everywhere else that touches storage: a deployment with no
+    // MinIO still runs, and only the picture is missing.
+    @Inject(OBJECT_STORE)
+    private readonly store: ObjectStore | null,
   ) {}
+
+  /**
+   * Draw a banner for a piece and keep it.
+   *
+   * Rendered from the piece rather than from whatever the caller sends, so the
+   * picture always says what the post says. A banner built from a separate
+   * title is one that goes out contradicting the words underneath it.
+   *
+   * The storage key is saved, not a URL: a presigned URL expires, and storing
+   * one would leave the calendar showing a picture that stops loading minutes
+   * after somebody made it.
+   */
+  async renderBannerFor(
+    workspaceId: WorkspaceId,
+    id: ContentPieceId,
+    userId: UserId,
+    options: { size?: BannerSize; footer?: string } = {},
+  ): Promise<{ piece: ContentPiece; url: string }> {
+    if (!this.store) {
+      throw new ValidationError(
+        "Chưa cấu hình kho lưu trữ. Đặt MINIO_URL để dùng được ảnh.",
+      );
+    }
+
+    const piece = await this.pieces.find(workspaceId, id);
+    if (!piece) throw new NotFoundError("Không tìm thấy nội dung.");
+
+    const png = await renderBanner({
+      title: piece.title,
+      // The first sentence, not the whole post: a subtitle is a line, and a
+      // paragraph shrunk to fit one is a paragraph nobody can read.
+      subtitle: firstSentence(piece.body),
+      footer: options.footer,
+      size: options.size,
+    });
+
+    const location = {
+      workspaceId,
+      folder: "posts" as const,
+      // The piece's own id, so rendering twice replaces the picture rather
+      // than leaving the old one orphaned in the bucket forever.
+      name: `${piece.id}.png`,
+    };
+
+    await this.store.put({
+      ...location,
+      body: png,
+      contentType: "image/png",
+      fileName: `${piece.id}.png`,
+    });
+
+    const stored = await this.pieces.update(
+      workspaceId,
+      id,
+      { imageKey: location.name },
+      userId,
+    );
+
+    return {
+      piece: stored ?? piece,
+      url: await this.store.presignGet(location),
+    };
+  }
 
   async report(workspaceId: WorkspaceId): Promise<{
     rows: CampaignReportRow[];
@@ -129,4 +202,18 @@ export class CampaignsService {
 
     return { rows, unreadable: stats.failed };
   }
+}
+
+/**
+ * The opening sentence, for the line under the title.
+ *
+ * A subtitle is one line. A whole post shrunk to fit one is a post nobody
+ * reads, and the first sentence is the part written to be read first anyway.
+ */
+function firstSentence(body: string): string | undefined {
+  const first = body
+    .trim()
+    .split(/(?<=[.!?])\s/)[0]
+    ?.trim();
+  return first && first.length > 0 ? first.slice(0, 160) : undefined;
 }

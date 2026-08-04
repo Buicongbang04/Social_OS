@@ -87,6 +87,8 @@ export type ContentPiece = SoftDeletableEntity<ContentPieceId> & {
    * scheduled post when a workspace changes country, and nobody has decided.
    */
   scheduledAt: Date | null;
+  /** Storage key of the banner rendered for this piece, if any. */
+  imageKey: string | null;
   status: ContentPieceStatus;
   /** The platform's post id, once it has one. Null until published. */
   publishedPostId: string | null;
@@ -127,6 +129,7 @@ export type CreateContentPieceInput = {
 
 export type UpdateContentPieceInput = {
   campaignId?: CampaignId | null;
+  imageKey?: string | null;
   socialAccountId?: SocialAccountId | null;
   title?: string;
   body?: string;

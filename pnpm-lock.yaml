@@ -704,6 +704,9 @@ importers:
       "@repo/logger":
         specifier: workspace:*
         version: link:../../packages/logger
+      "@repo/media":
+        specifier: workspace:*
+        version: link:../../packages/media
       "@repo/observability":
         specifier: workspace:*
         version: link:../../packages/observability

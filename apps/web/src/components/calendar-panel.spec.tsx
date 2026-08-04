@@ -1,5 +1,11 @@
 import type { ContentPiece, SocialConnection } from "@repo/sdk";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CalendarPanel } from "./calendar-panel";
@@ -19,6 +25,7 @@ const client = {
   createCampaign: vi.fn(),
   updateContentPiece: vi.fn(),
   archiveContentPiece: vi.fn(),
+  renderBanner: vi.fn(),
 };
 
 vi.mock("../lib/api", () => ({ getClient: () => client }));
@@ -27,6 +34,7 @@ const piece = (overrides: Partial<ContentPiece> = {}): ContentPiece => ({
   id: "cnt_1",
   campaignId: null,
   socialAccountId: null,
+  imageKey: null,
   title: "Bài viết",
   body: "Nội dung",
   hashtags: [],
@@ -67,6 +75,7 @@ const show = async (
 };
 
 beforeEach(() => {
+  client.renderBanner.mockResolvedValue({ piece: piece(), url: "http://x/y" });
   client.updateContentPiece.mockResolvedValue(piece());
   client.archiveContentPiece.mockResolvedValue(undefined);
 });
@@ -210,6 +219,33 @@ describe("CalendarPanel", () => {
     client.listContentPieces.mockClear();
 
     await userEvent.click(screen.getByRole("button", { name: "Duyệt" }));
+
+    await waitFor(() => expect(client.listContentPieces).toHaveBeenCalled());
+  });
+
+  it("offers to draw a banner, and says so once there is one", async () => {
+    await show([piece()]);
+    expect(screen.getByRole("button", { name: "Vẽ ảnh" })).toBeVisible();
+
+    cleanup();
+    await show([piece({ imageKey: "cnt_1.png" })]);
+    expect(screen.getByRole("button", { name: "Vẽ lại ảnh" })).toBeVisible();
+    expect(screen.getByText("có ảnh")).toBeVisible();
+  });
+
+  it("does not offer a banner once the post is out", async () => {
+    // Drawing one then would store a picture nobody will ever see attached to
+    // it.
+    await show([piece({ status: "PUBLISHED", publishedPostId: "p_1" })]);
+
+    expect(screen.queryByRole("button", { name: /Vẽ/ })).toBeNull();
+  });
+
+  it("reloads after drawing, so the row shows the piece has a picture", async () => {
+    await show([piece()]);
+    client.listContentPieces.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "Vẽ ảnh" }));
 
     await waitFor(() => expect(client.listContentPieces).toHaveBeenCalled());
   });

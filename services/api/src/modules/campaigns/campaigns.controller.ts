@@ -69,6 +69,12 @@ const updateCampaignSchema = z.object({
   endsAt: instant.nullable().optional(),
 });
 
+const bannerSchema = z.object({
+  size: z.enum(["facebook-post", "square", "story"]).optional(),
+  /** Usually a page name or a domain. Left out when there is nothing to sign. */
+  footer: z.string().trim().max(60).optional(),
+});
+
 /**
  * The calendar window, off the query string.
  *
@@ -222,6 +228,7 @@ export class ContentPiecesController {
     private readonly pieces: ContentPieceRepository,
     @Inject(SOCIAL_ACCOUNT_REPOSITORY)
     private readonly accounts: SocialAccountRepository,
+    private readonly banners: CampaignsService,
   ) {}
 
   /**
@@ -336,6 +343,30 @@ export class ContentPiecesController {
     );
     if (!updated) throw new NotFoundError("Không tìm thấy nội dung.");
     return updated;
+  }
+
+  /**
+   * Draw a banner for this piece.
+   *
+   * `create` rather than `read`: it writes an object to storage and changes the
+   * piece, and it costs bytes somebody pays for.
+   */
+  @RequirePermission("workspace.workflow.create")
+  @ApiZodBody(bannerSchema)
+  @Post(":id/banner")
+  async banner(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(bannerSchema))
+    body: z.infer<typeof bannerSchema>,
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers(WORKSPACE_ID_HEADER) header: string,
+  ) {
+    return this.banners.renderBannerFor(
+      requireWorkspace(header),
+      parseRouteId("contentPiece", id) as ContentPieceId,
+      user.userId,
+      body,
+    );
   }
 
   @RequirePermission("workspace.workflow.delete")

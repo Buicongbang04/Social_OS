@@ -1580,6 +1580,43 @@ Hai thứ tìm ra ngay khi viết test đầu tiên: hai thẻ `<select>` chọn
 **không có nhãn**, nên trình đọc màn hình không đọc được chúng — chính điều đó
 làm truy vấn theo role bị nhập nhằng. Đã thêm `aria-label`.
 
+### Ảnh bìa cho bài đăng: sharp `0.35` (Phase 4)
+
+Media là nhóm duy nhất của Phase 4 chưa có gì. Sinh ảnh và sinh video cần khoá
+model ảnh chưa ai có, nên đây là **nửa không cần khoá nào**: vẽ ảnh bìa từ
+chính chữ đã viết.
+
+**Đây không phải sinh ảnh, và cách đặt tên giữ đúng sự phân biệt đó.** Không có
+model nào ở đây và không có gì được bịa ra. Sinh một bức ảnh về sản phẩm không
+tồn tại là tính năng khác với rủi ro khác; gọi cả hai là "ảnh" sẽ che mất điều
+đó.
+
+SVG rồi rasterise bằng `sharp`, không dùng canvas: bố cục chỉ là chữ trên một
+hình chữ nhật — thứ SVG mô tả trực tiếp — còn canvas nghĩa là vẽ đúng thứ đó
+một cách tuần tự với nhiều chỗ sai hơn.
+
+**Alpine không có font nào, và `sharp` không báo lỗi vì chuyện đó** — nó trả về
+một tấm ảnh không có chữ. Cùng một tấm bìa: 2403 pixel sáng ở máy có font, 576
+ở máy không. Image runtime giờ cài `fontconfig` và `font-noto`; Noto ở đây vì
+nó có dấu tiếng Việt, thiếu nó thì mọi chữ có dấu là một ô vuông. Test bắt lỗi
+này **đếm mực** chứ không tin rằng có PNG trả về là xong — và nó thật sự đỏ
+trong container không font, đã kiểm chứ không đoán.
+
+Hệ số bề rộng ký tự cũng là **đo được**, không phải đoán. Ở 0.52, một tiêu đề
+thật chạm 1165px trên ảnh rộng 1200px có lề phải bắt đầu ở 1104 — chữ tràn ra
+ngoài, chỉ nhìn thấy khi render ra rồi mở ảnh lên xem. Test giờ đọc cột pixel
+sát mép phải.
+
+Bài có ảnh đi vào `/photos` chứ không phải `/feed`, và chữ chuyển sang
+`caption`. Gửi `message` vào `/photos` cho ra một tấm ảnh **không có chữ bên
+dưới** — được chấp nhận, nên không có gì báo lỗi, và bài đăng đơn giản là sai.
+`/photos` trả về cả `id` (của ảnh) lẫn `post_id` (của bài); `post_id` mới là
+thứ người ta mở ra xem và là thứ lệnh xoá phải nhắm vào.
+
+Lưu **khoá kho**, không lưu URL: URL ký sẵn hết hạn, và lưu nó lại sẽ khiến
+lịch hiển thị một tấm ảnh ngừng tải sau vài phút. Ký ảnh hỏng thì **vẫn đăng**
+— bài không ảnh là bài kém hơn, không có bài nào mới là kết quả tệ hơn.
+
 ### Đọc trang đối thủ (FR-104, FR-105 — Phase 4)
 
 Hai mục cuối của Trend Discovery, và là hai mục duy nhất còn lại **không cần

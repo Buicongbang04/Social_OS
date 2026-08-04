@@ -69,6 +69,7 @@ function toPiece(row: PieceRow): ContentPiece {
     hashtags: row.hashtags,
     channel: row.channel,
     scheduledAt: row.scheduledAt,
+    imageKey: row.imageKey,
     status: row.status,
     publishedPostId: row.publishedPostId,
     publishedAt: row.publishedAt,

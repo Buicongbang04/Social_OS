@@ -502,4 +502,43 @@ describe.skipIf(!hasInfra)("campaigns API (integration)", () => {
       .set(as(alice, aliceWorkspace))
       .expect(200);
   });
+
+  it("draws a banner for a piece and remembers where it is", async () => {
+    const piece = await newPiece({ title: "Mua hộ hàng Nhật" });
+
+    const response = await testApp
+      .http()
+      .post(`/api/v1/content-pieces/${piece.id}/banner`)
+      .set(as(alice, aliceWorkspace))
+      .send({ footer: "tiximax.vn" })
+      .expect(201);
+
+    // The key on the piece, the URL only in the response: a presigned URL
+    // expires, so storing one leaves the calendar showing a picture that
+    // stops loading minutes later.
+    expect(response.body.data.piece.imageKey).toBe(`${piece.id}.png`);
+    expect(response.body.data.url).toContain("http");
+  });
+
+  it("will not draw a banner for another workspace's piece", async () => {
+    const piece = await newPiece();
+
+    await testApp
+      .http()
+      .post(`/api/v1/content-pieces/${piece.id}/banner`)
+      .set(as(bob, bobWorkspace))
+      .send({})
+      .expect(404);
+  });
+
+  it("refuses a size it does not have", async () => {
+    const piece = await newPiece();
+
+    await testApp
+      .http()
+      .post(`/api/v1/content-pieces/${piece.id}/banner`)
+      .set(as(alice, aliceWorkspace))
+      .send({ size: "billboard" })
+      .expect(422);
+  });
 });

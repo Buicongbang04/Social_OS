@@ -47,6 +47,8 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
   let posted: { message: string }[];
   /** Which Page each post was addressed to, read off the request path. */
   let sentTo: string[];
+  /** `feed` or `photos` — which endpoint each post went to. */
+  let endpoints: string[];
   let behaviour: { status: number; body: string };
 
   const connect = async (externalId: string, displayName: string) => {
@@ -131,8 +133,14 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
         }
 
         const body = new URLSearchParams(Buffer.concat(chunks).toString());
-        posted.push({ message: body.get("message") ?? "" });
+        // `caption` on the photo endpoint, `message` on the feed one. Reading
+        // only `message` would record an empty string for every photo post and
+        // hide whether the words went with the picture at all.
+        posted.push({
+          message: body.get("message") ?? body.get("caption") ?? "",
+        });
         sentTo.push(request.url?.split("/")[2]?.split("?")[0] ?? "");
+        endpoints.push(request.url?.split("/")[3]?.split("?")[0] ?? "");
         response.writeHead(behaviour.status, {
           "content-type": "application/json",
         });
@@ -167,7 +175,11 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
     await truncateTenantData(db);
     posted = [];
     sentTo = [];
-    behaviour = { status: 200, body: JSON.stringify({ id: "page-1_777" }) };
+    endpoints = [];
+    behaviour = {
+      status: 200,
+      body: JSON.stringify({ id: "page-1_777", post_id: "page-1_777" }),
+    };
 
     const organizationId = newId("organization");
     userId = newId("user") as UserId;
@@ -383,6 +395,72 @@ describe.skipIf(!DATABASE_URL)("content publisher (integration)", () => {
 
     expect((await pieces.find(workspaceId, piece.id))?.status).toBe(
       "PUBLISHING",
+    );
+  });
+
+  it("posts the banner as a photo when a piece has one", async () => {
+    await connect("page-1", "Trang một");
+    const piece = await schedule();
+    await pieces.update(
+      workspaceId,
+      piece.id,
+      { imageKey: `${piece.id}.png` },
+      userId,
+    );
+
+    const withStore = new ContentPublisher({
+      accounts,
+      secrets,
+      keyring,
+      pieces,
+      store: {
+        presignGet: async () => "https://cdn.test/banner.png",
+      } as never,
+    });
+    await withStore.tick();
+
+    expect(sentTo).toEqual(["page-1"]);
+    expect(endpoints).toEqual(["photos"]);
+    expect(posted[0]?.message).toBe("Nội dung kiểm tra.");
+  });
+
+  it("posts words when a piece has no banner", async () => {
+    await connect("page-1", "Trang một");
+    await schedule();
+
+    await publisher.tick();
+
+    expect(endpoints).toEqual(["feed"]);
+  });
+
+  it("still posts when the banner cannot be signed", async () => {
+    // Words without a picture is a worse post; no post at all is a worse
+    // outcome.
+    await connect("page-1", "Trang một");
+    const piece = await schedule();
+    await pieces.update(
+      workspaceId,
+      piece.id,
+      { imageKey: `${piece.id}.png` },
+      userId,
+    );
+
+    const broken = new ContentPublisher({
+      accounts,
+      secrets,
+      keyring,
+      pieces,
+      store: {
+        presignGet: async () => {
+          throw new Error("MinIO không trả lời");
+        },
+      } as never,
+    });
+    await broken.tick();
+
+    expect(endpoints).toEqual(["feed"]);
+    expect((await pieces.find(workspaceId, piece.id))?.status).toBe(
+      "PUBLISHED",
     );
   });
 
