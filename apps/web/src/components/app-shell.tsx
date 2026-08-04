@@ -22,9 +22,25 @@ import { WorkspaceSetup } from "./workspace-setup";
  * a page boundary between them would break that; settings are one place
  * because nobody visits them in the course of a day.
  */
-export const SECTIONS = [
+type Section = {
+  href: string;
+  label: string;
+  hint: string;
+  /** Sub-sections, shown only while somebody is inside this branch. */
+  children?: { href: string; label: string }[];
+};
+
+export const SECTIONS: Section[] = [
   { href: "/", label: "Tổng quan", hint: "Có gì hỏng, và mọi thứ đang ra sao" },
-  { href: "/viet", label: "Viết bài", hint: "Xu hướng, đối thủ, và Studio" },
+  {
+    href: "/viet/bien-soan",
+    label: "Viết bài",
+    hint: "Tìm hiểu đối thủ rồi biên soạn nội dung",
+    children: [
+      { href: "/viet/doi-thu", label: "Tìm hiểu đối thủ" },
+      { href: "/viet/bien-soan", label: "Biên soạn nội dung" },
+    ],
+  },
   { href: "/lich", label: "Lịch đăng", hint: "Bài nào đi lúc nào" },
   {
     href: "/hop-thu",
@@ -35,7 +51,7 @@ export const SECTIONS = [
   { href: "/tro-chuyen", label: "Trò chuyện", hint: "Hỏi đáp với trợ lý" },
   { href: "/tu-dong", label: "Tự động", hint: "Goal và lịch sử chạy" },
   { href: "/cai-dat", label: "Cài đặt", hint: "Kênh, khoá, ghi nhớ, tài liệu" },
-] as const;
+];
 
 type Stage =
   | { kind: "loading" }
@@ -165,16 +181,23 @@ export function AppShell({
           {SECTIONS.map((section) => {
             // Exact for the overview, prefix for the rest: otherwise "/" is
             // marked current on every page, which tells the reader nothing.
+            // A section with children owns a whole branch, so it is matched
+            // on that branch rather than on its own default child — otherwise
+            // "Viết bài" goes dark the moment somebody opens the sub-section
+            // that is not the default.
+            const branch = section.children
+              ? section.href.slice(0, section.href.lastIndexOf("/"))
+              : section.href;
             const current =
-              section.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(section.href);
+              branch === "/" ? pathname === "/" : pathname.startsWith(branch);
 
             return (
               <li key={section.href}>
                 <Link
                   href={section.href}
-                  aria-current={current ? "page" : undefined}
+                  aria-current={
+                    current && !section.children ? "page" : undefined
+                  }
                   className={`block rounded-md px-3 py-2 text-sm ${
                     current
                       ? "bg-neutral-900 text-white"
@@ -183,6 +206,31 @@ export function AppShell({
                 >
                   {section.label}
                 </Link>
+
+                {/* Sub-sections only while inside them. Showing every child of
+                    every section turns a list of eight into a list of twelve,
+                    which is the wall this redesign took down. */}
+                {section.children && current ? (
+                  <ul className="mt-0.5 flex flex-col gap-0.5">
+                    {section.children.map((child) => (
+                      <li key={child.href}>
+                        <Link
+                          href={child.href}
+                          aria-current={
+                            pathname === child.href ? "page" : undefined
+                          }
+                          className={`block rounded-md py-1.5 pl-6 pr-3 text-sm ${
+                            pathname === child.href
+                              ? "font-medium text-neutral-900"
+                              : "text-neutral-600 hover:text-neutral-900"
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             );
           })}

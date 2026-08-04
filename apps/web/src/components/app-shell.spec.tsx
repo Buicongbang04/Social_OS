@@ -78,6 +78,33 @@ describe("AppShell", () => {
     }
   });
 
+  it("keeps the parent lit while inside one of its sub-sections", async () => {
+    // Matching "Viết bài" on its default child would make it go dark the
+    // moment somebody opens the other one.
+    pathname = "/viet/doi-thu";
+    await show();
+
+    const sidebar = screen.getAllByRole("navigation", { name: "Khu vực" })[0]!;
+    expect(within(sidebar).getByRole("link", { name: "Viết bài" })).toHaveClass(
+      "bg-neutral-900",
+    );
+    expect(
+      within(sidebar).getByRole("link", { name: "Tìm hiểu đối thủ" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("hides sub-sections until somebody is inside that branch", async () => {
+    // Showing every child of every section turns a list of eight into a list
+    // of twelve — the wall this redesign took down.
+    pathname = "/lich";
+    await show();
+
+    const sidebar = screen.getAllByRole("navigation", { name: "Khu vực" })[0]!;
+    expect(
+      within(sidebar).queryByRole("link", { name: "Tìm hiểu đối thủ" }),
+    ).toBeNull();
+  });
+
   it("marks the section being looked at, and only that one", async () => {
     pathname = "/lich";
     await show();
