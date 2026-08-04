@@ -28,7 +28,7 @@ export default function ComposePage() {
       {() => (
         <>
           <SectionHeader
-            title="Biên soạn nội dung"
+            title="Soạn nội dung"
             hint="Viết, viết lại, dịch và kiểm SEO — rồi lưu vào lịch."
           />
           <StudioPanel seed={seed} />

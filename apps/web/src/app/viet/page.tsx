@@ -8,5 +8,5 @@ import { redirect } from "next/navigation";
  * before it.
  */
 export default function WriteIndex() {
-  redirect("/viet/bien-soan");
+  redirect("/viet/soan");
 }

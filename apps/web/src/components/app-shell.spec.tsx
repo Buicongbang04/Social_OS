@@ -89,7 +89,7 @@ describe("AppShell", () => {
       "bg-neutral-900",
     );
     expect(
-      within(sidebar).getByRole("link", { name: "Tìm hiểu đối thủ" }),
+      within(sidebar).getByRole("link", { name: "Phân tích đối thủ" }),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -101,7 +101,7 @@ describe("AppShell", () => {
 
     const sidebar = screen.getAllByRole("navigation", { name: "Khu vực" })[0]!;
     expect(
-      within(sidebar).queryByRole("link", { name: "Tìm hiểu đối thủ" }),
+      within(sidebar).queryByRole("link", { name: "Phân tích đối thủ" }),
     ).toBeNull();
   });
 

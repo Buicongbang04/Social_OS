@@ -20,13 +20,13 @@ export default function CompetitorPage() {
       {() => (
         <>
           <SectionHeader
-            title="Tìm hiểu đối thủ"
+            title="Phân tích đối thủ"
             hint="Đọc một trang của đối thủ: họ bán gì, cho ai, và không nói gì."
           />
           <CompetitorPanel
             onUseAsBrief={(text) => {
               handOffBrief(text);
-              router.push("/viet/bien-soan");
+              router.push("/viet/soan");
             }}
           />
         </>
