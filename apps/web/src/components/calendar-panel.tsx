@@ -88,6 +88,18 @@ export function CalendarPanel() {
     }
   };
 
+  const drawBanner = async (piece: ContentPiece) => {
+    setError(null);
+    try {
+      await getClient().renderBanner(piece.id, {
+        footer: window.location.host,
+      });
+      await load();
+    } catch (caught) {
+      setError(describe(caught));
+    }
+  };
+
   const setStatus = async (piece: ContentPiece, status: ContentPieceStatus) => {
     try {
       await getClient().updateContentPiece(piece.id, { status });
@@ -163,6 +175,7 @@ export function CalendarPanel() {
                     accounts={accounts}
                     onStatus={setStatus}
                     onAccount={setAccount}
+                    onBanner={drawBanner}
                     onRemove={remove}
                   />
                 ))}
@@ -183,6 +196,7 @@ export function CalendarPanel() {
                     accounts={accounts}
                     onStatus={setStatus}
                     onAccount={setAccount}
+                    onBanner={drawBanner}
                     onRemove={remove}
                   />
                 ))}
@@ -202,12 +216,14 @@ function Row({
   accounts,
   onStatus,
   onAccount,
+  onBanner,
   onRemove,
 }: {
   piece: ContentPiece;
   accounts: SocialConnection[];
   onStatus: (piece: ContentPiece, status: ContentPieceStatus) => Promise<void>;
   onAccount: (piece: ContentPiece, accountId: string) => Promise<void>;
+  onBanner: (piece: ContentPiece) => Promise<void>;
   onRemove: (piece: ContentPiece) => Promise<void>;
 }) {
   const onChannel = accounts.filter(
@@ -265,6 +281,28 @@ function Row({
         >
           {piece.status === "FAILED" ? "Duyệt lại" : "Duyệt"}
         </button>
+      ) : null}
+
+      {/* Only while it can still change the post. Drawing a banner for
+          something already out would store a picture nobody will ever see
+          attached to it. */}
+      {!settled ? (
+        <button
+          type="button"
+          onClick={() => void onBanner(piece)}
+          className="shrink-0 text-xs text-neutral-600 underline hover:text-neutral-900"
+        >
+          {piece.imageKey ? "Vẽ lại ảnh" : "Vẽ ảnh"}
+        </button>
+      ) : null}
+
+      {piece.imageKey ? (
+        <span
+          className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600"
+          title="Bài này sẽ đăng kèm ảnh"
+        >
+          có ảnh
+        </span>
       ) : null}
 
       {/* Where it went. A calendar that says "đã đăng" without a way to go and

@@ -13,6 +13,16 @@ export type PostDraft = {
   message: string;
   /** A URL to attach, if the post is about something. */
   link?: string | null;
+  /**
+   * A picture to post, as a URL Facebook can reach.
+   *
+   * A URL rather than bytes: `/photos` accepts either, and a presigned link
+   * costs one round trip instead of uploading the same megabyte twice. It has
+   * to be publicly reachable — a link signed for an internal host is one only
+   * this network can fetch, which is a mistake this repo has already made once
+   * with document downloads.
+   */
+  imageUrl?: string | null;
 };
 
 /** What the platform says after it has taken the post. */
@@ -201,16 +211,30 @@ export async function publishToFacebook(
   const body = new URLSearchParams({ message });
   if (draft.link) body.set("link", draft.link);
 
+  // A post with a picture goes to `/photos`, not `/feed`, and the text moves
+  // to `caption`. Sending `message` there produces a photo with no words under
+  // it — accepted, so nothing fails, and the post is simply wrong.
+  const photo = Boolean(draft.imageUrl);
+  if (photo) {
+    body.delete("message");
+    body.set("caption", message);
+    body.set("url", draft.imageUrl!);
+  }
+  const endpoint = photo ? "photos" : "feed";
+
   let response: Response;
   try {
-    response = await call(`${graphBase(deps.env)}/${target.externalId}/feed`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${target.accessToken}`,
-        "content-type": "application/x-www-form-urlencoded",
+    response = await call(
+      `${graphBase(deps.env)}/${target.externalId}/${endpoint}`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${target.accessToken}`,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body,
       },
-      body,
-    });
+    );
   } catch (error: unknown) {
     // Retryable, and this one genuinely matters: the request may well have
     // arrived. Whoever retries has to be prepared for a duplicate, which is
@@ -243,8 +267,13 @@ export async function publishToFacebook(
     );
   }
 
-  const payload = JSON.parse(text) as { id?: string };
-  if (typeof payload.id !== "string" || payload.id === "") {
+  const payload = JSON.parse(text) as { id?: string; post_id?: string };
+  // `/photos` answers with both: `id` is the photo, `post_id` is the post it
+  // appears in. The post is what a person opens and what a delete should
+  // target, so it wins where both are present. `/feed` sends only `id`.
+  const postId = payload.post_id ?? payload.id;
+
+  if (typeof postId !== "string" || postId === "") {
     // A 200 with no id is not a success anyone can act on: nothing can edit,
     // delete or link to the post, and reporting it as published would be a
     // claim this code cannot support.
@@ -256,9 +285,9 @@ export async function publishToFacebook(
   }
 
   return {
-    externalId: payload.id,
+    externalId: postId,
     // Graph returns `{page-id}_{post-id}`; the permalink is built from it.
-    url: `https://www.facebook.com/${payload.id.replace("_", "/posts/")}`,
+    url: `https://www.facebook.com/${postId.replace("_", "/posts/")}`,
   };
 }
 

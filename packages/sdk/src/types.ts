@@ -486,6 +486,8 @@ export type ContentPiece = {
   hashtags: string[];
   channel: string;
   scheduledAt: string | null;
+  /** Storage key of the banner rendered for this piece, if any. */
+  imageKey: string | null;
   status: ContentPieceStatus;
   publishedPostId: string | null;
   publishedAt: string | null;

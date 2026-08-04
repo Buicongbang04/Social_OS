@@ -142,6 +142,10 @@ async function main(): Promise<void> {
           secrets: new DrizzleSecretRepository(db),
           keyring,
           pieces: new DrizzleContentPieceRepository(db),
+          // Shares the knowledge module's store, which is already built from
+          // the same MINIO_* configuration. Null when storage is not set up,
+          // and then a scheduled post goes out as words.
+          store: knowledge?.store ?? null,
           metrics,
         })
       : null;

@@ -573,6 +573,23 @@ export class ApiClient {
     });
   }
 
+  /**
+   * Draw a banner for a piece and keep it.
+   *
+   * The URL that comes back is time-limited, so it is for showing now rather
+   * than for storing — the piece keeps the storage key, and a fresh link is
+   * signed whenever one is needed.
+   */
+  async renderBanner(
+    id: string,
+    options: { size?: string; footer?: string } = {},
+  ): Promise<{ piece: ContentPiece; url: string }> {
+    return this.request("POST", `/content-pieces/${id}/banner`, {
+      body: options,
+      workspaceScoped: true,
+    });
+  }
+
   async archiveContentPiece(id: string): Promise<void> {
     await this.request<void>("DELETE", `/content-pieces/${id}`, {
       workspaceScoped: true,

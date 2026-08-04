@@ -29,6 +29,7 @@ COPY packages/domain/package.json packages/domain/
 COPY packages/event/package.json packages/event/
 COPY packages/knowledge/package.json packages/knowledge/
 COPY packages/logger/package.json packages/logger/
+COPY packages/media/package.json packages/media/
 COPY packages/observability/package.json packages/observability/
 COPY packages/queue/package.json packages/queue/
 COPY packages/runtime/package.json packages/runtime/
@@ -63,6 +64,15 @@ FROM base AS runtime
 ARG PACKAGE
 ARG WORKDIR
 ENV NODE_ENV=production
+
+# Fonts, for the banner renderer.
+#
+# alpine ships none at all, and this is not a crash — sharp answers happily
+# with a picture containing no glyphs. Measured before adding this: the same
+# banner drew 2403 bright pixels on a machine with fonts and 576 without, which
+# is tofu boxes. Noto is here for its Vietnamese coverage; without it every
+# accented letter is a box.
+RUN apk add --no-cache fontconfig font-noto
 
 # The whole installed tree rather than a pruned one. `pnpm deploy` would make a
 # smaller image, and it is worth doing — but a wrong image that boots is a

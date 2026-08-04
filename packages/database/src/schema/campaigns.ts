@@ -85,6 +85,15 @@ export const contentPieces = pgTable(
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     status: contentPieceStatusEnum("status").notNull().default("DRAFT"),
 
+    /**
+     * The banner rendered for this piece, if one was.
+     *
+     * The storage key, not a URL: a presigned URL expires, and storing one
+     * would leave the calendar showing a picture that stops loading a few
+     * minutes after somebody made it.
+     */
+    imageKey: varchar("image_key", { length: 400 }),
+
     /** The platform's own id, once there is one. */
     publishedPostId: varchar("published_post_id", { length: 200 }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
