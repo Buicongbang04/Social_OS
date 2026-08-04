@@ -3,20 +3,6 @@
 import { isApiError, type Workspace } from "@repo/sdk";
 import { useState } from "react";
 import { getClient } from "../lib/api";
-import { AlertBanner } from "./alert-banner";
-import { CalendarPanel } from "./calendar-panel";
-import { ChatPanel } from "./chat-panel";
-import { CompetitorPanel } from "./competitor-panel";
-import { DocumentList } from "./document-list";
-import { ConnectionsPanel } from "./connections-panel";
-import { InboxPanel } from "./inbox-panel";
-import { KeysPanel } from "./keys-panel";
-import { MemoryPanel } from "./memory-panel";
-import { SpendPanel } from "./spend-panel";
-import { StatsPanel } from "./stats-panel";
-import { ReportPanel } from "./report-panel";
-import { StudioPanel, type SeededBrief } from "./studio-panel";
-import { TrendsPanel } from "./trends-panel";
 import { ExecutionView } from "./execution-view";
 import { RunList } from "./run-list";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
@@ -40,13 +26,11 @@ const EXAMPLES = [
   "Nghiên cứu đối thủ rồi làm báo cáo",
 ];
 
-export function GoalConsole({ workspace }: { workspace: Workspace }) {
+export function GoalPanel({ workspace }: { workspace: Workspace }) {
   const [objective, setObjective] = useState(EXAMPLES[0]!);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
-  /** A brief handed down from the trends panel, if somebody clicked one. */
-  const [seed, setSeed] = useState<SeededBrief | undefined>(undefined);
   const [executionId, setExecutionId] = useState<string | null>(null);
   /** Bumped so the run list picks up a freshly submitted run immediately. */
   const [listToken, setListToken] = useState(0);
@@ -88,11 +72,6 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Above everything, including the box people came here to type in. What
-          it reports — a dead channel, posts that never went out — makes the
-          rest of the screen misleading until it is dealt with. */}
-      <AlertBanner />
-
       <Panel
         title="Mô tả điều bạn muốn"
         subtitle="Viết bằng ngôn ngữ tự nhiên. Runtime sẽ tự tách thành các bước và chạy theo đúng thứ tự phụ thuộc."
@@ -187,73 +166,6 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
           <ErrorNote message={error} />
         </div>
       </Panel>
-
-      {/* First, because everything below it costs money and this says whose.
-          A workspace running on the platform's key without knowing it finds
-          out from a bill, which is the wrong place to find out. */}
-      <KeysPanel />
-
-      {/* Above the studio, because it is what people write from. Deciding what
-          to post starts with what people are already looking for. */}
-      <TrendsPanel
-        onUseAsBrief={(text) =>
-          // A counter, not a boolean or the text itself: clicking the same
-          // trend twice has to work, and it would not if the value were
-          // unchanged.
-          setSeed({ text, nonce: (seed?.nonce ?? 0) + 1 })
-        }
-      />
-
-      {/* Beside the trends, because both answer the same question from
-          different sides: what people are looking for, and what the people
-          already selling to them are saying. */}
-      <CompetitorPanel
-        onUseAsBrief={(text) =>
-          setSeed({ text, nonce: (seed?.nonce ?? 0) + 1 })
-        }
-      />
-
-      {/* First of the working panels: most sessions start with somebody
-          wanting to write something, not with a Goal. */}
-      <StudioPanel seed={seed} />
-
-      {/* Directly under the studio, because that is where its output lands.
-          A draft saved with nowhere visible to land is a draft nobody finds
-          again. */}
-      <CalendarPanel />
-
-      {/* Under the keys, because both answer the same question — what this
-          workspace is connected to and on whose authority. */}
-      <ConnectionsPanel />
-
-      {/* Right under the channels. Somebody waiting on an answer outranks
-          anything below, and burying it under the run history would mean
-          finding out days later. */}
-      <InboxPanel />
-
-      {/* Above the per-post numbers, because it answers the bigger question
-          first: whether any of this is working. StatsPanel is the detail
-          underneath it. */}
-      <ReportPanel />
-
-      {/* After the inbox: what went out, and what came back of it. */}
-      <StatsPanel />
-
-      {/* Above the run list: what a Goal can read has to be visible before
-          someone writes a Goal that assumes it. */}
-      <DocumentList />
-
-      {/* Above the chat, because what the platform remembers changes every
-          answer below it. */}
-      <MemoryPanel />
-
-      {/* Below the documents, because the obvious thing to ask about is what
-          was just uploaded. */}
-      <ChatPanel />
-
-      {/* Above the run history: what the runs below have cost, before
-          somebody scrolls through them wondering. */}
-      <SpendPanel />
 
       <RunList
         selectedId={executionId}

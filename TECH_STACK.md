@@ -1555,6 +1555,49 @@ mọi tổng bên dưới hụt đi, và người đọc không có đường n�
 viết ở Studio trước khi ai đó quyết định nó thuộc chiến dịch nào, nên mọi cách
 quy kết đều là phỏng đoán được trình bày như một con số kế toán.
 
+### Giao diện tách thành tám khu vực (Phase 4)
+
+Trước đợt này toàn bộ 16 panel nằm trên **một trang cuộn**. Đó là đúng cho thứ
+nó vốn là — một bảng kiểm chứng runtime, nơi mọi màn hình chen giữa ô nhập mục
+tiêu và kết quả đều là một chỗ câu hỏi bị lạc. Nhưng khi nó bắt đầu được dùng
+thật thì cuộn qua kho khoá để tới lịch đăng là việc làm mỗi ngày.
+
+Tám khu vực, **chia theo việc người ta đang làm**, không theo panel gọi API
+nào:
+
+| Đường dẫn     | Gồm                           |
+| ------------- | ----------------------------- |
+| `/`           | Cảnh báo + kết quả chiến dịch |
+| `/viet`       | Xu hướng, đối thủ, Studio     |
+| `/lich`       | Lịch nội dung                 |
+| `/hop-thu`    | Tin nhắn và bình luận         |
+| `/so-lieu`    | Số liệu bài đăng + chi tiêu   |
+| `/tro-chuyen` | Chat                          |
+| `/tu-dong`    | Goal và lịch sử chạy          |
+| `/cai-dat`    | Khoá, kênh, ghi nhớ, tài liệu |
+
+**Xu hướng và Studio phải ở chung một trang.** Bấm một xu hướng là brief nhảy
+thẳng sang Studio; đặt ranh giới trang vào giữa sẽ biến nó thành chép — chuyển
+trang — dán, đúng cái ma sát mà nút đó sinh ra để bỏ đi. Đối thủ cũng vậy.
+
+Đăng nhập, workspace, điều hướng và dải cảnh báo nằm ở **shell**, không ở từng
+trang: một guard lặp tám lần là một guard sẽ thiếu ở một trong tám. Shell trao
+workspace xuống bằng render prop, nên không trang nào phải giải lại phiên.
+
+Đánh dấu mục đang xem: `/` khớp **tuyệt đối**, còn lại khớp **tiền tố**. Khớp
+tiền tố cho `/` thì Tổng quan sáng trên cả tám màn hình — không nói lên điều gì.
+Khớp tuyệt đối cho phần còn lại thì một trang con sẽ không sáng mục cha của nó.
+
+Trên điện thoại thanh bên biến mất và các mục thành một dải cuộn ngang, không
+phải nút hamburger — giấu đi đúng thứ mà cả đợt thiết kế lại này sinh ra để
+làm cho thấy được.
+
+`GoalConsole` cũ vừa là hộp nhập mục tiêu vừa là nơi chứa mọi panel khác. Giờ
+nó là `GoalPanel`, chỉ còn hộp nhập và lịch sử chạy, nằm ở `/tu-dong` thay vì
+trang đầu — viết một bài là việc hằng ngày, còn một Goal tự lập kế hoạch là
+việc thỉnh thoảng, mà đặt nó trước khiến mỗi lần mở đều bắt đầu bằng thứ khó
+hơn.
+
 ### Test cho giao diện: vitest + Testing Library `16.1` (Phase 4)
 
 Trước đợt này `apps/web` **không có một test nào**, trong khi ba lát cắt gần
