@@ -56,6 +56,45 @@ describe("ContentService", () => {
     expect(seen.user).toContain("thân mật, không tiếng lóng");
   });
 
+  it("ends the post with the remembered footer", async () => {
+    const footer = "📍 HOTLINE: 0961 538 114\n🌐 Website: Tiximax.net";
+    const service = serviceWith([{ key: "chan-bai", value: footer }]);
+
+    const result = await service.write(WORKSPACE, USER, {
+      brief: "b",
+      channel: "facebook",
+      tone: "than-thien",
+      length: "vua",
+      language: "tiếng Việt",
+    });
+
+    expect((result.object as { body: string }).body).toBe(`b\n\n${footer}`);
+  });
+
+  it("keeps the footer out of the memory block it came from", async () => {
+    // Handed to the model as something to remember, it gets paraphrased into
+    // the body as well, and the post ends with two different hotlines.
+    const seen: Seen = {};
+    const service = serviceWith(
+      [
+        { key: "chan-bai", value: "HOTLINE: 0961 538 114" },
+        { key: "giọng văn", value: "thân mật" },
+      ],
+      seen,
+    );
+
+    await service.write(WORKSPACE, USER, {
+      brief: "b",
+      channel: "facebook",
+      tone: "than-thien",
+      length: "vua",
+      language: "tiếng Việt",
+    });
+
+    expect(seen.user).toContain("thân mật");
+    expect(seen.user).not.toContain("0961 538 114");
+  });
+
   it("writes a usage row for every call", async () => {
     // A studio that spends without leaving a row is one nobody can budget for.
     const recorded: unknown[] = [];

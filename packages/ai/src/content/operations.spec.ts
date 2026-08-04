@@ -42,6 +42,101 @@ function gatewayReturning(object: unknown, seen: Seen = {}): ProviderGateway {
 
 const WRITTEN = { title: "Tiêu đề", body: "Nội dung.", hashtags: ["muahang"] };
 
+describe("writeContent — hình dạng bài Facebook", () => {
+  const write = async (channel: "facebook" | "blog", extra = {}) => {
+    const seen: Seen = {};
+    const result = await writeContent(
+      { gateway: gatewayReturning(WRITTEN, seen) },
+      {
+        brief: "Hàng Mỹ về Việt Nam",
+        channel,
+        tone: "than-thien",
+        length: "vua",
+        language: "tiếng Việt",
+        ...extra,
+      },
+    );
+    return { seen, result };
+  };
+
+  it("asks for the shape a Facebook post has, not just for words", async () => {
+    // Without this the model returns one block of prose — correct, and
+    // unpostable: nobody scrolling Facebook reads six unbroken lines.
+    const { seen } = await write("facebook");
+
+    expect(seen.system).toContain("HÌNH DẠNG BÀI FACEBOOK");
+    expect(seen.system).toContain("VIẾT HOA TOÀN BỘ");
+    expect(seen.system).toContain("📩");
+  });
+
+  it("keeps the Facebook shape off a blog post", async () => {
+    // Five one-line blocks with an emoji in front of each is a caption that
+    // got lost, not an article.
+    const { seen } = await write("blog");
+
+    expect(seen.system).not.toContain("HÌNH DẠNG BÀI FACEBOOK");
+  });
+
+  it("forbids markdown, because Facebook shows the asterisks", async () => {
+    const { seen } = await write("facebook");
+
+    expect(seen.system).toContain("Không dùng markdown");
+  });
+
+  it("appends the footer instead of asking the model for it", async () => {
+    // It holds a phone number. A model that has seen a phone number produces
+    // a phone number, and one digit out sends customers to a stranger.
+    const footer = "📍 HOTLINE: 0961 538 114\n🌐 Website: Tiximax.net";
+    const { seen, result } = await write("facebook", { footer });
+
+    expect(result.object.body).toBe(`Nội dung.\n\n${footer}`);
+    expect(seen.system).toContain("Không tự viết số điện thoại");
+  });
+
+  it("leaves the body alone when no footer was configured", async () => {
+    const { result } = await write("facebook");
+
+    expect(result.object.body).toBe("Nội dung.");
+  });
+
+  it("closes up the double blank lines the model leaves between items", async () => {
+    // Models drift to two blank lines however the prompt is worded, and on
+    // Facebook that pulls a list apart into loose fragments.
+    const seen: Seen = {};
+    const result = await writeContent(
+      {
+        gateway: gatewayReturning(
+          { ...WRITTEN, body: "MỞ ĐẦU\n\n\n🛒 Một\n\n\n\n✅ Hai\n\n" },
+          seen,
+        ),
+      },
+      {
+        brief: "b",
+        channel: "facebook",
+        tone: "than-thien",
+        length: "vua",
+        language: "tiếng Việt",
+      },
+    );
+
+    expect(result.object.body).toBe("MỞ ĐẦU\n\n🛒 Một\n\n✅ Hai");
+  });
+
+  it("tells the model to write in caps on the first line only", async () => {
+    // A post in full caps has nothing standing out, and reads as shouting.
+    const { seen } = await write("facebook");
+
+    expect(seen.system).toContain("CHỈ dòng mở đầu");
+  });
+
+  it("says which pair of prompts produced the draft", async () => {
+    // A shape change nobody can date is a change nobody can attribute.
+    const { seen } = await write("facebook");
+
+    expect(seen.metadata?.promptVersion).toBe("1+fb3");
+  });
+});
+
 describe("writeContent", () => {
   it("tells the model the channel, tone, length and language", async () => {
     const seen: Seen = {};

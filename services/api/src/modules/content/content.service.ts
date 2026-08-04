@@ -33,6 +33,15 @@ import { WorkspaceGatewayFactory } from "../../infra/ai/workspace-gateway";
  * everywhere else — and every call is metered, because a studio that quietly
  * costs money is one nobody can budget for.
  */
+/**
+ * The remembered fact that holds the block ending every post.
+ *
+ * A reserved key rather than a column: it is one more thing the workspace
+ * remembers about how it wants to be spoken for, and putting it in memory
+ * means it is edited in the same place as the brand voice.
+ */
+const FOOTER_KEY = "chan-bai";
+
 @Injectable()
 export class ContentService {
   constructor(
@@ -52,6 +61,7 @@ export class ContentService {
     // Read fresh on every call rather than cached: somebody who has just
     // changed the brand voice expects the next draft to use it.
     const remembered = await this.memory.list(workspaceId);
+    const footer = remembered.find((fact) => fact.key === FOOTER_KEY);
 
     return this.meter(
       workspaceId,
@@ -61,10 +71,13 @@ export class ContentService {
         { gateway },
         {
           ...input,
-          memory: remembered.map((fact) => ({
-            key: fact.key,
-            value: fact.value,
-          })),
+          // The footer is left out of the memory block it came from. Handed to
+          // the model as something to remember, it gets paraphrased into the
+          // body as well, and the post ends with two different hotlines.
+          memory: remembered
+            .filter((fact) => fact.key !== FOOTER_KEY)
+            .map((fact) => ({ key: fact.key, value: fact.value })),
+          ...(footer ? { footer: footer.value } : {}),
         },
       ),
     );

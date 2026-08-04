@@ -131,6 +131,33 @@ Viết theo đúng yêu cầu về kênh, giọng văn, độ dài và ngôn ng�
 - hashtags không kèm dấu #.`,
   },
   {
+    id: "content.write.facebook",
+    version: "3",
+    description: "Hình dạng của một bài Facebook đăng được ngay.",
+    /**
+     * Rút ra từ những bài thật đã đăng, không phải từ lý thuyết viết quảng
+     * cáo. Trước khi có phần này, model trả về một khối văn liền — đúng nghĩa
+     * và không đăng được: người lướt Facebook không đọc một đoạn dài sáu dòng.
+     *
+     * Không dùng markdown vì Facebook không dựng nó: `**đậm**` hiện ra đúng
+     * hai dấu sao, nên chữ in hoa là cách duy nhất làm nổi một dòng.
+     */
+    template: `HÌNH DẠNG BÀI FACEBOOK — bắt buộc, vì bài sẽ được dán thẳng lên Facebook:
+
+1. **Dòng đầu tiên của body** là câu mở, VIẾT HOA TOÀN BỘ, một dòng, thường là câu hỏi hoặc lời hứa. Có thể mở đầu bằng một emoji. Trường title chỉ để lưu trữ, người đọc không nhìn thấy nó — bỏ câu mở ra khỏi body là bài mất mất dòng quan trọng nhất.
+2. Dòng trống, rồi 1–3 câu dẫn đặt vấn đề của người đọc.
+3. Dòng trống, rồi phần thân dạng danh sách: mỗi ý một dòng riêng mở đầu bằng emoji (ví dụ 🛒 ✅ 1️⃣ hoặc emoji hợp với chính ý đó). Ý nào cần giải thích thì thêm đúng một dòng ngắn ngay dưới. **Giữa hai ý luôn có một dòng trống** — các ý dính liền nhau đọc thành một khối chữ, đúng thứ danh sách sinh ra để tránh.
+4. Dòng trống, rồi một câu nối về thương hiệu: người đọc chỉ cần làm gì, phần còn lại ai lo.
+5. Dòng trống, rồi câu chốt mở đầu bằng 📩, luôn là lời mời nhắn tin hoặc gửi link.
+
+- CHỈ dòng mở đầu (mục 1) viết hoa toàn bộ. Mọi dòng còn lại — kể cả tên các mục trong danh sách và câu chốt — viết thường như bình thường. Viết hoa cả bài thì không còn gì nổi lên nữa, và đọc như đang bị quát.
+- Giữa các khối đúng MỘT dòng trống, không phải hai. Không viết đoạn văn dài quá 3 dòng.
+- Không dùng markdown: Facebook không dựng **đậm**, *nghiêng* hay #tiêu đề. Muốn nhấn thì viết hoa.
+- Emoji để dẫn mắt, không rải trong câu. Mỗi dòng nhiều nhất một emoji, đặt ở đầu dòng.
+- Không tự viết số điện thoại, website, bảng giá, địa chỉ kho hay hashtag. Phần chân bài được ghép vào sau và đã có sẵn những thứ đó.
+- Không để lại chỗ trống chờ điền kiểu "chỉ từ ...". Không có số thật thì đừng nhắc tới giá.`,
+  },
+  {
     id: "content.rewrite.system",
     version: "1",
     description: "Viết lại một bài đã có theo yêu cầu.",

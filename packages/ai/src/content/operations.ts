@@ -65,6 +65,15 @@ export type WriteInput = {
    * workspace is — and the caller that does already has them in hand.
    */
   memory?: readonly { key: string; value: string }[];
+  /**
+   * The block that ends every post: hotline, website, warehouses, hashtags.
+   *
+   * Appended verbatim rather than asked for, and the model is told not to
+   * write one. It is the same on every post, it contains a phone number, and a
+   * model that has seen a phone number will produce a phone number — one digit
+   * out and the post sends customers to a stranger.
+   */
+  footer?: string;
 };
 
 export type RewriteInput = {
@@ -292,9 +301,26 @@ export async function writeContent(
   deps: ContentDeps,
   input: WriteInput,
 ): Promise<ContentResult<WrittenContent>> {
-  const prompt = PROMPTS.render("content.write.system");
+  const base = PROMPTS.render("content.write.system");
+  // The shape rules are Facebook's, so they travel with the channel rather
+  // than sitting in the general prompt. A blog post laid out as five one-line
+  // blocks with emoji in front of each reads as a caption that got lost.
+  const shape =
+    input.channel === "facebook"
+      ? PROMPTS.render("content.write.facebook")
+      : null;
+  const prompt = shape
+    ? {
+        id: base.id,
+        text: `${base.text}\n\n${shape.text}`,
+        // Both versions, because the ledger has to say which pair of prompts
+        // produced a draft — a shape change nobody can date is a change nobody
+        // can attribute.
+        version: `${base.version}+fb${shape.version}`,
+      }
+    : base;
 
-  return run(deps, "content.write", writeSchema, prompt, [
+  const result = await run(deps, "content.write", writeSchema, prompt, [
     `Kênh: ${input.channel}`,
     `Giọng văn: ${input.tone}`,
     `Độ dài: ${LENGTH_WORDS[input.length]}`,
@@ -304,6 +330,29 @@ export async function writeContent(
     "BRIEF:",
     input.brief,
   ]);
+
+  const footer = input.footer?.trim();
+  const body = tidy(result.object.body, footer);
+  if (body === result.object.body) return result;
+
+  return { ...result, object: { ...result.object, body } };
+}
+
+/**
+ * The spacing, fixed rather than asked for again.
+ *
+ * Models drift to two blank lines between list items however the prompt is
+ * worded, and on Facebook that pulls the list apart into loose fragments. One
+ * blank line is the shape every real post uses, and a regular expression is
+ * more reliable at it than an instruction.
+ *
+ * The footer is joined on here for the same reason it is not asked for: the
+ * hotline and the warehouse list are facts, and a model asked to reproduce
+ * facts eventually reproduces them slightly wrong.
+ */
+function tidy(body: string, footer: string | undefined): string {
+  const collapsed = body.replace(/\n{3,}/g, "\n\n").trimEnd();
+  return footer ? `${collapsed}\n\n${footer}` : collapsed;
 }
 
 export async function rewriteContent(
