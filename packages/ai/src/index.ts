@@ -8,6 +8,7 @@
 export * from "./provider/types";
 export * from "./provider/pricing";
 export * from "./provider/structured";
+export * from "./provider/vertex";
 export * from "./provider/registry";
 export * from "./provider/catalog";
 export * from "./errors/format";

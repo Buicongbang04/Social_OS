@@ -1609,16 +1609,17 @@ phí, không cần thẻ) đổi được điều đó.
 Nên **sinh ảnh không làm được miễn phí** dù có khoá: Google cắt hạn mức ảnh
 miễn phí về 0 từ đợt 12/2025, phải bật thanh toán mới gọi được.
 
-**Ngày 4/8/2026 đã quyết định bỏ hẳn sinh ảnh và sinh video.** Không phải vì
-khó — đường có sẵn và rẻ (~$1/tháng cho 30 ảnh qua Google, hoặc Stable
-Diffusion cục bộ miễn phí trên RTX 3050). Mà vì nhu cầu thật đã được đáp ứng:
-ảnh bìa vẽ từ chính chữ đã viết. Nó có một tính chất mà model sinh ảnh không
-có — **không bao giờ vẽ ra thứ không tồn tại**. Một tấm ảnh sản phẩm do model
-tưởng tượng, đăng dưới tên một cửa hàng bán hàng thật, là thứ rủi ro hơn nhiều
-so với việc không có ảnh.
+**Đường đi được là Vertex AI, không phải AI Studio.** Cùng một model
+`gemini-2.5-flash-image`: qua khoá AI Studio thì `RESOURCE_EXHAUSTED`, qua
+service account và Vertex thì chạy. Khác nhau ở chỗ Vertex **không có bậc miễn
+phí** — nó tính tiền ngay, khoảng $0.04 một ảnh.
 
-Video thì không có đường nào rẻ: Veo và Sora tính theo giây, còn sinh video cục
-bộ trên 4 GB VRAM không thực tế.
+Hai đường xác thực cũng khác: AI Studio nhận `?key=`, còn Vertex đòi OAuth từ
+service account. Khoá service account gửi vào `generativelanguage.googleapis.com`
+trả `insufficient authentication scopes` — không phải sai khoá, mà là sai cửa.
+
+**Video thì dự án không làm** (quyết định 4/8/2026): Veo và Sora tính theo giây,
+sinh video cục bộ trên 4 GB VRAM không thực tế, và nhu cầu thật dừng ở ảnh.
 
 Khoá AI Studio đời mới có dạng `AQ.Ab8…` chứ không còn `AIza…`. Ghi ra vì nhìn
 nó **không giống** một khoá API và dễ bị tưởng là dán nhầm — chính tôi đã tưởng

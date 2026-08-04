@@ -86,6 +86,13 @@ export const DEFAULT_MODEL_PRICING: Readonly<Record<string, ModelPrice>> =
       inputUsdPerMillion: 1.25,
       outputUsdPerMillion: 10,
     },
+    // Vertex bills an image as output tokens — about 1,290 of them, which at
+    // this rate is roughly $0.039 a picture. There is no free tier for it,
+    // unlike the text models above.
+    "google:gemini-2.5-flash-image": {
+      inputUsdPerMillion: 0.3,
+      outputUsdPerMillion: 30,
+    },
     "google:gemini-2.5-flash": {
       inputUsdPerMillion: 0.3,
       outputUsdPerMillion: 2.5,
