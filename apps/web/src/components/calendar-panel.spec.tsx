@@ -26,6 +26,7 @@ const client = {
   updateContentPiece: vi.fn(),
   archiveContentPiece: vi.fn(),
   renderBanner: vi.fn(),
+  generateImage: vi.fn(),
 };
 
 vi.mock("../lib/api", () => ({ getClient: () => client }));
@@ -76,6 +77,11 @@ const show = async (
 
 beforeEach(() => {
   client.renderBanner.mockResolvedValue({ piece: piece(), url: "http://x/y" });
+  client.generateImage.mockResolvedValue({
+    piece: piece({ imageKey: "cnt_1.png" }),
+    url: "http://x/y",
+    costUsd: "0.0390",
+  });
   client.updateContentPiece.mockResolvedValue(piece());
   client.archiveContentPiece.mockResolvedValue(undefined);
 });
@@ -225,27 +231,84 @@ describe("CalendarPanel", () => {
 
   it("offers to draw a banner, and says so once there is one", async () => {
     await show([piece()]);
-    expect(screen.getByRole("button", { name: "Vẽ ảnh" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Vẽ bìa" })).toBeVisible();
 
     cleanup();
     await show([piece({ imageKey: "cnt_1.png" })]);
-    expect(screen.getByRole("button", { name: "Vẽ lại ảnh" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Vẽ lại bìa" })).toBeVisible();
     expect(screen.getByText("có ảnh")).toBeVisible();
   });
 
-  it("does not offer a banner once the post is out", async () => {
+  it("offers the free banner and the paid image as separate choices", async () => {
+    // The banner says exactly what the post says and costs nothing; the model
+    // can draw something the post never claimed and costs money. One button
+    // for both would make that choice by accident.
+    await show([piece()]);
+
+    expect(screen.getByRole("button", { name: "Vẽ bìa" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sinh ảnh AI" })).toBeVisible();
+  });
+
+  it("sends the description somebody typed, not the post's own words", async () => {
+    // A model handed marketing copy draws the words onto the picture.
+    vi.spyOn(window, "prompt").mockReturnValue("kiện hàng trên bàn gỗ");
+    await show([piece()]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
+
+    await waitFor(() =>
+      expect(client.generateImage).toHaveBeenCalledWith(
+        "cnt_1",
+        "kiện hàng trên bàn gỗ",
+      ),
+    );
+  });
+
+  it("spends nothing when the description is cancelled", async () => {
+    // Every call is about four cents. A stray click must not be one.
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+    await show([piece()]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
+
+    expect(client.generateImage).not.toHaveBeenCalled();
+  });
+
+  it("spends nothing on an empty description", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue("   ");
+    await show([piece()]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
+
+    expect(client.generateImage).not.toHaveBeenCalled();
+  });
+
+  it("says what went wrong when the model refuses", async () => {
+    vi.spyOn(window, "prompt").mockReturnValue("gì đó");
+    client.generateImage.mockRejectedValue(
+      new Error("Model không vẽ ảnh mà trả lời bằng chữ"),
+    );
+    await show([piece()]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sinh ảnh AI" }));
+
+    expect(await screen.findByText(/không vẽ ảnh/)).toBeVisible();
+  });
+
+  it("does not offer either picture once the post is out", async () => {
     // Drawing one then would store a picture nobody will ever see attached to
     // it.
     await show([piece({ status: "PUBLISHED", publishedPostId: "p_1" })]);
 
     expect(screen.queryByRole("button", { name: /Vẽ/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Sinh ảnh/ })).toBeNull();
   });
 
   it("reloads after drawing, so the row shows the piece has a picture", async () => {
     await show([piece()]);
     client.listContentPieces.mockClear();
 
-    await userEvent.click(screen.getByRole("button", { name: "Vẽ ảnh" }));
+    await userEvent.click(screen.getByRole("button", { name: "Vẽ bìa" }));
 
     await waitFor(() => expect(client.listContentPieces).toHaveBeenCalled());
   });

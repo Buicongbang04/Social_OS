@@ -88,6 +88,28 @@ export function CalendarPanel() {
     }
   };
 
+  /**
+   * Ask a model for a picture.
+   *
+   * The description is typed here rather than taken from the post, because a
+   * model handed marketing copy draws the words. It costs money per picture,
+   * so it is a separate deliberate action from the free banner beside it.
+   */
+  const drawImage = async (piece: ContentPiece) => {
+    const prompt = window.prompt(
+      `Mô tả ảnh cho "${piece.title}".\n\nTả bức ảnh, đừng dán nội dung bài — model sẽ vẽ chữ ra ảnh.\nVí dụ: kiện hàng carton dán tem quốc tế trên bàn gỗ, ánh sáng tự nhiên.`,
+    );
+    if (prompt === null || prompt.trim() === "") return;
+
+    setError(null);
+    try {
+      await getClient().generateImage(piece.id, prompt.trim());
+      await load();
+    } catch (caught) {
+      setError(describe(caught));
+    }
+  };
+
   const drawBanner = async (piece: ContentPiece) => {
     setError(null);
     try {
@@ -176,6 +198,7 @@ export function CalendarPanel() {
                     onStatus={setStatus}
                     onAccount={setAccount}
                     onBanner={drawBanner}
+                    onImage={drawImage}
                     onRemove={remove}
                   />
                 ))}
@@ -197,6 +220,7 @@ export function CalendarPanel() {
                     onStatus={setStatus}
                     onAccount={setAccount}
                     onBanner={drawBanner}
+                    onImage={drawImage}
                     onRemove={remove}
                   />
                 ))}
@@ -217,6 +241,7 @@ function Row({
   onStatus,
   onAccount,
   onBanner,
+  onImage,
   onRemove,
 }: {
   piece: ContentPiece;
@@ -224,6 +249,7 @@ function Row({
   onStatus: (piece: ContentPiece, status: ContentPieceStatus) => Promise<void>;
   onAccount: (piece: ContentPiece, accountId: string) => Promise<void>;
   onBanner: (piece: ContentPiece) => Promise<void>;
+  onImage: (piece: ContentPiece) => Promise<void>;
   onRemove: (piece: ContentPiece) => Promise<void>;
 }) {
   const onChannel = accounts.filter(
@@ -292,7 +318,22 @@ function Row({
           onClick={() => void onBanner(piece)}
           className="shrink-0 text-xs text-neutral-600 underline hover:text-neutral-900"
         >
-          {piece.imageKey ? "Vẽ lại ảnh" : "Vẽ ảnh"}
+          {piece.imageKey ? "Vẽ lại bìa" : "Vẽ bìa"}
+        </button>
+      ) : null}
+
+      {/* Beside the banner, not instead of it. The banner is free and says
+          exactly what the post says; this one costs money and can draw
+          something the post never claimed. Two buttons so the choice is made
+          on purpose. */}
+      {!settled ? (
+        <button
+          type="button"
+          onClick={() => void onImage(piece)}
+          className="shrink-0 text-xs text-neutral-600 underline hover:text-neutral-900"
+          title="Sinh ảnh bằng AI — tốn khoảng $0.04 mỗi ảnh"
+        >
+          Sinh ảnh AI
         </button>
       ) : null}
 

@@ -59,6 +59,8 @@ services:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      GOOGLE_SERVICE_ACCOUNT: ${GOOGLE_SERVICE_ACCOUNT:-}
+      GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION:-}
       SMTP_URL: ${SMTP_URL:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
@@ -94,6 +96,11 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+    volumes:
+      # The service account key, mounted rather than baked into the image: a
+      # private key inside a layer is a private key in every copy of that
+      # image. Read-only — nothing here writes it.
+      - ../secrets:/app/secrets:ro
     restart: unless-stopped
     healthcheck:
       # The app's own health route, which checks the database and Redis rather
@@ -131,6 +138,8 @@ services:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      GOOGLE_SERVICE_ACCOUNT: ${GOOGLE_SERVICE_ACCOUNT:-}
+      GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION:-}
       SMTP_URL: ${SMTP_URL:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
@@ -165,6 +174,11 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+    volumes:
+      # The service account key, mounted rather than baked into the image: a
+      # private key inside a layer is a private key in every copy of that
+      # image. Read-only — nothing here writes it.
+      - ../secrets:/app/secrets:ro
     restart: unless-stopped
 
   web:
