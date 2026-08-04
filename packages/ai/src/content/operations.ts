@@ -153,6 +153,43 @@ export type SeoSuggestions = {
   keywords: string[];
 };
 
+export type CompetitorInput = {
+  url: string;
+  title: string | null;
+  description: string | null;
+  headings: string[];
+  text: string;
+};
+
+const competitorSchema = structured(
+  "competitor_analysis",
+  z.object({
+    positioning: z.string().max(500),
+    audience: z.string().max(300),
+    offers: z.array(z.string().max(120)).max(12),
+    topics: z.array(z.string().max(80)).max(12),
+    tone: z.string().max(120),
+    /**
+     * What the page does not say.
+     *
+     * The most useful field and the easiest to fabricate, which is why the
+     * prompt names the kinds of thing to look for rather than leaving the
+     * model to invent a weakness.
+     */
+    gaps: z.array(z.string().max(200)).max(8),
+  }),
+  "Đối thủ đang bán gì, cho ai, và không nói gì.",
+);
+
+export type CompetitorAnalysis = {
+  positioning: string;
+  audience: string;
+  offers: string[];
+  topics: string[];
+  tone: string;
+  gaps: string[];
+};
+
 export type ContentDeps = {
   gateway: ProviderGateway;
   model?: string;
@@ -161,6 +198,15 @@ export type ContentDeps = {
 };
 
 /** What every operation returns, alongside its own payload. */
+/**
+ * How much of a page to send to the model.
+ *
+ * A home page can be tens of thousands of characters of navigation. Sending
+ * all of it costs tokens to describe a menu, and the part that says what a
+ * company does is at the top.
+ */
+const COMPETITOR_TEXT_LIMIT = 6_000;
+
 export type ContentResult<T> = {
   object: T;
   provider: string;
@@ -169,6 +215,32 @@ export type ContentResult<T> = {
   usage: { inputTokens: number; outputTokens: number; totalTokens: number };
   costUsd: string;
 };
+
+/**
+ * What a competitor's page says they do.
+ *
+ * The page is passed in already fetched rather than fetched here: crawling has
+ * its own rules — robots.txt, size, content type — and burying them inside an
+ * AI call would mean the model layer decides whether a site may be read.
+ */
+export async function analyseCompetitor(
+  deps: ContentDeps,
+  input: CompetitorInput,
+): Promise<ContentResult<CompetitorAnalysis>> {
+  const prompt = PROMPTS.render("competitor.analyse.system");
+
+  return run(deps, "competitor.analyse", competitorSchema, prompt, [
+    `Địa chỉ: ${input.url}`,
+    ...(input.title ? [`Tiêu đề trang: ${input.title}`] : []),
+    ...(input.description ? [`Mô tả: ${input.description}`] : []),
+    ...(input.headings.length > 0
+      ? [`Các mục: ${input.headings.slice(0, 20).join(" · ")}`]
+      : []),
+    "",
+    "NỘI DUNG TRANG:",
+    input.text.slice(0, COMPETITOR_TEXT_LIMIT),
+  ]);
+}
 
 export async function writeContent(
   deps: ContentDeps,

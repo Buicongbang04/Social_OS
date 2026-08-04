@@ -178,4 +178,61 @@ describe.skipIf(!hasInfra)("content API (integration)", () => {
     },
     180_000,
   );
+
+  it("refuses a URL that is not a web address", async () => {
+    await testApp
+      .http()
+      .post("/api/v1/content/competitor")
+      .set(as(alice, aliceWorkspace))
+      .send({ url: "đối thủ của tôi" })
+      .expect(400);
+  });
+
+  it("will not read the local filesystem", async () => {
+    // `file:` would make the platform read this machine's disk on request.
+    await testApp
+      .http()
+      .post("/api/v1/content/competitor")
+      .set(as(alice, aliceWorkspace))
+      .send({ url: "file:///etc/passwd" })
+      .expect(400);
+  });
+
+  it("refuses an empty URL before spending anything", async () => {
+    await testApp
+      .http()
+      .post("/api/v1/content/competitor")
+      .set(as(alice, aliceWorkspace))
+      .send({ url: "   " })
+      .expect(422);
+  });
+
+  it("needs permission to read a competitor in this workspace's name", async () => {
+    await testApp
+      .http()
+      .post("/api/v1/content/competitor")
+      .set(as(bob, aliceWorkspace))
+      .send({ url: "https://example.com" })
+      .expect(404);
+  });
+
+  it.skipIf(!hasProvider)(
+    "reads a real page and says what it sells",
+    async () => {
+      // Against the live site and the configured model. Asserted on shape, not
+      // on what the model wrote: what a page says today is not something a
+      // test can know, but that the round trip works and is metered is.
+      const response = await testApp
+        .http()
+        .post("/api/v1/content/competitor")
+        .set(as(alice, aliceWorkspace))
+        .send({ url: "https://vnexpress.net/" })
+        .expect(201);
+
+      expect(response.body.data.page.title).toBeTruthy();
+      expect(Array.isArray(response.body.data.object.topics)).toBe(true);
+      expect(response.body.data.costUsd).toBeDefined();
+    },
+    120_000,
+  );
 });

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { getClient } from "../lib/api";
 import { CalendarPanel } from "./calendar-panel";
 import { ChatPanel } from "./chat-panel";
+import { CompetitorPanel } from "./competitor-panel";
 import { DocumentList } from "./document-list";
 import { ConnectionsPanel } from "./connections-panel";
 import { InboxPanel } from "./inbox-panel";
@@ -196,6 +197,11 @@ export function GoalConsole({ workspace }: { workspace: Workspace }) {
           setSeed({ text, nonce: (seed?.nonce ?? 0) + 1 })
         }
       />
+
+      {/* Beside the trends, because both answer the same question from
+          different sides: what people are looking for, and what the people
+          already selling to them are saying. */}
+      <CompetitorPanel />
 
       {/* First of the working panels: most sessions start with somebody
           wanting to write something, not with a Goal. */}

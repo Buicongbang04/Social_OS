@@ -1,9 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  analyseCompetitor,
   rewriteContent,
   suggestSeo,
   translateContent,
   writeContent,
+  type CompetitorAnalysis,
   type ContentResult,
   type RewriteInput,
   type SeoInput,
@@ -11,10 +13,14 @@ import {
   type WriteInput,
 } from "@repo/ai";
 import { ValidationError, type UserId, type WorkspaceId } from "@repo/core";
+import { crawlPage, type CrawledPage } from "@repo/trends";
 import type { AiUsageRecorder } from "@repo/ai";
 import { newId } from "@repo/core";
 import type { WorkspaceMemoryRepository } from "@repo/domain";
-import { AI_USAGE_REPOSITORY, WORKSPACE_MEMORY_REPOSITORY } from "../../infra/database/database.module";
+import {
+  AI_USAGE_REPOSITORY,
+  WORKSPACE_MEMORY_REPOSITORY,
+} from "../../infra/database/database.module";
 import { WorkspaceGatewayFactory } from "../../infra/ai/workspace-gateway";
 
 /**
@@ -62,11 +68,52 @@ export class ContentService {
     );
   }
 
-  async rewrite(
+  /**
+   * Read a competitor's page and say what it tells us.
+   *
+   * The crawl happens here, in the service, rather than in `@repo/ai`: whether
+   * a site may be read is a question about robots.txt and content types, and
+   * burying it inside an AI call would put that decision in the model layer.
+   *
+   * A crawl that fails never reaches the model, so a workspace is not billed
+   * for a page nobody could read.
+   */
+  async analyseCompetitor(
     workspaceId: WorkspaceId,
     userId: UserId,
-    input: RewriteInput,
-  ) {
+    url: string,
+  ): Promise<ContentResult<CompetitorAnalysis> & { page: CrawledPage }> {
+    const gateway = await this.require(workspaceId);
+
+    const page = await crawlPage(url).catch((error: unknown) => {
+      // Turned into a ValidationError so the caller gets the reason with a
+      // status attached. A CrawlError carries none, so robots.txt refusing
+      // would otherwise surface as a 500 about our own server.
+      throw new ValidationError(
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+
+    if (page.text.trim().length < 200) {
+      // Below this there is nothing to analyse, and a model handed an empty
+      // page invents a company. Common for sites that render entirely in the
+      // browser — said plainly rather than answered with confident fiction.
+      throw new ValidationError(
+        `${page.url} hầu như không có chữ nào đọc được từ HTML — nhiều khả năng trang này dựng bằng JavaScript. Thử một trang bài viết cụ thể thay vì trang chủ.`,
+      );
+    }
+
+    const result = await this.meter(
+      workspaceId,
+      userId,
+      "competitor.analyse",
+      await analyseCompetitor({ gateway }, page),
+    );
+
+    return { ...result, page };
+  }
+
+  async rewrite(workspaceId: WorkspaceId, userId: UserId, input: RewriteInput) {
     return this.meter(
       workspaceId,
       userId,
@@ -147,7 +194,6 @@ export class ContentService {
         timestamp: new Date(),
       })
       .catch((error: unknown) => {
-         
         console.error(`[content] failed to record ${operation}:`, error);
       });
 

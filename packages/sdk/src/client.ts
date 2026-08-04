@@ -25,9 +25,11 @@ import type {
   ManageablePage,
   ContentChannel,
   ContentLength,
+  CompetitorAnalysis,
   ContentPiece,
   ContentPieceStatus,
   ContentTone,
+  CrawledPage,
   TrendItem,
   TrendSourceName,
   Inbox,
@@ -405,6 +407,26 @@ export class ApiClient {
    */
   async spend(days = 30): Promise<SpendReport> {
     return this.request<SpendReport>("GET", `/usage?days=${days}`, {
+      workspaceScoped: true,
+    });
+  }
+
+  /**
+   * Read a competitor's page and say what it tells us.
+   *
+   * Refuses before spending anything when the site says no in robots.txt, when
+   * the address is not http(s), or when the page has almost no text in its
+   * HTML — which is what a site rendered entirely in the browser looks like
+   * from here.
+   */
+  async analyseCompetitor(url: string): Promise<{
+    object: CompetitorAnalysis;
+    page: CrawledPage;
+    model: string;
+    costUsd: string;
+  }> {
+    return this.request("POST", "/content/competitor", {
+      body: { url },
       workspaceScoped: true,
     });
   }
