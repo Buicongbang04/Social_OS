@@ -12,17 +12,14 @@ import { getClient } from "../lib/api";
 import { ErrorNote, Panel, PrimaryButton } from "./ui";
 
 /**
- * Every option, with a label.
+ * The one channel this studio writes for.
  *
- * `Record<ContentChannel, string>` rather than a list built from the SDK's
- * constant: adding a channel there and forgetting it here then fails to
- * compile, instead of quietly leaving one option off the screen.
+ * Not a choice on screen, because there is nothing to choose between:
+ * Facebook is the only network the platform can publish to. A dropdown with
+ * one real answer in it costs a click and a decision to arrive back where it
+ * started. If another network is ever connected, the picker comes back.
  */
-const CHANNEL_LABELS: Record<ContentChannel, string> = {
-  facebook: "Facebook",
-  blog: "Blog",
-  email: "Email",
-};
+const CHANNEL: ContentChannel = "facebook";
 
 const TONE_LABELS: Record<ContentTone, string> = {
   "than-thien": "Thân thiện",
@@ -72,7 +69,6 @@ export type SeededBrief = { text: string; nonce: number };
 
 export function StudioPanel({ seed }: { seed?: SeededBrief }) {
   const [brief, setBrief] = useState("");
-  const [channel, setChannel] = useState<ContentChannel>("facebook");
   const [tone, setTone] = useState<ContentTone>("than-thien");
   const [length, setLength] = useState<ContentLength>("vua");
   const [instruction, setInstruction] = useState("");
@@ -111,7 +107,7 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
   }, []);
 
   const onChannel = accounts.filter(
-    (account) => account.connectorId === channel,
+    (account) => account.connectorId === CHANNEL,
   );
 
   const guard = async (what: string, run: () => Promise<void>) => {
@@ -130,7 +126,7 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
     guard("write", async () => {
       const result = await getClient().writeContent({
         brief: brief.trim(),
-        channel,
+        channel: CHANNEL,
         tone,
         length,
       });
@@ -202,7 +198,7 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
         title: draft.title ?? draft.body.slice(0, 80),
         body: draft.body,
         hashtags: draft.hashtags ?? [],
-        channel,
+        channel: CHANNEL,
         // Left out when nothing is picked, which the server reads as "the only
         // account on this channel". Sending an empty string instead would be a
         // channel id that matches nothing.
@@ -228,12 +224,6 @@ export function StudioPanel({ seed }: { seed?: SeededBrief }) {
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Select
-          name="Kênh"
-          value={channel}
-          onChange={setChannel}
-          labels={CHANNEL_LABELS}
-        />
         <Select
           name="Giọng văn"
           value={tone}

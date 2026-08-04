@@ -55,16 +55,30 @@ beforeEach(() => {
 });
 
 describe("StudioPanel", () => {
-  it("writes for Facebook and no other social network", async () => {
-    // The one channel this platform can actually publish to. Offering TikTok
-    // or Threads produced drafts nothing here could ever post, which reads as
-    // a broken publisher rather than a channel that was never connected.
-    render(<StudioPanel />);
+  it("writes for Facebook without asking, because there is nothing to choose", async () => {
+    // The one network this platform can publish to. A dropdown with one real
+    // answer in it costs a click and a decision to arrive back where it
+    // started.
+    await withDraft();
 
-    const channels = screen.getByLabelText("Kênh");
-    expect(
-      [...channels.querySelectorAll("option")].map((option) => option.value),
-    ).toEqual(["facebook", "blog", "email"]);
+    expect(screen.queryByLabelText("Kênh")).toBeNull();
+    expect(client.writeContent).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: "facebook" }),
+    );
+  });
+
+  it("saves the piece against Facebook too, not only writes it there", async () => {
+    // A draft written for Facebook and filed under something else is a post
+    // the calendar will try to send down a channel it was not written for.
+    await withDraft();
+
+    await userEvent.click(screen.getByRole("button", { name: "Lưu vào lịch" }));
+
+    await waitFor(() =>
+      expect(client.createContentPiece).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: "facebook" }),
+      ),
+    );
   });
 
   it("saves a draft with no date rather than defaulting to now", async () => {
