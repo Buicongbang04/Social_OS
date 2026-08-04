@@ -1618,6 +1618,15 @@ Mỗi lần một trang, do người bấm. Không quét cả site, không chạ
 giữa một trang ai đó yêu cầu và một vòng quét tự động chính là khác biệt giữa
 đọc và cào.
 
+Mỗi `gap` có nút **Viết bài về chỗ này** đưa brief sang Studio — một nút cho
+mỗi chỗ trống, không phải một nút cho tất cả: một bài không trả lời được bốn
+khoảng lặng khác nhau, và giả vờ làm được thì ra một bài không nói về gì cả.
+
+Brief nói đối thủ **không đề cập** điều gì, rồi dừng ở đó, kèm câu **"không
+nhắc tới đối thủ và không suy đoán gì về họ"**. Trang không nói về thời gian
+giao hàng không phải bằng chứng họ giao chậm; một brief ám chỉ điều đó sẽ đẻ ra
+một khẳng định về công việc làm ăn của người khác mà không ai kiểm chứng.
+
 ### Xu hướng nối thẳng sang Studio (Phase 4)
 
 Mỗi dòng xu hướng có nút **Viết bài**, đưa một câu brief sang Studio.
