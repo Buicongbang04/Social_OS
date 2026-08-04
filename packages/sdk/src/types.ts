@@ -382,6 +382,39 @@ export type SpendReport = {
   byModel: (SpendSummary & { provider: string; model: string })[];
 };
 
+/** One day's AI requests, as counted on the clock in `timeZone`. */
+export type DashboardDay = { day: string; calls: number; costUsd: string };
+
+/** What the overview page reads: one call, one moment, one screen. */
+export type DashboardReport = {
+  from: string;
+  to: string;
+  timeZone: string;
+  /** Every day in the window, including the ones with nothing on them. */
+  requestsByDay: DashboardDay[];
+  spend: {
+    calls: number;
+    costUsd: string;
+    /** Calls whose model had no price, so `costUsd` is short by their cost. */
+    unpricedCalls: number;
+    todayUsd: string;
+    todayCalls: number;
+  };
+  queue: {
+    unfinished: number;
+    awaitingApproval: number;
+    running: number;
+    failed: number;
+  };
+  content: {
+    drafts: number;
+    approved: number;
+    publishing: number;
+    published: number;
+    failed: number;
+  };
+};
+
 /**
  * What a competitor's page says.
  *

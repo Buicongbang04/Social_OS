@@ -347,6 +347,25 @@ describe.skipIf(!DATABASE_URL)("runtime repositories (integration)", () => {
     expect(activeIds).not.toContain(finished.id);
   });
 
+  it("counts executions per status, for this workspace only", async () => {
+    // The dashboard's "việc đang chờ". Counted across tenants it would show a
+    // number nobody in this workspace can account for.
+    const moved = await seedExecution();
+    await seedExecution();
+    await seedExecution(otherWorkspaceId, outsiderId);
+
+    await executions.transitionStatus({
+      id: moved.id,
+      expectedVersion: moved.version,
+      expectedStatus: "CREATED",
+      status: "VALIDATING",
+    });
+
+    const counts = await executions.countByStatus(workspaceId);
+
+    expect(counts).toEqual({ CREATED: 1, VALIDATING: 1 });
+  });
+
   it("persists tasks with their dependencies and retry policy", async () => {
     const execution = await seedExecution();
     const first = newId("task");

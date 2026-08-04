@@ -254,4 +254,31 @@ export class DrizzleExecutionRepository implements ExecutionRepository {
 
     return rows.map(toEntity);
   }
+
+  /**
+   * How many Executions this workspace has in each status.
+   *
+   * Counted in SQL and returned as a map rather than listed: the dashboard asks
+   * "how many are waiting", and answering it by reading every Execution into JS
+   * would get slower the longer the workspace has been used — a page that costs
+   * more the more you have used it.
+   *
+   * Statuses with no rows are absent rather than zero. The caller knows which
+   * ones it wants to show, and inventing a key for every one of the fourteen
+   * would put twelve zeroes in front of the two numbers that matter.
+   */
+  async countByStatus(
+    workspaceId: WorkspaceId,
+  ): Promise<Record<string, number>> {
+    const rows = await this.db
+      .select({
+        status: executions.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(executions)
+      .where(eq(executions.workspaceId, workspaceId))
+      .groupBy(executions.status);
+
+    return Object.fromEntries(rows.map((row) => [row.status, row.count]));
+  }
 }

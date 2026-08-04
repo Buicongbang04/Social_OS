@@ -491,6 +491,32 @@ export class DrizzleContentPieceRepository implements ContentPieceRepository {
     }));
   }
 
+  /**
+   * How many pieces this workspace has in each status.
+   *
+   * Same shape and same reasoning as the Execution count: SQL does the adding,
+   * and a status with no pieces is absent rather than a zero nobody asked for.
+   */
+  async countByStatus(
+    workspaceId: WorkspaceId,
+  ): Promise<Record<string, number>> {
+    const rows = await this.db
+      .select({
+        status: contentPieces.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(contentPieces)
+      .where(
+        and(
+          eq(contentPieces.workspaceId, workspaceId),
+          isNull(contentPieces.deletedAt),
+        ),
+      )
+      .groupBy(contentPieces.status);
+
+    return Object.fromEntries(rows.map((row) => [row.status, row.count]));
+  }
+
   async listStuck(olderThan: Date, limit: number): Promise<ContentPiece[]> {
     const rows = await this.db
       .select()
