@@ -8,6 +8,13 @@ Status: Draft
 
 Last Updated: 2026-07-25
 
+> **Đây là kế hoạch, không phải mô tả hệ thống.** Nhiều mục dưới đây đã lệch khỏi
+> thứ thật sự được xây — có mục vì giới hạn bên ngoài, có mục vì làm rồi thấy
+> không đáng. Trạng thái thật, kèm lý do từng chỗ lệch, ở [`STATUS.md`](STATUS.md).
+>
+> File này cố ý **không** được sửa cho khớp với code: sửa nó sẽ xoá mất bản ghi
+> về việc kế hoạch đã sai ở đâu.
+
 ---
 
 # Table of Contents
@@ -643,14 +650,14 @@ Mục tiêu:
 
 # Risks
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                 | Mitigation                  |
+| -------------------- | --------------------------- |
 | AI Provider Downtime | Provider Gateway + Failover |
-| Social API Changes | Connector Abstraction |
-| High AI Cost | Cost Engine + Routing |
-| Plugin Security | Sandbox + Permission |
-| Vendor Lock-in | Provider Agnostic |
-| Runtime Failure | Event Replay + Retry |
+| Social API Changes   | Connector Abstraction       |
+| High AI Cost         | Cost Engine + Routing       |
+| Plugin Security      | Sandbox + Permission        |
+| Vendor Lock-in       | Provider Agnostic           |
+| Runtime Failure      | Event Replay + Retry        |
 
 ---
 

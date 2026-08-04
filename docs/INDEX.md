@@ -17,7 +17,8 @@ plan/
 │
 ├── README.md
 ├── INDEX.md
-├── ROADMAP.md
+├── ROADMAP.md          ← kế hoạch
+├── STATUS.md           ← thứ thật sự đã xây, và chỗ nào lệch khỏi kế hoạch
 │
 ├── 00_VISION.md
 ├── 01_PRODUCT_REQUIREMENTS.md
@@ -509,15 +510,15 @@ flowchart LR
 
 # Naming Convention
 
-| Prefix | Description |
-|---------|-------------|
-| 00 | Vision |
-| 01 | Product Requirements |
-| 02 | System Overview |
-| 03 | Domain Model |
-| 04 | Architecture |
-| 05 | Technology |
-| 06 | Repository Structure |
+| Prefix | Description          |
+| ------ | -------------------- |
+| 00     | Vision               |
+| 01     | Product Requirements |
+| 02     | System Overview      |
+| 03     | Domain Model         |
+| 04     | Architecture         |
+| 05     | Technology           |
+| 06     | Repository Structure |
 
 Module documents không đánh số, được nhóm theo thư mục tương ứng.
 
