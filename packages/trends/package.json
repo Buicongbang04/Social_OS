@@ -2,7 +2,7 @@
   "name": "@repo/trends",
   "private": true,
   "version": "0.0.0",
-  "description": "Reading what the outside world is searching for and watching. See docs/01_PRODUCT_REQUIREMENTS.md (Trend Discovery)",
+  "description": "Reading what the outside world is searching for, watching and publishing. See docs/01_PRODUCT_REQUIREMENTS.md (Trend Discovery)",
   "license": "UNLICENSED",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
